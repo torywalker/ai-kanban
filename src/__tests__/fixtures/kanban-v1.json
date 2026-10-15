@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "tags": {
+    "code": { "color": "#4f8ef7" },
+    "review": { "color": "#e0a341" }
+  },
+  "boards": [
+    {
+      "id": "brd_a1b2c3",
+      "name": "Client Work",
+      "lists": [
+        {
+          "id": "lst_d4e5f6",
+          "name": "Waiting",
+          "cards": [
+            {
+              "id": "crd_g7h8i9",
+              "title": "Refactor auth",
+              "prompt": "You are a senior engineer.\n\nReview {{file}}.",
+              "tags": ["code", "review"],
+              "createdAt": "2026-08-30T09:00:00.000Z",
+              "updatedAt": "2026-08-30T09:00:00.000Z"
+            }
+          ]
+        },
+        { "id": "lst_j0k1l2", "name": "In Flight", "cards": [] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk grep *)",
+      "Bash(rtk cat *)",
+      "Bash(rtk ls *)",
+      "Bash(rtk head *)",
+      "Bash(rtk tail *)",
+      "Bash(rtk wc *)",
+      "Bash(rtk echo *)",
+      "Bash(rtk which *)",
+      "Bash(rtk pgrep *)",
+      "Bash(rtk lsof *)",
+      "Bash(rtk ps*)",
+      "Bash(rtk pwd)",
+      "Bash(rtk git status*)",
+      "Bash(rtk git log*)",
+      "Bash(rtk git diff*)",
+      "Bash(rtk git show*)",
+      "Bash(rtk git branch -a)",
+      "Bash(rtk git branch --show-current)",
+      "Bash(rtk git worktree list)",
+      "Bash(npx jest*)",
+      "Bash(npx tsc*)",
+      "Bash(npm show *)",
+      "Bash(npm view *)"
+    ]
+  }
+}

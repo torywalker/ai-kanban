@@ -1,0 +1,219 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.99 0.003 240);
+  --foreground: oklch(0.18 0.02 256);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 256);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 256);
+  --primary: oklch(0.5 0.19 258);
+  --primary-foreground: oklch(0.99 0.005 240);
+  --secondary: oklch(0.95 0.01 240);
+  --secondary-foreground: oklch(0.25 0.02 256);
+  --muted: oklch(0.93 0.012 245);
+  --muted-foreground: oklch(0.5 0.02 250);
+  /* Lighter and slightly more blue than `--muted` — used for the chat
+     panel in the card view dialog, which needs to read as a soft tint
+     rather than the flatter gray the other panels in that dialog use. */
+  --chat-panel: oklch(0.965 0.018 245);
+  --accent: oklch(0.94 0.03 258);
+  --accent-foreground: oklch(0.3 0.05 258);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.99 0.005 240);
+  --border: oklch(0.9 0.012 245);
+  --input: oklch(0.9 0.012 245);
+  --ring: oklch(0.5 0.19 258);
+
+  /* Card colors — a light wash for the card body, a slightly saturated
+     border, and a fully saturated dot for the picker swatch. Tints sit just
+     under the page background's lightness so a colored card still reads as
+     a raised surface against the board. */
+  --card-red-tint: oklch(0.955 0.035 25);
+  --card-red-edge: oklch(0.85 0.09 25);
+  --card-red-dot: oklch(0.6 0.19 25);
+  --card-orange-tint: oklch(0.96 0.035 45);
+  --card-orange-edge: oklch(0.86 0.09 45);
+  --card-orange-dot: oklch(0.67 0.17 45);
+  --card-amber-tint: oklch(0.965 0.04 80);
+  --card-amber-edge: oklch(0.88 0.1 80);
+  --card-amber-dot: oklch(0.78 0.15 80);
+  --card-green-tint: oklch(0.96 0.038 145);
+  --card-green-edge: oklch(0.86 0.09 145);
+  --card-green-dot: oklch(0.65 0.16 145);
+  --card-teal-tint: oklch(0.96 0.036 195);
+  --card-teal-edge: oklch(0.86 0.075 195);
+  --card-teal-dot: oklch(0.68 0.12 195);
+  --card-blue-tint: oklch(0.96 0.036 250);
+  --card-blue-edge: oklch(0.85 0.075 250);
+  --card-blue-dot: oklch(0.58 0.18 250);
+  --card-indigo-tint: oklch(0.955 0.038 282);
+  --card-indigo-edge: oklch(0.85 0.08 282);
+  --card-indigo-dot: oklch(0.5 0.21 282);
+  --card-violet-tint: oklch(0.955 0.038 315);
+  --card-violet-edge: oklch(0.85 0.08 315);
+  --card-violet-dot: oklch(0.56 0.22 315);
+  --card-pink-tint: oklch(0.955 0.036 350);
+  --card-pink-edge: oklch(0.85 0.08 350);
+  --card-pink-dot: oklch(0.65 0.18 350);
+  --card-slate-tint: oklch(0.96 0.008 250);
+  --card-slate-edge: oklch(0.87 0.015 250);
+  --card-slate-dot: oklch(0.6 0.02 250);
+}
+
+.dark {
+  --background: oklch(0.15 0.02 256);
+  --foreground: oklch(0.94 0.01 240);
+  --card: oklch(0.25 0.028 258);
+  --card-foreground: oklch(0.94 0.01 240);
+  --popover: oklch(0.33 0.032 258);
+  --popover-foreground: oklch(0.94 0.01 240);
+  --primary: oklch(0.62 0.19 258);
+  --primary-foreground: oklch(0.99 0.005 240);
+  --secondary: oklch(0.26 0.03 256);
+  --secondary-foreground: oklch(0.92 0.01 240);
+  --muted: oklch(0.21 0.022 256);
+  --muted-foreground: oklch(0.68 0.02 250);
+  /* Lighter than `--muted` here too, same rationale as the light theme —
+     a soft raised tint rather than the flatter gray other panels use. */
+  --chat-panel: oklch(0.26 0.03 250);
+  --accent: oklch(0.3 0.06 258);
+  --accent-foreground: oklch(0.95 0.02 240);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.98 0.005 240);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.19 258);
+
+  /* Card colors, dark theme. Deliberately not the light values: a tint is
+     DARKER and lower-chroma here (a light wash would glow), while the dot
+     is brighter so the swatch stays identifiable on the dark popover. */
+  --card-red-tint: oklch(0.3 0.055 25);
+  --card-red-edge: oklch(0.46 0.1 25);
+  --card-red-dot: oklch(0.68 0.18 25);
+  --card-orange-tint: oklch(0.3 0.05 45);
+  --card-orange-edge: oklch(0.46 0.09 45);
+  --card-orange-dot: oklch(0.74 0.16 45);
+  --card-amber-tint: oklch(0.3 0.05 80);
+  --card-amber-edge: oklch(0.47 0.08 80);
+  --card-amber-dot: oklch(0.82 0.14 80);
+  --card-green-tint: oklch(0.29 0.055 145);
+  --card-green-edge: oklch(0.45 0.09 145);
+  --card-green-dot: oklch(0.72 0.15 145);
+  --card-teal-tint: oklch(0.29 0.05 195);
+  --card-teal-edge: oklch(0.45 0.075 195);
+  --card-teal-dot: oklch(0.74 0.11 195);
+  --card-blue-tint: oklch(0.3 0.055 250);
+  --card-blue-edge: oklch(0.46 0.09 250);
+  --card-blue-dot: oklch(0.68 0.16 250);
+  --card-indigo-tint: oklch(0.3 0.06 282);
+  --card-indigo-edge: oklch(0.46 0.1 282);
+  --card-indigo-dot: oklch(0.62 0.19 282);
+  --card-violet-tint: oklch(0.3 0.06 315);
+  --card-violet-edge: oklch(0.46 0.1 315);
+  --card-violet-dot: oklch(0.68 0.18 315);
+  --card-pink-tint: oklch(0.3 0.058 350);
+  --card-pink-edge: oklch(0.46 0.1 350);
+  --card-pink-dot: oklch(0.72 0.16 350);
+  --card-slate-tint: oklch(0.28 0.012 250);
+  --card-slate-edge: oklch(0.42 0.015 250);
+  --card-slate-dot: oklch(0.7 0.02 250);
+}
+
+/*
+ * Aliases the per-theme values above onto the two theme-neutral properties
+ * PromptCard actually reads. Because the alias points at a variable rather
+ * than a literal color, it needs no dark-mode twin: whichever block is in
+ * scope supplies the value. Unset when a card has no color, which is why
+ * PromptCard's `var(--card-tint, var(--card))` fallback restores the plain
+ * card surface.
+ */
+[data-card-color='red'] {
+  --card-tint: var(--card-red-tint);
+  --card-edge: var(--card-red-edge);
+}
+[data-card-color='orange'] {
+  --card-tint: var(--card-orange-tint);
+  --card-edge: var(--card-orange-edge);
+}
+[data-card-color='amber'] {
+  --card-tint: var(--card-amber-tint);
+  --card-edge: var(--card-amber-edge);
+}
+[data-card-color='green'] {
+  --card-tint: var(--card-green-tint);
+  --card-edge: var(--card-green-edge);
+}
+[data-card-color='teal'] {
+  --card-tint: var(--card-teal-tint);
+  --card-edge: var(--card-teal-edge);
+}
+[data-card-color='blue'] {
+  --card-tint: var(--card-blue-tint);
+  --card-edge: var(--card-blue-edge);
+}
+[data-card-color='indigo'] {
+  --card-tint: var(--card-indigo-tint);
+  --card-edge: var(--card-indigo-edge);
+}
+[data-card-color='violet'] {
+  --card-tint: var(--card-violet-tint);
+  --card-edge: var(--card-violet-edge);
+}
+[data-card-color='pink'] {
+  --card-tint: var(--card-pink-tint);
+  --card-edge: var(--card-pink-edge);
+}
+[data-card-color='slate'] {
+  --card-tint: var(--card-slate-tint);
+  --card-edge: var(--card-slate-edge);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-chat-panel: var(--chat-panel);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground overflow-hidden;
+  }
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+}
