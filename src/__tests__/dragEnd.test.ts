@@ -19,6 +19,7 @@ function card(id: string, archived = false) {
     lastCopiedAt: null,
     priority: null,
     color: null,
+    dueDate: null,
     sessionTool: null,
     sessionRepo: null,
     sessionId: null,

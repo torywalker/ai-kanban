@@ -45,6 +45,7 @@ function seededDoc(): KanbanDoc {
                 lastCopiedAt: null,
                 priority: null,
                 color: null,
+                dueDate: null,
                 sessionTool: 'claude',
                 sessionRepo: '/tmp',
                 sessionId: 'sess_before_restart',

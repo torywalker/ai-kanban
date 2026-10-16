@@ -35,6 +35,7 @@ export interface NewCardFields {
   link?: string;
   priority?: Priority | null;
   color?: CardColor | null;
+  dueDate?: string | null;
   sessionRepo?: string | null;
   sessionModel?: string | null;
   useWorktree?: boolean | null;
@@ -549,6 +550,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         link: fields.link ?? '',
         priority: fields.priority ?? null,
         color: fields.color ?? null,
+        dueDate: fields.dueDate ?? null,
         sessionRepo: fields.sessionRepo ?? null,
         sessionModel: fields.sessionModel ?? null,
         sessionTool: null,

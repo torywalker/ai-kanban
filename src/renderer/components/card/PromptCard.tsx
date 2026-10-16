@@ -12,6 +12,7 @@ import { useCardUsage } from '@/lib/useCardUsage';
 import { formatUsd, formatUsageBreakdown } from '@/lib/formatUsage';
 import { TagBadge } from '@/components/tags/TagBadge';
 import { extractVariables } from '@/domain/variables';
+import { formatDueDate, isOverdue } from '@/domain/dueDate';
 import { CardContextMenu } from './CardContextMenu';
 import { CardViewDialog } from './CardViewDialog';
 import { VariableFillDialog } from './VariableFillDialog';
@@ -68,6 +69,9 @@ export function PromptCard({
 
   const variableNames = extractVariables(card.prompt);
   const hasVariables = variableNames.length > 0;
+  // An archived card is already done, so a due date it blew past before
+  // being archived should no longer flag it on the board.
+  const overdue = !card.archived && isOverdue(card.dueDate);
 
   const copy = async () => {
     await copyText(card.prompt);
@@ -106,6 +110,9 @@ export function PromptCard({
               'rounded-md border bg-[var(--card-tint,var(--card))] border-[var(--card-edge,var(--border))]',
               snapshot.isDragging ? 'shadow-lg ring-2 ring-ring' : 'shadow-sm',
               card.archived && 'opacity-70',
+              // Overdue wins over any card color's edge tint — a passed
+              // due date is a more urgent signal than a triage color.
+              overdue && 'border-destructive ring-2 ring-destructive',
             )}
           >
             <div
@@ -262,6 +269,13 @@ export function PromptCard({
               </div>
 
               <div className="flex items-center gap-2 px-2 pb-2 text-xs text-muted-foreground">
+                {card.dueDate ? (
+                  <span
+                    className={cn('font-medium', overdue && 'text-destructive')}
+                  >
+                    {overdue ? 'Overdue' : 'Due'} {formatDueDate(card.dueDate)}
+                  </span>
+                ) : null}
                 {card.link ? (
                   <button
                     type="button"

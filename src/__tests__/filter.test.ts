@@ -21,6 +21,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     lastCopiedAt: null,
     priority: null,
     color: null,
+    dueDate: null,
     sessionTool: null,
     sessionRepo: null,
     sessionId: null,

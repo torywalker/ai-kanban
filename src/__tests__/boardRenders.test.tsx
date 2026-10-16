@@ -54,6 +54,7 @@ function seededDoc(): KanbanDoc {
                 lastCopiedAt: null,
                 priority: 'critical',
                 color: null,
+                dueDate: null,
                 sessionTool: null,
                 sessionRepo: null,
                 sessionId: null,

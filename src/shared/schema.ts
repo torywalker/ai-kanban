@@ -49,6 +49,10 @@ export const CardSchema = z.object({
   lastCopiedAt: z.string().nullable().catch(null),
   // Optional by design — most prompts never get triaged.
   priority: PrioritySchema.nullable().catch(null),
+  // Calendar date only ("YYYY-MM-DD"), not a timestamp: a due date is a day,
+  // not a moment, so it is compared against the local calendar date rather
+  // than parsed as an instant that would shift with the reader's timezone.
+  dueDate: z.string().nullable().catch(null),
   // Purely visual, and optional: a color is how a card is made to stand out
   // in a crowded list, not a second priority axis. `.catch(null)` covers
   // both files written before colors existed and a color name added by a

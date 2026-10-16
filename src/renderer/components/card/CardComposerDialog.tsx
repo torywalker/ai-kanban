@@ -74,6 +74,7 @@ export function CardComposerDialog({
   const [tags, setTags] = useState<string[]>([]);
   const [priority, setPriority] = useState<Priority | null>(null);
   const [color, setColor] = useState<CardColor | null>(null);
+  const [dueDate, setDueDate] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [link, setLink] = useState('');
   const [sessionRepo, setSessionRepo] = useState<string | null>(null);
@@ -108,6 +109,7 @@ export function CardComposerDialog({
     setTags(card?.tags ?? []);
     setPriority(card?.priority ?? null);
     setColor(card?.color ?? null);
+    setDueDate(card?.dueDate ?? null);
     setNotes(card?.notes ?? '');
     setLink(card?.link ?? '');
     setSessionRepo(card?.sessionRepo ?? null);
@@ -139,6 +141,7 @@ export function CardComposerDialog({
         tags,
         priority,
         color,
+        dueDate,
         notes,
         link: link.trim(),
         sessionRepo,
@@ -156,6 +159,7 @@ export function CardComposerDialog({
         tags,
         priority,
         color,
+        dueDate,
         notes,
         link: link.trim(),
         sessionRepo,
@@ -353,6 +357,28 @@ export function CardComposerDialog({
           <div className="flex flex-col gap-1.5">
             <Label>Color</Label>
             <CardColorPicker value={color} onChange={setColor} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="card-due-date">Due date</Label>
+            <div className="flex gap-2">
+              <Input
+                id="card-due-date"
+                type="date"
+                value={dueDate ?? ''}
+                onChange={(event) => setDueDate(event.target.value || null)}
+                className="w-auto"
+              />
+              {dueDate ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDueDate(null)}
+                >
+                  Clear
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
