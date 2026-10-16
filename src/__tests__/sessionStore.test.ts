@@ -4,10 +4,15 @@ import {
   playTaskFinishedSound,
   playNeedsInputSound,
 } from '../renderer/lib/notificationSound';
+import showTaskFinishedNotification from '../renderer/lib/nativeNotification';
 
 jest.mock('../renderer/lib/notificationSound', () => ({
   playTaskFinishedSound: jest.fn(),
   playNeedsInputSound: jest.fn(),
+}));
+jest.mock('../renderer/lib/nativeNotification', () => ({
+  __esModule: true,
+  default: jest.fn(),
 }));
 
 function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
@@ -28,6 +33,7 @@ describe('useSessionStore', () => {
     useSessionStore.setState({ sessions: {} });
     (playTaskFinishedSound as jest.Mock).mockClear();
     (playNeedsInputSound as jest.Mock).mockClear();
+    (showTaskFinishedNotification as jest.Mock).mockClear();
   });
 
   it('starts with no sessions', () => {
@@ -60,12 +66,14 @@ describe('useSessionStore', () => {
     useSessionStore.getState().applySnapshot(snapshot({ status: 'done' }));
     expect(playTaskFinishedSound).not.toHaveBeenCalled();
     expect(playNeedsInputSound).not.toHaveBeenCalled();
+    expect(showTaskFinishedNotification).not.toHaveBeenCalled();
   });
 
   it('plays the finished sound when a card transitions into done', () => {
     useSessionStore.getState().applySnapshot(snapshot({ status: 'working' }));
     useSessionStore.getState().applySnapshot(snapshot({ status: 'done' }));
     expect(playTaskFinishedSound).toHaveBeenCalledTimes(1);
+    expect(showTaskFinishedNotification).toHaveBeenCalledWith('crd_1');
     expect(playNeedsInputSound).not.toHaveBeenCalled();
   });
 
@@ -91,6 +99,7 @@ describe('useSessionStore', () => {
       }),
     );
     expect(playTaskFinishedSound).toHaveBeenCalledTimes(1);
+    expect(showTaskFinishedNotification).toHaveBeenCalledTimes(1);
   });
 
   // Regression coverage for the app-restart chime flood: AppShell's reattach
@@ -106,6 +115,7 @@ describe('useSessionStore', () => {
       useSessionStore.getState().markReattaching('crd_1');
       useSessionStore.getState().applySnapshot(snapshot({ status: 'done' }));
       expect(playTaskFinishedSound).not.toHaveBeenCalled();
+      expect(showTaskFinishedNotification).not.toHaveBeenCalled();
     });
 
     it('suppresses the needs-input chime too, not just the finished chime', () => {
