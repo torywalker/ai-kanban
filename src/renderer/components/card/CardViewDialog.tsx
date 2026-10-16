@@ -5,7 +5,14 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import { Archive, ArchiveRestore, Copy, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  Copy,
+  Loader2,
+  Maximize2,
+  Minimize2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import type { AttachmentMeta } from '@shared/attachments';
 import {
@@ -31,6 +38,7 @@ import {
   ingestPasteEvent,
 } from '@/lib/ingestImages';
 import { cardAttachmentTarget } from '@/lib/cardAttachmentTarget';
+import { substitute } from '@/domain/variables';
 import {
   pendingReplySnapshot,
   pendingRunSnapshot,
@@ -60,7 +68,13 @@ interface Props {
   cardId: string;
 }
 
-export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: Props) {
+export function CardViewDialog({
+  open,
+  onOpenChange,
+  boardId,
+  listId,
+  cardId,
+}: Props) {
   const card = useDocStore(
     (s) =>
       s.doc?.boards
@@ -68,7 +82,9 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
         ?.lists.find((l) => l.id === listId)
         ?.cards.find((c) => c.id === cardId) ?? null,
   );
-  const board = useDocStore((s) => s.doc?.boards.find((b) => b.id === boardId) ?? null);
+  const board = useDocStore(
+    (s) => s.doc?.boards.find((b) => b.id === boardId) ?? null,
+  );
   const setCardSessionId = useDocStore((s) => s.setCardSessionId);
   const recordCopy = useDocStore((s) => s.recordCopy);
   const archiveCard = useDocStore((s) => s.archiveCard);
@@ -95,7 +111,9 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
   const setExpanded = (next: boolean) => setCardDialogExpanded(cardId, next);
   const [editing, setEditing] = useState(false);
   const [reply, setReply] = useState('');
-  const [replyAttachments, setReplyAttachments] = useState<AttachmentMeta[]>([]);
+  const [replyAttachments, setReplyAttachments] = useState<AttachmentMeta[]>(
+    [],
+  );
   const [shipPlan, setShipPlan] = useState<ShipChooserPlan | null>(null);
   const [shipTargetOpen, setShipTargetOpen] = useState(false);
   const [shipQueue, setShipQueue] = useState<ShipQueueSnapshot | null>(null);
@@ -168,7 +186,14 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
     if (snapshot?.sessionId && snapshot.sessionId !== card?.sessionId) {
       setCardSessionId(boardId, listId, cardId, snapshot.sessionId);
     }
-  }, [snapshot?.sessionId, card?.sessionId, boardId, listId, cardId, setCardSessionId]);
+  }, [
+    snapshot?.sessionId,
+    card?.sessionId,
+    boardId,
+    listId,
+    cardId,
+    setCardSessionId,
+  ]);
 
   const primary = card?.sessionRepo ?? board?.defaultRepo ?? null;
   const cwd = card?.sessionWorktree?.path ?? primary;
@@ -203,19 +228,11 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
   const canSendReply =
     !!snapshot && !controlsBusy && !!cwd && reply.trim().length > 0;
   const canShowShip =
-    useWorktree &&
-    !!card?.sessionWorktree &&
-    !!snapshot &&
-    !turnInFlight;
+    useWorktree && !!card?.sessionWorktree && !!snapshot && !turnInFlight;
 
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
-    if (
-      !open ||
-      !canShowShip ||
-      !primary ||
-      !card?.sessionWorktree
-    ) {
+    if (!open || !canShowShip || !primary || !card?.sessionWorktree) {
       setShipPlan(null);
       return undefined;
     }
@@ -231,12 +248,7 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
     return () => {
       disposed = true;
     };
-  }, [
-    open,
-    canShowShip,
-    primary,
-    card?.sessionWorktree?.recordedTargetBranch,
-  ]);
+  }, [open, canShowShip, primary, card?.sessionWorktree?.recordedTargetBranch]);
 
   if (!card) return null;
   /**
@@ -293,7 +305,7 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
       }
       await api.session.run(
         cardId,
-        card.prompt,
+        substitute(card.prompt, card.variables),
         runCwd,
         approvalMode,
         model,
@@ -392,10 +404,7 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
       setShipQueue(null);
       toast.success('Shipped');
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === WORKTREE_MISSING_ERROR
-      ) {
+      if (error instanceof Error && error.message === WORKTREE_MISSING_ERROR) {
         updateCard(boardId, listId, cardId, { sessionWorktree: null });
       }
       if (!shipCancelledByUser.current) {
@@ -453,9 +462,7 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
         ? 'You’ll pick which branch to merge into.'
         : null;
   const choicePlan =
-    shipPlan &&
-    shipPlan.kind !== 'direct' &&
-    shipPlan.kind !== 'blocked'
+    shipPlan && shipPlan.kind !== 'direct' && shipPlan.kind !== 'blocked'
       ? shipPlan
       : null;
 
@@ -609,9 +616,7 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
             <div className="min-w-0 flex-1">
               <TagPicker
                 selected={card.tags}
-                onChange={(next) =>
-                  setCardTags(boardId, listId, cardId, next)
-                }
+                onChange={(next) => setCardTags(boardId, listId, cardId, next)}
               />
             </div>
             {/*
@@ -645,7 +650,9 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
           */}
           {card.notes ? (
             <div className="flex flex-col gap-1">
-              <h3 className="text-xs font-medium text-muted-foreground">Notes</h3>
+              <h3 className="text-xs font-medium text-muted-foreground">
+                Notes
+              </h3>
               <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">
                 {card.notes}
               </p>
@@ -654,8 +661,8 @@ export function CardViewDialog({ open, onOpenChange, boardId, listId, cardId }: 
 
           {!cwd ? (
             <p className="text-xs text-muted-foreground">
-              No working directory set — set a default repo on this board, or override it on
-              this card, before running.
+              No working directory set — set a default repo on this board, or
+              override it on this card, before running.
             </p>
           ) : null}
 

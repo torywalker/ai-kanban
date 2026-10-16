@@ -361,6 +361,48 @@ describe('SessionTranscript', () => {
     );
   });
 
+  it('serializes multi-select AskUserQuestion answers in the SDK’s comma-separated format', async () => {
+    useSessionStore.getState().applySnapshot({
+      cardId: 'crd_1',
+      sessionId: 's1',
+      status: 'waiting',
+      checklist: [],
+      messages: [],
+      pendingApproval: {
+        requestId: 'req_multi',
+        toolName: 'AskUserQuestion',
+        input: {
+          questions: [
+            {
+              question: 'Which checks should run?',
+              header: 'Checks',
+              options: [
+                { label: 'Tests', description: 'Run unit tests' },
+                { label: 'Types', description: 'Run the typechecker' },
+              ],
+              multiSelect: true,
+            },
+          ],
+        },
+      },
+      lastError: null,
+    });
+    render(<SessionTranscript cardId="crd_1" />);
+    await flushMarkdownLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /Tests/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Types/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send answers' }));
+
+    expect(window.electron.session.approve).toHaveBeenCalledWith(
+      'crd_1',
+      'req_multi',
+      'allow',
+      undefined,
+      { 'Which checks should run?': 'Tests, Types' },
+    );
+  });
+
   it('falls back to the generic Approve/Deny box for an AskUserQuestion input this app cannot parse', async () => {
     useSessionStore.getState().applySnapshot({
       cardId: 'crd_1',

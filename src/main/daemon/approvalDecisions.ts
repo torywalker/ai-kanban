@@ -3,6 +3,7 @@
 // compiles as CommonJS under this repo's `module: node16` tsconfig.
 import type { PermissionResult } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
 import type { PendingApproval } from '@shared/daemonProtocol';
+import type { AskUserQuestionAnswers } from '@shared/askUserQuestion';
 
 /**
  * Decides how (or whether) an incoming `approve` request should resolve a
@@ -23,7 +24,7 @@ export function computeApprovalResolution(
     requestId: string;
     decision: 'allow' | 'deny';
     message?: string;
-    answers?: Record<string, string | string[]>;
+    answers?: AskUserQuestionAnswers;
   },
 ): PermissionResult | null {
   if (!pendingApproval || pendingApproval.requestId !== request.requestId) {
@@ -44,7 +45,10 @@ export function computeApprovalResolution(
       typeof input === 'object' && input !== null && 'questions' in input
         ? (input as { questions: unknown }).questions
         : [];
-    return { behavior: 'allow', updatedInput: { questions, answers: request.answers } };
+    return {
+      behavior: 'allow',
+      updatedInput: { questions, answers: request.answers },
+    };
   }
   return { behavior: 'allow' };
 }

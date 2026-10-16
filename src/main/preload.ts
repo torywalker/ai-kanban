@@ -7,6 +7,7 @@ import {
 } from '../shared/ipc';
 import type { SessionSnapshot, ApprovalMode } from '../shared/daemonProtocol';
 import type { UsageTotals } from '../shared/usage';
+import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import type {
   SessionWorktree,
   ShipChooserPlan,
@@ -130,7 +131,7 @@ const api = {
       requestId: string,
       decision: 'allow' | 'deny',
       message?: string,
-      answers?: Record<string, string | string[]>,
+      answers?: AskUserQuestionAnswers,
     ): Promise<void> =>
       ipcRenderer.invoke(
         CHANNELS.sessionApprove,

@@ -2,6 +2,7 @@
 // the daemon bundle at runtime — this module is shared by the renderer, the
 // main process and the daemon, and only the daemon's bundle is size-tuned.
 import type { AllowedImageMime } from './attachments';
+import type { AskUserQuestionAnswers } from './askUserQuestion';
 
 /**
  * `interrupted` is distinct from `failed`: it means "this daemon has no
@@ -199,12 +200,12 @@ export type DaemonRequest =
       /**
        * Only meaningful for an `AskUserQuestion` approval: the user's
        * answers, keyed by each question's own `question` text
-       * (multi-select as an array of the chosen labels) — the exact shape
+       * (multi-select labels joined by ", ") — the exact string-only shape
        * the SDK requires back as `updatedInput.answers`. Ignored for
        * `decision: 'deny'` and for an ordinary tool's approval. See
        * `computeApprovalResolution` in `approvalDecisions.ts`.
        */
-      answers?: Record<string, string | string[]>;
+      answers?: AskUserQuestionAnswers;
     }
   | { op: 'stop'; cardId: string }
   | { op: 'getState'; cardId: string }

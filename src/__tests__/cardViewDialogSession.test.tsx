@@ -91,6 +91,29 @@ describe('CardViewDialog session controls', () => {
     });
   });
 
+  it('substitutes the card’s stored variables before starting the agent', async () => {
+    act(() => {
+      useDocStore.getState().updateCard(boardId, listId, cardId, {
+        prompt: 'Fix {{ target }} and leave {{missing}} visible.',
+        variables: { target: 'authentication' },
+      });
+    });
+    renderDialog();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+    await waitFor(() => {
+      expect(window.electron.session.run).toHaveBeenCalledWith(
+        cardId,
+        'Fix authentication and leave {{missing}} visible.',
+        REPO,
+        'ask',
+        null,
+        [],
+      );
+    });
+  });
+
   describe('worktree Run and Ship controls', () => {
     const attachWorktree = () => {
       const worktree = {

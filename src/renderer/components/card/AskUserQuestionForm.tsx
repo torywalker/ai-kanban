@@ -3,7 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import type { AskUserQuestionAnswers, AskUserQuestionItem } from '@shared/askUserQuestion';
+import type {
+  AskUserQuestionAnswers,
+  AskUserQuestionItem,
+} from '@shared/askUserQuestion';
 
 interface Props {
   cardId: string;
@@ -49,20 +52,25 @@ export function AskUserQuestionForm({ cardId, requestId, questions }: Props) {
   };
 
   const toggleOther = (item: AskUserQuestionItem) => {
-    setOtherActive((prev) => ({ ...prev, [item.question]: !prev[item.question] }));
+    setOtherActive((prev) => ({
+      ...prev,
+      [item.question]: !prev[item.question],
+    }));
     if (!item.multiSelect) {
       setSelections((prev) => ({ ...prev, [item.question]: [] }));
     }
   };
 
-  const answerFor = (item: AskUserQuestionItem): string | string[] | null => {
+  const answerFor = (item: AskUserQuestionItem): string | null => {
     const chosen = selections[item.question] ?? [];
     const otherValue = otherActive[item.question]
       ? (otherText[item.question] ?? '').trim()
       : '';
     const values = otherValue ? [...chosen, otherValue] : chosen;
     if (values.length === 0) return null;
-    return item.multiSelect ? values : values[0];
+    // AskUserQuestionOutput represents every answer as a string. Multiple
+    // selected labels use the CLI's comma-separated convention.
+    return item.multiSelect ? values.join(', ') : values[0];
   };
 
   const allAnswered = questions.every((item) => answerFor(item) !== null);
@@ -77,7 +85,12 @@ export function AskUserQuestionForm({ cardId, requestId, questions }: Props) {
   };
 
   const dismiss = () => {
-    void api.session.approve(cardId, requestId, 'deny', 'User dismissed the question');
+    void api.session.approve(
+      cardId,
+      requestId,
+      'deny',
+      'User dismissed the question',
+    );
   };
 
   return (
@@ -93,7 +106,9 @@ export function AskUserQuestionForm({ cardId, requestId, questions }: Props) {
           <p className="text-sm">{item.question}</p>
           <div className="flex flex-col gap-1.5">
             {item.options.map((option) => {
-              const active = (selections[item.question] ?? []).includes(option.label);
+              const active = (selections[item.question] ?? []).includes(
+                option.label,
+              );
               return (
                 <button
                   key={option.label}
@@ -108,7 +123,9 @@ export function AskUserQuestionForm({ cardId, requestId, questions }: Props) {
                   )}
                 >
                   <span className="text-sm font-medium">{option.label}</span>
-                  <span className="text-xs text-muted-foreground">{option.description}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
                 </button>
               );
             })}
@@ -130,7 +147,10 @@ export function AskUserQuestionForm({ cardId, requestId, questions }: Props) {
                 autoFocus
                 value={otherText[item.question] ?? ''}
                 onChange={(event) =>
-                  setOtherText((prev) => ({ ...prev, [item.question]: event.target.value }))
+                  setOtherText((prev) => ({
+                    ...prev,
+                    [item.question]: event.target.value,
+                  }))
                 }
                 placeholder="Type your own answer"
               />

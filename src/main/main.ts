@@ -30,6 +30,7 @@ import {
 } from '../shared/usage';
 import type { ApprovalMode } from '../shared/daemonProtocol';
 import type { AttachmentRef } from '../shared/attachments';
+import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import { readSettings } from './services/settings';
 import { resolveDaemonImages } from './services/assets';
 import {
@@ -152,7 +153,7 @@ ipcMain.handle(
     requestId: string,
     decision: 'allow' | 'deny',
     message?: string,
-    answers?: Record<string, string | string[]>,
+    answers?: AskUserQuestionAnswers,
   ) =>
     sendDaemonRequest({
       op: 'approve',
@@ -322,7 +323,9 @@ const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
 
 if (isDebug) {
-  require('electron-debug').default();
+  // electron-debug opens DevTools on every window unless this is false.
+  // The shortcuts (Option+Command+I, F12) still toggle them on demand.
+  require('electron-debug').default({ showDevTools: false });
 }
 
 const installExtensions = async () => {
