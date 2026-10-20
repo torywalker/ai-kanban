@@ -9,6 +9,13 @@ import fs from 'fs';
 // the runtime value, plus a `resolution-mode` attribute on the type-only
 // import, are the two ways TS lets a CJS file reach into an ESM-only one.
 import type { PermissionResult } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
+import type {
+  DaemonImage,
+  DaemonRequest,
+  DaemonEvent,
+  SessionSnapshot,
+  ApprovalMode,
+} from '@shared/daemonProtocol';
 import { createFrameDecoder, encodeFrame } from './framing';
 import {
   createInitialSnapshot,
@@ -26,9 +33,16 @@ import {
 } from './queryPrompt';
 import {
   cacheDirFor,
+  enqueueCachedSnapshot,
   readCachedSnapshot,
+  stopQueuedCacheWrites,
   writeCachedSnapshot,
 } from './sessionCache';
+import { createFrameSender } from './frameSender';
+import {
+  createSnapshotPublisher,
+  type SnapshotPersistTiming,
+} from './snapshotPublisher';
 import { buildUsageEntries } from './usageEntry';
 import { appendUsageEntries, usageLedgerPathFor } from './usageLedger';
 import {
@@ -48,13 +62,6 @@ import {
   turnOutcomeFromMessage,
   type TurnOutcome,
 } from './turnLifecycle';
-import type {
-  DaemonImage,
-  DaemonRequest,
-  DaemonEvent,
-  SessionSnapshot,
-  ApprovalMode,
-} from '@shared/daemonProtocol';
 
 // Last-resort backstop. Nothing supervises this process: it is spawned
 // detached and unref()'d specifically so it outlives the Electron app, so an
@@ -111,14 +118,33 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 const sockets = new Set<net.Socket>();
+const frameSender = createFrameSender();
 
 /** Monotonic tie-breaker for approval `requestId`s — see `canUseTool` below. */
 let approvalSeq = 0;
 
 function broadcast(event: DaemonEvent): void {
+  if (sockets.size === 0) return;
   const frame = encodeFrame(event);
-  sockets.forEach((socket) => socket.write(frame));
+  const kind = event.event === 'snapshot' ? 'snapshot' : 'control';
+  sockets.forEach((socket) => frameSender.write(socket, frame, kind));
 }
+
+function persistSnapshot(
+  snapshot: SessionSnapshot,
+  timing: SnapshotPersistTiming,
+): void {
+  if (timing === 'now') {
+    writeCachedSnapshot(cacheDir, snapshot);
+    return;
+  }
+  enqueueCachedSnapshot(cacheDir, snapshot).catch(() => undefined);
+}
+
+const snapshotPublisher = createSnapshotPublisher({
+  broadcast: (snapshot) => broadcast({ event: 'snapshot', snapshot }),
+  persist: persistSnapshot,
+});
 
 function updateSnapshot(
   cardId: string,
@@ -127,8 +153,7 @@ function updateSnapshot(
   const session = sessions.get(cardId);
   if (!session) return;
   session.snapshot = updater(session.snapshot);
-  broadcast({ event: 'snapshot', snapshot: session.snapshot });
-  writeCachedSnapshot(cacheDir, session.snapshot);
+  snapshotPublisher.publish(session.snapshot);
 }
 
 /**
@@ -215,8 +240,7 @@ async function runTurn(
     turnActive: true,
     stopped: false,
   });
-  broadcast({ event: 'snapshot', snapshot: sessions.get(cardId)!.snapshot });
-  writeCachedSnapshot(cacheDir, sessions.get(cardId)!.snapshot);
+  snapshotPublisher.publish(sessions.get(cardId)!.snapshot);
 
   // Snapshot writes coming from THIS turn. Dropped once the entry has been
   // taken over by a newer turn, or once the user has stopped the session —
@@ -361,12 +385,29 @@ async function runTurn(
     // user stopped the session (whose own terminal state must stand).
     updateThisTurn((s) => settleTurnSnapshot(s, outcome));
     finishTurn();
+    const finished = sessions.get(cardId);
+    // The cache becomes the only copy after this, so a failed write keeps
+    // the transcript in memory for a later reply to resume from.
+    if (
+      finished?.abortController === abortController &&
+      !finished.turnActive &&
+      finished.pendingApprovalResolve === null
+    ) {
+      snapshotPublisher.flushCard(cardId);
+      if (writeCachedSnapshot(cacheDir, finished.snapshot)) {
+        sessions.delete(cardId);
+        snapshotPublisher.forget(cardId);
+      }
+    }
   }
 }
 
 const server = net.createServer((socket) => {
   sockets.add(socket);
-  socket.on('close', () => sockets.delete(socket));
+  socket.on('close', () => {
+    sockets.delete(socket);
+    frameSender.forget(socket);
+  });
   // Without this, an ECONNRESET/ERR_STREAM_DESTROYED on one client socket
   // (an abrupt Electron exit while `broadcast()` is mid-write, for example)
   // becomes an unhandled 'error' event, which would take down this whole
@@ -389,12 +430,14 @@ const server = net.createServer((socket) => {
       const activeTurns = [...sessions.values()].filter(
         (session) => session.turnActive,
       ).length;
-      socket.write(
+      frameSender.write(
+        socket,
         encodeFrame(
           buildId
             ? { event: 'pong', buildId, activeTurns }
             : { event: 'pong', activeTurns },
         ),
+        'control',
       );
       return;
     }
@@ -493,8 +536,10 @@ const server = net.createServer((socket) => {
       // "Reconnecting…" placeholder it started with.
       const session = getOrHydrateSession(request.cardId);
       if (session) {
-        socket.write(
+        frameSender.write(
+          socket,
           encodeFrame({ event: 'snapshot', snapshot: session.snapshot }),
+          'control',
         );
       }
     }
@@ -509,5 +554,7 @@ server.listen(socketPath, () => {
 });
 
 process.on('SIGTERM', () => {
+  stopQueuedCacheWrites();
+  snapshotPublisher.flushAll();
   server.close(() => process.exit(0));
 });

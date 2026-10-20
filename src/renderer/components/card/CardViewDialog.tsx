@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent as ReactClipboardEvent,
@@ -44,6 +45,7 @@ import {
   pendingRunSnapshot,
 } from '@/domain/sessionStartup';
 import { sumLiveUsage } from '@shared/usage';
+import type { LiveTokenUsage } from '@shared/daemonProtocol';
 import {
   resolveUseWorktree,
   WORKTREE_MISSING_ERROR,
@@ -94,7 +96,11 @@ export function CardViewDialog({
   const approvalMode = useDocStore((s) => s.approvalMode);
   const defaultModel = useDocStore((s) => s.defaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
-  const snapshot = useSessionStore((s) => s.sessions[cardId]);
+  const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
+  const sessionStatus = useSessionStore((s) => s.sessions[cardId]?.status);
+  const sessionId = useSessionStore(
+    (s) => s.sessions[cardId]?.sessionId ?? null,
+  );
   const expanded = useUiStore((s) => s.cardDialogExpanded[cardId] ?? false);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -106,7 +112,29 @@ export function CardViewDialog({
    * works rather than only when the turn lands — the ledger cannot help here
    * because a row is written only once a turn produces its `result`.
    */
-  const liveUsage = sumLiveUsage(snapshot?.liveUsage);
+  const liveUsageKey = useSessionStore((s) => {
+    const totals = sumLiveUsage(s.sessions[cardId]?.liveUsage);
+    return [
+      totals.inputTokens,
+      totals.outputTokens,
+      totals.cacheReadInputTokens,
+      totals.cacheCreationInputTokens,
+    ].join(',');
+  });
+  const liveUsage = useMemo((): LiveTokenUsage => {
+    const [
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+    ] = liveUsageKey.split(',').map(Number);
+    return {
+      inputTokens,
+      outputTokens,
+      cacheReadInputTokens,
+      cacheCreationInputTokens,
+    };
+  }, [liveUsageKey]);
   const setCardDialogExpanded = useUiStore((s) => s.setCardDialogExpanded);
   const setExpanded = (next: boolean) => setCardDialogExpanded(cardId, next);
   const [editing, setEditing] = useState(false);
@@ -140,7 +168,7 @@ export function CardViewDialog({
    * container (see `chatExpanded` below), so there is no body offset left to
    * follow — the transcript's own `feedRef` does that job instead.
    */
-  const bodyRef = useStickToBottom<HTMLDivElement>(!!snapshot && !expanded);
+  const bodyRef = useStickToBottom<HTMLDivElement>(hasSession && !expanded);
 
   useEffect(() => {
     if (!open) {
@@ -183,17 +211,10 @@ export function CardViewDialog({
   // not on every snapshot (checklist updates would otherwise cause a
   // document write, and an undo step, on every tool call).
   useEffect(() => {
-    if (snapshot?.sessionId && snapshot.sessionId !== card?.sessionId) {
-      setCardSessionId(boardId, listId, cardId, snapshot.sessionId);
+    if (sessionId && sessionId !== card?.sessionId) {
+      setCardSessionId(boardId, listId, cardId, sessionId);
     }
-  }, [
-    snapshot?.sessionId,
-    card?.sessionId,
-    boardId,
-    listId,
-    cardId,
-    setCardSessionId,
-  ]);
+  }, [sessionId, card?.sessionId, boardId, listId, cardId, setCardSessionId]);
 
   const primary = card?.sessionRepo ?? board?.defaultRepo ?? null;
   const cwd = card?.sessionWorktree?.path ?? primary;
@@ -215,7 +236,7 @@ export function CardViewDialog({
    * Approve/Deny in the transcript above, not free text.
    */
   const turnInFlight =
-    snapshot?.status === 'working' || snapshot?.status === 'waiting';
+    sessionStatus === 'working' || sessionStatus === 'waiting';
   const queuedForShip =
     shipQueue?.active?.cardId === cardId ||
     shipQueue?.waiters.some((waiter) => waiter.cardId === cardId) === true;
@@ -223,12 +244,12 @@ export function CardViewDialog({
   const controlsBusy = turnInFlight || shipBusy;
   // Only the agent's own turn gets the inline reply-box spinner — ship and
   // waiting-on-approval have their own explanatory text below instead.
-  const isAgentWorking = !shipBusy && snapshot?.status === 'working';
+  const isAgentWorking = !shipBusy && sessionStatus === 'working';
   const canRun = !controlsBusy;
   const canSendReply =
-    !!snapshot && !controlsBusy && !!cwd && reply.trim().length > 0;
+    hasSession && !controlsBusy && !!cwd && reply.trim().length > 0;
   const canShowShip =
-    useWorktree && !!card?.sessionWorktree && !!snapshot && !turnInFlight;
+    useWorktree && !!card?.sessionWorktree && hasSession && !turnInFlight;
 
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
@@ -262,7 +283,7 @@ export function CardViewDialog({
    * `overflow-y-auto` unconditionally would leave that prompt unreachable
    * with no inner scroller to replace it.
    */
-  const chatExpanded = expanded && !!snapshot;
+  const chatExpanded = expanded && hasSession;
 
   /**
    * Every session IPC call can reject before any daemon event exists: if
@@ -273,13 +294,14 @@ export function CardViewDialog({
    * the silent hang spec §7 forbids.
    */
   const reportFailure = (error: unknown) => {
+    const current = useSessionStore.getState().sessions[cardId];
     useSessionStore.getState().applySnapshot({
       cardId,
-      sessionId: snapshot?.sessionId ?? card.sessionId,
+      sessionId: current?.sessionId ?? card.sessionId,
       status: 'failed',
-      checklist: snapshot?.checklist ?? [],
-      messages: snapshot?.messages ?? [],
-      pendingApproval: snapshot?.pendingApproval ?? null,
+      checklist: current?.checklist ?? [],
+      messages: current?.messages ?? [],
+      pendingApproval: current?.pendingApproval ?? null,
       lastError: error instanceof Error ? error.message : String(error),
     });
   };
@@ -331,10 +353,11 @@ export function CardViewDialog({
     // daemon echoes it back, so a slow start looked like a lost message.
     // Only written when there is already a session to append to — with no
     // snapshot there is no reply box to have typed into.
-    if (snapshot) {
+    const current = useSessionStore.getState().sessions[cardId];
+    if (current) {
       useSessionStore
         .getState()
-        .applySnapshot(pendingReplySnapshot(snapshot, reply.trim()));
+        .applySnapshot(pendingReplySnapshot(current, reply.trim()));
     }
     try {
       // `card.sessionId` (not `snapshot.sessionId`) — the persisted value,
@@ -679,7 +702,7 @@ export function CardViewDialog({
             asks for, and visibly disabled with a reason while a turn is in
             flight. Stop stays scoped to an in-flight turn.
           */}
-          {snapshot ? (
+          {hasSession ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-2">
                 <div className="relative flex-1">
@@ -729,7 +752,7 @@ export function CardViewDialog({
                 onChange={setReplyAttachments}
                 disabled={controlsBusy}
               />
-              {shipBusy || snapshot.status === 'waiting' ? (
+              {shipBusy || sessionStatus === 'waiting' ? (
                 <p className="text-xs text-muted-foreground">
                   {shipBusy
                     ? 'Ship is in progress — stop it before replying.'
@@ -779,7 +802,7 @@ export function CardViewDialog({
           ) : null}
           {canRun ? (
             <Button onClick={run} disabled={!primary || !card.prompt.trim()}>
-              {snapshot ? 'Run again' : 'Run'}
+              {hasSession ? 'Run again' : 'Run'}
             </Button>
           ) : null}
         </DialogFooter>

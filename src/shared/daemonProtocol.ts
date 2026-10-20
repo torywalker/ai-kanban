@@ -212,11 +212,10 @@ export type DaemonRequest =
   | { op: 'ping' };
 
 /**
- * The daemon always emits the FULL current snapshot on any change, never an
- * incremental delta — the same "whole document, not a diff" philosophy this
- * app's own data file already uses. Simpler consumer logic (replace, don't
- * merge) at the cost of resending the checklist on every change; the payload
- * is small enough that this is free.
+ * A snapshot replaces the client's whole entry for that card. Progress is
+ * coalesced by the daemon: a long turn must not serialize and resend the
+ * accumulated transcript on every SDK message. Clients still do not merge
+ * partial events.
  */
 export type DaemonEvent =
   | { event: 'snapshot'; snapshot: SessionSnapshot }

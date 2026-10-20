@@ -26,16 +26,16 @@ interface Props {
 }
 
 export function SessionStatusBadge({ cardId }: Props) {
-  const snapshot = useSessionStore((s) => s.sessions[cardId]);
-  if (!snapshot) return null;
+  const status = useSessionStore((s) => s.sessions[cardId]?.status);
+  if (!status) return null;
 
-  const label = STATUS_LABEL[snapshot.status];
+  const label = STATUS_LABEL[status];
   const Icon =
-    snapshot.status === 'working'
+    status === 'working'
       ? Loader2
-      : snapshot.status === 'done'
+      : status === 'done'
         ? CircleCheck
-        : snapshot.status === 'interrupted'
+        : status === 'interrupted'
           ? Unplug
           : CircleAlert;
 
@@ -44,7 +44,7 @@ export function SessionStatusBadge({ cardId }: Props) {
       <Icon
         role="img"
         aria-label={label}
-        className={`size-3.5 ${STATUS_COLOR[snapshot.status]} ${snapshot.status === 'working' ? 'animate-spin' : ''}`}
+        className={`size-3.5 ${STATUS_COLOR[status]} ${status === 'working' ? 'animate-spin' : ''}`}
       />
     </span>
   );

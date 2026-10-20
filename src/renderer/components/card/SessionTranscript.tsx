@@ -7,7 +7,11 @@ import { startupNotice } from '@/domain/sessionStartup';
 import { useSessionStore } from '@/store/sessionStore';
 import { useStickToBottom } from '@/lib/useStickToBottom';
 import { api } from '@/lib/api';
-import type { ChecklistItem, PendingApproval, TranscriptMessage } from '@shared/daemonProtocol';
+import type {
+  ChecklistItem,
+  PendingApproval,
+  TranscriptMessage,
+} from '@shared/daemonProtocol';
 import { parseAskUserQuestionInput } from '@shared/askUserQuestion';
 import { AskUserQuestionForm } from './AskUserQuestionForm';
 import { AttachmentThumbnail } from './ImageAttachmentStrip';
@@ -71,7 +75,11 @@ interface Props {
 
 type FeedEntry =
   | { kind: 'tool'; seq: number; item: ChecklistItem }
-  | { kind: 'text' | 'thinking' | 'user'; seq: number; message: TranscriptMessage };
+  | {
+      kind: 'text' | 'thinking' | 'user';
+      seq: number;
+      message: TranscriptMessage;
+    };
 
 /**
  * Tool calls (`checklist`) and assistant text/thinking (`messages`) are two
@@ -87,16 +95,25 @@ type FeedEntry =
  * prose wrapper.
  */
 const MARKDOWN_COMPONENTS = {
-  p: (props: React.ComponentProps<'p'>) => <p className="mb-1.5 last:mb-0" {...props} />,
+  p: (props: React.ComponentProps<'p'>) => (
+    <p className="mb-1.5 last:mb-0" {...props} />
+  ),
   ul: (props: React.ComponentProps<'ul'>) => (
     <ul className="mb-1.5 list-disc pl-5 last:mb-0" {...props} />
   ),
   ol: (props: React.ComponentProps<'ol'>) => (
     <ol className="mb-1.5 list-decimal pl-5 last:mb-0" {...props} />
   ),
-  li: (props: React.ComponentProps<'li'>) => <li className="mb-0.5" {...props} />,
+  li: (props: React.ComponentProps<'li'>) => (
+    <li className="mb-0.5" {...props} />
+  ),
   a: (props: React.ComponentProps<'a'>) => (
-    <a className="text-primary underline" target="_blank" rel="noreferrer" {...props} />
+    <a
+      className="text-primary underline"
+      target="_blank"
+      rel="noreferrer"
+      {...props}
+    />
   ),
   code: ({ className, ...props }: React.ComponentProps<'code'>) =>
     // Block code (inside a <pre>) already carries a language-* className
@@ -106,7 +123,10 @@ const MARKDOWN_COMPONENTS = {
     className ? (
       <code className={className} {...props} />
     ) : (
-      <code className="rounded bg-popover px-1 py-0.5 font-mono text-[0.85em]" {...props} />
+      <code
+        className="rounded bg-popover px-1 py-0.5 font-mono text-[0.85em]"
+        {...props}
+      />
     ),
   pre: (props: React.ComponentProps<'pre'>) => (
     <pre
@@ -114,13 +134,97 @@ const MARKDOWN_COMPONENTS = {
       {...props}
     />
   ),
-  strong: (props: React.ComponentProps<'strong'>) => <strong className="font-semibold" {...props} />,
-  h1: (props: React.ComponentProps<'h1'>) => <h1 className="mb-1 text-sm font-semibold" {...props} />,
-  h2: (props: React.ComponentProps<'h2'>) => <h2 className="mb-1 text-sm font-semibold" {...props} />,
-  h3: (props: React.ComponentProps<'h3'>) => <h3 className="mb-1 text-sm font-semibold" {...props} />,
+  strong: (props: React.ComponentProps<'strong'>) => (
+    <strong className="font-semibold" {...props} />
+  ),
+  h1: (props: React.ComponentProps<'h1'>) => (
+    <h1 className="mb-1 text-sm font-semibold" {...props} />
+  ),
+  h2: (props: React.ComponentProps<'h2'>) => (
+    <h2 className="mb-1 text-sm font-semibold" {...props} />
+  ),
+  h3: (props: React.ComponentProps<'h3'>) => (
+    <h3 className="mb-1 text-sm font-semibold" {...props} />
+  ),
 };
 
-function buildFeed(checklist: ChecklistItem[], messages: TranscriptMessage[]): FeedEntry[] {
+const ToolFeedRow = React.memo(function ToolFeedRow({
+  item,
+}: {
+  item: ChecklistItem;
+}) {
+  return (
+    <li className="flex items-center gap-2">
+      {item.done ? (
+        <Check className="size-3.5 shrink-0 text-emerald-500" />
+      ) : (
+        <Hourglass className="size-3.5 shrink-0 text-muted-foreground" />
+      )}
+      <span>{item.label}</span>
+    </li>
+  );
+});
+
+const MessageFeedRow = React.memo(function MessageFeedRow({
+  message,
+  markdown,
+}: {
+  message: TranscriptMessage;
+  markdown: MarkdownModule | null;
+}) {
+  if (message.kind === 'user') {
+    return (
+      <li className="flex max-w-[85%] self-end flex-col items-end gap-1.5 rounded-2xl rounded-br-sm bg-primary px-3 py-1.5 text-sm text-primary-foreground break-words">
+        {message.images?.length ? (
+          <div className="flex flex-wrap justify-end gap-1.5">
+            {message.images.map((image) => (
+              <AttachmentThumbnail
+                key={image.id}
+                cardId={image.cardId}
+                attachment={image}
+                className="size-12"
+              />
+            ))}
+          </div>
+        ) : null}
+        {/*
+          Alignment and tint are visual-only signals for authorship,
+          so the attribution stays for screen readers, which would
+          otherwise hear this message with no indication of who wrote
+          it.
+        */}
+        <span className="sr-only">You:</span>
+        <span className="whitespace-pre-wrap">{message.text}</span>
+      </li>
+    );
+  }
+
+  return (
+    <li
+      className={
+        message.kind === 'thinking'
+          ? 'text-xs italic text-muted-foreground'
+          : 'text-sm text-foreground'
+      }
+    >
+      {markdown ? (
+        <markdown.Markdown
+          remarkPlugins={[markdown.remarkGfm]}
+          components={MARKDOWN_COMPONENTS}
+        >
+          {message.text}
+        </markdown.Markdown>
+      ) : (
+        <span className="whitespace-pre-wrap">{message.text}</span>
+      )}
+    </li>
+  );
+});
+
+function buildFeed(
+  checklist: ChecklistItem[],
+  messages: TranscriptMessage[],
+): FeedEntry[] {
   const toolEntries: FeedEntry[] = checklist.map((item) => ({
     kind: 'tool',
     seq: item.seq,
@@ -142,7 +246,10 @@ function buildFeed(checklist: ChecklistItem[], messages: TranscriptMessage[]): F
  * or a future SDK change) — that falls back to the generic box too, rather
  * than rendering nothing.
  */
-function renderPendingApproval(cardId: string, pendingApproval: PendingApproval) {
+function renderPendingApproval(
+  cardId: string,
+  pendingApproval: PendingApproval,
+) {
   if (pendingApproval.toolName === 'AskUserQuestion') {
     const questions = parseAskUserQuestionInput(pendingApproval.input);
     if (questions) {
@@ -160,19 +267,27 @@ function renderPendingApproval(cardId: string, pendingApproval: PendingApproval)
   return (
     <div className="flex max-h-56 flex-col gap-2 overflow-y-auto rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
       <p className="text-sm">
-        Claude wants to run <span className="font-mono">{pendingApproval.toolName}</span>:
+        Claude wants to run{' '}
+        <span className="font-mono">{pendingApproval.toolName}</span>:
       </p>
       <pre className="max-h-32 overflow-auto rounded bg-muted p-2 font-mono text-xs">
         {JSON.stringify(pendingApproval.input, null, 2)}
       </pre>
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => api.session.approve(cardId, pendingApproval.requestId, 'allow')}>
+        <Button
+          size="sm"
+          onClick={() =>
+            api.session.approve(cardId, pendingApproval.requestId, 'allow')
+          }
+        >
           Approve
         </Button>
         <Button
           size="sm"
           variant="destructive"
-          onClick={() => api.session.approve(cardId, pendingApproval.requestId, 'deny')}
+          onClick={() =>
+            api.session.approve(cardId, pendingApproval.requestId, 'deny')
+          }
         >
           Deny
         </Button>
@@ -266,80 +381,17 @@ export function SessionTranscript({ cardId, expanded = false }: Props) {
           expanded ? 'min-h-0 flex-1' : 'max-h-64',
         )}
       >
-        {feed.map((entry) => {
-          if (entry.kind === 'tool') {
-            return (
-              <li key={`tool:${entry.item.id}`} className="flex items-center gap-2">
-                {entry.item.done ? (
-                  <Check className="size-3.5 shrink-0 text-emerald-500" />
-                ) : (
-                  <Hourglass className="size-3.5 shrink-0 text-muted-foreground" />
-                )}
-                <span>{entry.item.label}</span>
-              </li>
-            );
-          }
-          if (entry.kind === 'user') {
-            // Rendered as plain text, not Markdown: this is the user's own
-            // typed reply, not agent output — there's nothing to interpret
-            // as formatting.
-            //
-            // Shaped as a right-pinned bubble rather than another full-width
-            // line: `self-end` overrides the feed column's default stretch so
-            // the bubble shrink-wraps its text, and the width cap keeps a long
-            // reply from spanning the column (at which point the alignment
-            // would no longer read as a bubble at all). `break-words` is what
-            // holds that cap against an unbroken URL or path.
-            return (
-              <li
-                key={`msg:${entry.message.id}`}
-                className="flex max-w-[85%] self-end flex-col items-end gap-1.5 rounded-2xl rounded-br-sm bg-primary px-3 py-1.5 text-sm text-primary-foreground break-words"
-              >
-                {entry.message.images?.length ? (
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    {entry.message.images.map((image) => (
-                      <AttachmentThumbnail
-                        key={image.id}
-                        cardId={image.cardId}
-                        attachment={image}
-                        className="size-12"
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                {/*
-                  Alignment and tint are visual-only signals for authorship,
-                  so the attribution stays for screen readers, which would
-                  otherwise hear this message with no indication of who wrote
-                  it.
-                */}
-                <span className="sr-only">You:</span>
-                <span className="whitespace-pre-wrap">{entry.message.text}</span>
-              </li>
-            );
-          }
-          return (
-            <li
+        {feed.map((entry) =>
+          entry.kind === 'tool' ? (
+            <ToolFeedRow key={`tool:${entry.item.id}`} item={entry.item} />
+          ) : (
+            <MessageFeedRow
               key={`msg:${entry.message.id}`}
-              className={
-                entry.kind === 'thinking'
-                  ? 'text-xs italic text-muted-foreground'
-                  : 'text-sm text-foreground'
-              }
-            >
-              {markdown ? (
-                <markdown.Markdown
-                  remarkPlugins={[markdown.remarkGfm]}
-                  components={MARKDOWN_COMPONENTS}
-                >
-                  {entry.message.text}
-                </markdown.Markdown>
-              ) : (
-                <span className="whitespace-pre-wrap">{entry.message.text}</span>
-              )}
-            </li>
-          );
-        })}
+              message={entry.message}
+              markdown={markdown}
+            />
+          ),
+        )}
       </ul>
 
       {/*
@@ -370,9 +422,9 @@ export function SessionTranscript({ cardId, expanded = false }: Props) {
         just the feed — could grow enough to push the prompt above and
         the reply row below out of view.
       */}
-      {snapshot.pendingApproval ? (
-        renderPendingApproval(cardId, snapshot.pendingApproval)
-      ) : null}
+      {snapshot.pendingApproval
+        ? renderPendingApproval(cardId, snapshot.pendingApproval)
+        : null}
 
       {/*
         Rendered for ANY status, not just `failed`. The daemon's in-flight
