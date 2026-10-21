@@ -14,21 +14,23 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Install Node.js and NPM
-        uses: actions/setup-node@v3
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
-      - name: npm install
-        run: |
-          npm install
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: npm test
+      - name: Test
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm run package
-          npm run lint
-          npm exec tsc
-          npm test
+          pnpm run package
+          pnpm run lint
+          pnpm exec tsc
+          pnpm test

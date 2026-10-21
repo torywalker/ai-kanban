@@ -21,7 +21,7 @@ The board works on its own. Running an agent needs a signed-in [Claude Code](htt
 ## Requirements
 
 - Node.js 22 (the version CI uses)
-- npm 7 or newer
+- pnpm 11.9 (the version pinned in `package.json`; `corepack enable` provides it)
 - Claude Code, signed in, to run agent sessions
 - Git, to use worktrees and Ship
 
@@ -30,21 +30,21 @@ Packaged builds target macOS (Apple silicon and Intel), Windows (NSIS), and Linu
 ## Develop
 
 ```bash
-npm install
-npm start
+pnpm install
+pnpm start
 ```
 
-The first install compiles a webpack DLL, so it takes longer than a normal install. `npm start` launches Electron with a hot-reloading renderer.
+The first install compiles a webpack DLL, so it takes longer than a normal install. `pnpm start` launches Electron with a hot-reloading renderer.
 
 | Command | What it does |
 | --- | --- |
-| `npm start` | Run the app in development |
-| `npm test` | Run the Jest suite |
-| `npm run lint` | Lint the project |
-| `npx tsc --noEmit` | Typecheck |
-| `npm run package` | Build installers into `release/build` |
+| `pnpm start` | Run the app in development |
+| `pnpm test` | Run the Jest suite |
+| `pnpm run lint` | Lint the project |
+| `pnpm exec tsc --noEmit` | Typecheck |
+| `pnpm run package` | Build installers into `release/build` |
 
-`npm test` does not call the Claude API. Agent behavior is covered with mocks.
+`pnpm test` does not call the Claude API. Agent behavior is covered with mocks.
 
 ## Using the app
 

@@ -1,0 +1,17 @@
+# Flat node_modules, the same layout npm used. The native-dependency check,
+# webpack, and electron-rebuild all resolve packages as direct children of
+# node_modules, which pnpm's default isolated layout does not provide.
+nodeLinker: hoisted
+
+# @electron/rebuild depends on @electron/node-gyp from a git repository.
+# pnpm blocks that by default, and the app cannot rebuild native modules without it.
+blockExoticSubdeps: false
+
+# pnpm ignores dependency build scripts unless each one is listed here.
+# electron downloads its binary, and @parcel/watcher compiles a native module.
+# The core-js scripts only print a banner.
+allowBuilds:
+  "@parcel/watcher": true
+  core-js: false
+  core-js-pure: false
+  electron: true
