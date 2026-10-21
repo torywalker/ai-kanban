@@ -70,6 +70,7 @@
     "setupFiles": [
       "./.erb/scripts/check-build-exists.ts"
     ],
+    "maxWorkers": "50%",
     "testEnvironment": "jsdom",
     "testEnvironmentOptions": {
       "url": "http://localhost/"
@@ -80,7 +81,12 @@
       "<rootDir>/.claude/"
     ],
     "transform": {
-      "\\.(ts|tsx|js|jsx)$": "ts-jest"
+      "\\.(ts|tsx|js|jsx)$": [
+        "ts-jest",
+        {
+          "isolatedModules": true
+        }
+      ]
     }
   },
   "dependencies": {
