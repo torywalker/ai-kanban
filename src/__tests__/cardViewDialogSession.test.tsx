@@ -185,6 +185,80 @@ describe('CardViewDialog session controls', () => {
       expect(window.electron.git.ensureWorktree).not.toHaveBeenCalled();
     });
 
+    describe('worktree badge', () => {
+      it('shows no badge on a card that has never been run', () => {
+        renderDialog();
+
+        expect(screen.queryByText('Worktree')).not.toBeInTheDocument();
+        expect(screen.queryByText('No worktree')).not.toBeInTheDocument();
+      });
+
+      it('registers and shows that a run used a worktree', async () => {
+        const worktree = {
+          path: `/tmp/worktrees/${cardId}`,
+          branch: `kanban/${cardId}`,
+          recordedTargetBranch: 'main',
+        };
+        useDocStore.setState({ useWorktrees: true });
+        (window.electron.git.ensureWorktree as jest.Mock).mockResolvedValue({
+          ok: true,
+          value: worktree,
+        });
+        renderDialog();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+        expect(await screen.findByText('Worktree')).toBeInTheDocument();
+        expect(
+          useDocStore
+            .getState()
+            .doc!.boards[0].lists[0].cards.find((card) => card.id === cardId)!
+            .usedWorktree,
+        ).toBe(true);
+      });
+
+      it('registers and shows that a run used the main checkout', async () => {
+        renderDialog();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+
+        expect(await screen.findByText('No worktree')).toBeInTheDocument();
+        expect(
+          useDocStore
+            .getState()
+            .doc!.boards[0].lists[0].cards.find((card) => card.id === cardId)!
+            .usedWorktree,
+        ).toBe(false);
+      });
+
+      it('keeps showing "Worktree" once the worktree itself is later removed', async () => {
+        const worktree = {
+          path: `/tmp/worktrees/${cardId}`,
+          branch: `kanban/${cardId}`,
+          recordedTargetBranch: 'main',
+        };
+        useDocStore.setState({ useWorktrees: true });
+        (window.electron.git.ensureWorktree as jest.Mock).mockResolvedValue({
+          ok: true,
+          value: worktree,
+        });
+        renderDialog();
+        fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+        await screen.findByText('Worktree');
+
+        // Mirrors what Ship does once it has merged: the worktree record is
+        // cleared, but the card still answers "a worktree was used" for this
+        // run rather than quietly reverting to "no answer".
+        act(() => {
+          useDocStore.getState().updateCard(boardId, listId, cardId, {
+            sessionWorktree: null,
+          });
+        });
+
+        expect(screen.getByText('Worktree')).toBeInTheDocument();
+      });
+    });
+
     it('shows Ship only for a finished worktree session and keeps the branch out of the button name', async () => {
       useDocStore.setState({ useWorktrees: true });
       attachWorktree();

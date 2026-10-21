@@ -21,6 +21,7 @@ function card(id: string) {
     sessionModel: null,
     useWorktree: null,
     sessionWorktree: null,
+    usedWorktree: null,
     archived: false,
     attachments: [],
     createdAt: '2026-01-01T00:00:00.000Z',

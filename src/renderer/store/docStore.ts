@@ -557,6 +557,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         sessionId: null,
         useWorktree: fields.useWorktree ?? null,
         sessionWorktree: null,
+        usedWorktree: null,
         archived: false,
         attachments: fields.attachments ?? [],
         variables: {},

@@ -83,6 +83,12 @@ export const CardSchema = z.object({
   // Set when a session has created a git worktree for this card; null
   // until the first such session.
   sessionWorktree: SessionWorktreeSchema.nullable().catch(null),
+  // Whether the most recently *started* run used a worktree, recorded at
+  // the moment that run kicked off. Unlike `sessionWorktree`, this never
+  // gets cleared when the worktree is later removed (e.g. after Ship), so
+  // it answers "was a worktree used" even once none exists any more. Null
+  // until a card's first run has started.
+  usedWorktree: z.boolean().nullable().catch(null),
 });
 
 export const ListSchema = z.object({

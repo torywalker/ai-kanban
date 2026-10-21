@@ -55,6 +55,7 @@ import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
 import { SessionTranscript } from './SessionTranscript';
 import { UsageSummary } from './UsageSummary';
+import { WorktreeBadge } from './WorktreeBadge';
 import { PromptBody } from './PromptBody';
 import { CardComposerDialog } from './CardComposerDialog';
 import { ImageAttachmentStrip } from './ImageAttachmentStrip';
@@ -300,8 +301,11 @@ export function CardViewDialog({
         if (!ensured.ok) throw new Error(ensured.error);
         updateCard(boardId, listId, cardId, {
           sessionWorktree: ensured.value,
+          usedWorktree: true,
         });
         runCwd = ensured.value.path;
+      } else {
+        updateCard(boardId, listId, cardId, { usedWorktree: false });
       }
       await api.session.run(
         cardId,
@@ -619,6 +623,10 @@ export function CardViewDialog({
                 onChange={(next) => setCardTags(boardId, listId, cardId, next)}
               />
             </div>
+            <WorktreeBadge
+              usedWorktree={card.usedWorktree}
+              sessionWorktree={card.sessionWorktree}
+            />
             {/*
               Shares the badge row rather than occupying one of its own, and
               right-aligned into the row's free space: cost is a standing

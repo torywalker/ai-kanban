@@ -61,6 +61,7 @@ function seededDoc(): KanbanDoc {
                 sessionModel: null,
                 useWorktree: null,
                 sessionWorktree: null,
+                usedWorktree: null,
                 archived: false,
                 attachments: [],
                 createdAt: now,
