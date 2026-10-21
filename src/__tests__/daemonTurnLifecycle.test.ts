@@ -109,6 +109,17 @@ describe('I2: stop writes a terminal status itself', () => {
     expect(['working', 'waiting', 'done', 'failed']).toContain(stopped.status);
   });
 
+  it('drops background tasks so a stopped card does not keep a spinner for a dead command', () => {
+    const stopped = stopSnapshot(
+      snapshot({
+        status: 'working',
+        backgroundTasks: [{ id: 'b3b4je21r', description: 'jest' }],
+      }),
+    );
+    expect(stopped.backgroundTasks).toBeUndefined();
+    expect(stopped.status).toBe('failed');
+  });
+
   it('leaves the work done so far visible in the checklist', () => {
     const before = snapshot({ status: 'working' });
     expect(stopSnapshot(before).checklist).toBe(before.checklist);
@@ -205,6 +216,21 @@ describe('startTurnSnapshot records the reply text as a user message', () => {
   it('never records a message for a fresh "run", even if text is passed', () => {
     const next = startTurnSnapshot(finished, 'run', 'ignored text');
     expect(next.messages).toEqual([]);
+  });
+
+  it('drops background tasks left over from the previous process', () => {
+    const withTasks = snapshot({
+      ...finished,
+      backgroundTasks: [{ id: 'b3b4je21r', description: 'jest' }],
+      backgroundContinuing: true,
+    });
+    expect(
+      startTurnSnapshot(withTasks, 'reply', 'go on').backgroundTasks,
+    ).toBeUndefined();
+    expect(
+      startTurnSnapshot(withTasks, 'reply', 'go on').backgroundContinuing,
+    ).toBeUndefined();
+    expect(startTurnSnapshot(withTasks, 'run').backgroundTasks).toBeUndefined();
   });
 
   it('never mutates the previous snapshot', () => {
@@ -329,6 +355,32 @@ describe('normalizeHydratedSnapshot', () => {
     });
   });
 
+  it('drops background tasks cached with a mid-turn snapshot, since that process is gone', () => {
+    const cached = snapshot({
+      status: 'working',
+      backgroundTasks: [
+        { id: 'b3b4je21r', description: 'Run full Jest test suite' },
+      ],
+      backgroundContinuing: true,
+    });
+    const normalized = normalizeHydratedSnapshot(cached);
+    expect(normalized.status).toBe('interrupted');
+    expect(normalized.backgroundTasks).toBeUndefined();
+    expect(normalized.backgroundContinuing).toBeUndefined();
+  });
+
+  it('drops background tasks from a terminal snapshot without changing its status', () => {
+    const cached = snapshot({
+      status: 'done',
+      backgroundTasks: [
+        { id: 'b3b4je21r', description: 'Run full Jest test suite' },
+      ],
+    });
+    const normalized = normalizeHydratedSnapshot(cached);
+    expect(normalized.status).toBe('done');
+    expect(normalized.backgroundTasks).toBeUndefined();
+  });
+
   it('preserves the checklist/messages built up before the interruption', () => {
     const cached = snapshot({ status: 'working' });
     const normalized = normalizeHydratedSnapshot(cached);
@@ -424,6 +476,18 @@ describe('settling a turn when the SDK stream closes', () => {
       expect(
         settleTurnSnapshot(asking, { kind: 'success' }).pendingApproval,
       ).toBeNull();
+    });
+
+    it('drops background tasks, which belonged to the process that just exited', () => {
+      const stillRunning = snapshot({
+        status: 'working',
+        backgroundTasks: [{ id: 'b3b4je21r', description: 'jest' }],
+        backgroundContinuing: true,
+      });
+      const settled = settleTurnSnapshot(stillRunning, { kind: 'success' });
+      expect(settled.status).toBe('done');
+      expect(settled.backgroundTasks).toBeUndefined();
+      expect(settled.backgroundContinuing).toBeUndefined();
     });
 
     it('keeps the checklist and transcript the turn produced', () => {

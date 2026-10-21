@@ -21,15 +21,30 @@ const STATUS_COLOR: Record<SessionStatus, string> = {
   interrupted: 'text-muted-foreground',
 };
 
+function statusLabel(status: SessionStatus, backgroundLabel: string): string {
+  if (backgroundLabel === 'finished') {
+    return 'Background command finished, waiting for Claude';
+  }
+  if (backgroundLabel) return `Background: ${backgroundLabel}`;
+  return STATUS_LABEL[status];
+}
+
 interface Props {
   cardId: string;
 }
 
 export function SessionStatusBadge({ cardId }: Props) {
   const status = useSessionStore((s) => s.sessions[cardId]?.status);
+  const backgroundLabel = useSessionStore((s) => {
+    const session = s.sessions[cardId];
+    if (!session?.backgroundTasks?.length) {
+      return session?.backgroundContinuing ? 'finished' : '';
+    }
+    return session.backgroundTasks.map((task) => task.description).join(', ');
+  });
   if (!status) return null;
 
-  const label = STATUS_LABEL[status];
+  const label = statusLabel(status, backgroundLabel);
   const Icon =
     status === 'working'
       ? Loader2

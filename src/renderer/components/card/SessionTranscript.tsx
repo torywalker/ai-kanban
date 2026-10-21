@@ -76,7 +76,7 @@ interface Props {
 type FeedEntry =
   | { kind: 'tool'; seq: number; item: ChecklistItem }
   | {
-      kind: 'text' | 'thinking' | 'user';
+      kind: 'text' | 'thinking' | 'user' | 'note';
       seq: number;
       message: TranscriptMessage;
     };
@@ -195,6 +195,14 @@ const MessageFeedRow = React.memo(function MessageFeedRow({
         */}
         <span className="sr-only">You:</span>
         <span className="whitespace-pre-wrap">{message.text}</span>
+      </li>
+    );
+  }
+
+  if (message.kind === 'note') {
+    return (
+      <li className="text-center text-xs text-muted-foreground">
+        {message.text}
       </li>
     );
   }

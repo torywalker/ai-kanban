@@ -28,9 +28,19 @@ import {
 import { buildSessionPermissionOptions } from './permissionConfig';
 import {
   buildQueryPrompt,
-  singleUserMessageStream,
+  createPromptGate,
   transcriptImagesFrom,
+  userMessageFromPrompt,
 } from './queryPrompt';
+import {
+  BACKGROUND_CONTINUATION_TEXT,
+  appendTranscriptNote,
+  createBackgroundTurnController,
+  initialPromptHold,
+  noteUnresumedBackgroundWork,
+  reducePromptHold,
+  snapshotWithBackgroundHold,
+} from './backgroundTasks';
 import {
   cacheDirFor,
   enqueueCachedSnapshot,
@@ -114,6 +124,12 @@ interface Session {
   // See turnLifecycle.ts for what these two guard against.
   turnActive: boolean;
   stopped: boolean;
+  /**
+   * Ends the prompt stream held open for background work. Null before the
+   * stream exists and after the turn finishes. `stop` calls it so the SDK
+   * is not left blocked on an input iterable the abort has not reached.
+   */
+  releasePrompt: (() => void) | null;
 }
 
 const sessions = new Map<string, Session>();
@@ -176,6 +192,7 @@ function getOrHydrateSession(cardId: string): Session | undefined {
     pendingApprovalResolve: null,
     turnActive: false,
     stopped: false,
+    releasePrompt: null,
   };
   sessions.set(cardId, hydrated);
   return hydrated;
@@ -239,6 +256,7 @@ async function runTurn(
     pendingApprovalResolve: null,
     turnActive: true,
     stopped: false,
+    releasePrompt: null,
   });
   snapshotPublisher.publish(sessions.get(cardId)!.snapshot);
 
@@ -259,6 +277,7 @@ async function runTurn(
     const session = sessions.get(cardId);
     if (session?.abortController === abortController) {
       session.turnActive = false;
+      session.releasePrompt = null;
     }
   };
 
@@ -281,21 +300,44 @@ async function runTurn(
   // because it is turn-scoped bookkeeping, not something any client needs
   // to see — `finally` below is its only reader.
   let outcome: TurnOutcome | null = null;
+  let hold = initialPromptHold();
+  let releaseHeldPrompt: (() => void) | null = null;
+  let disposeHold: (() => void) | null = null;
 
   try {
     // Every attachment is read here, before the SDK is even imported: an
     // attachment the user deleted from disk must fail the turn outright
     // (the `catch` below turns the thrown `UnreadableImageError` into the
     // card's `lastError`) rather than quietly sending a prompt that refers
-    // to a screenshot the model never received. Text-only turns get the
-    // literal string back — see queryPrompt.ts for why that still matters.
+    // to a screenshot the model never received. The prompt is then held
+    // open — a string prompt would close stdin at the first result and kill
+    // anything the model had backgrounded. See queryPrompt.ts.
     const builtPrompt = await buildQueryPrompt(prompt, options.images);
+    const gate = createPromptGate(userMessageFromPrompt(builtPrompt));
+    releaseHeldPrompt = gate.release;
+    const owning = sessions.get(cardId);
+    if (owning?.abortController === abortController) {
+      owning.releasePrompt = gate.release;
+    }
+    const holdController = createBackgroundTurnController({
+      release: () => gate.release(),
+      nudge: () => {
+        gate.push(userMessageFromPrompt(BACKGROUND_CONTINUATION_TEXT));
+        updateThisTurn((s) =>
+          appendTranscriptNote(
+            s,
+            'background-continuation',
+            'Background command finished. Asking Claude to continue.',
+          ),
+        );
+      },
+      isPendingApproval: () =>
+        sessions.get(cardId)?.snapshot.pendingApproval != null,
+    });
+    disposeHold = () => holdController.dispose();
     const { query } = await import('@anthropic-ai/claude-agent-sdk');
     for await (const message of query({
-      prompt:
-        typeof builtPrompt === 'string'
-          ? builtPrompt
-          : singleUserMessageStream(builtPrompt),
+      prompt: gate.stream,
       options: {
         cwd: options.cwd,
         resume: options.resume,
@@ -367,7 +409,15 @@ async function runTurn(
         ),
       );
       outcome = turnOutcomeFromMessage(message as never) ?? outcome;
-      updateThisTurn((s) => deriveSessionUpdate(s, message as never));
+      const nextHold = reducePromptHold(hold, message);
+      hold = nextHold;
+      holdController.sync(nextHold);
+      updateThisTurn((s) =>
+        snapshotWithBackgroundHold(
+          deriveSessionUpdate(s, message as never),
+          nextHold,
+        ),
+      );
     }
   } catch (error) {
     // Recorded, not written: the settle below is the single place this
@@ -383,7 +433,11 @@ async function runTurn(
     // "the agent is finished" is a fact rather than a guess. Dropped by
     // `updateThisTurn` if a newer turn has taken the card over, or if the
     // user stopped the session (whose own terminal state must stand).
-    updateThisTurn((s) => settleTurnSnapshot(s, outcome));
+    disposeHold?.();
+    releaseHeldPrompt?.();
+    updateThisTurn((s) =>
+      settleTurnSnapshot(noteUnresumedBackgroundWork(s, hold), outcome),
+    );
     finishTurn();
     const finished = sessions.get(cardId);
     // The cache becomes the only copy after this, so a failed write keeps
@@ -515,6 +569,7 @@ const server = net.createServer((socket) => {
         session.pendingApprovalResolve(computeStopResolution());
         session.pendingApprovalResolve = null;
       }
+      session?.releasePrompt?.();
       session?.abortController.abort();
       if (session) {
         // Marked stopped BEFORE writing the terminal snapshot so the

@@ -56,6 +56,7 @@ import { TagPicker } from '@/components/tags/TagPicker';
 import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
 import { SessionTranscript } from './SessionTranscript';
+import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
 import { UsageSummary } from './UsageSummary';
 import { PromptBody } from './PromptBody';
 import { CardComposerDialog } from './CardComposerDialog';
@@ -690,6 +691,8 @@ export function CardViewDialog({
           ) : null}
 
           <SessionTranscript cardId={cardId} expanded={chatExpanded} />
+
+          <BackgroundTasksIndicator cardId={cardId} />
 
           {/*
             Shown for the whole life of a session, not only while a turn is

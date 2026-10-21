@@ -12,9 +12,11 @@ import os from 'os';
 import path from 'path';
 import {
   buildQueryPrompt,
+  createPromptGate,
   singleUserMessageStream,
   transcriptImagesFrom,
   UnreadableImageError,
+  userMessageFromPrompt,
 } from '../main/daemon/queryPrompt';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -195,6 +197,62 @@ describe('singleUserMessageStream', () => {
     for await (const item of singleUserMessageStream(message))
       yielded.push(item);
     expect(yielded).toEqual([message]);
+  });
+});
+
+describe('createPromptGate', () => {
+  const first = userMessageFromPrompt('run the tests');
+
+  it('wraps a text prompt as one user message and passes an image message through', () => {
+    expect(userMessageFromPrompt('run the tests')).toMatchObject({
+      type: 'user',
+      session_id: '',
+      parent_tool_use_id: null,
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: 'run the tests' }],
+      },
+    });
+    const image = userMessageFromPrompt('look');
+    expect(userMessageFromPrompt(image)).toBe(image);
+  });
+
+  it('yields the first message and then stays open until release', async () => {
+    const gate = createPromptGate(first);
+    const iterator = gate.stream[Symbol.asyncIterator]();
+    await expect(iterator.next()).resolves.toEqual({
+      done: false,
+      value: first,
+    });
+
+    let settled = false;
+    const waiting = iterator.next().then((next) => {
+      settled = true;
+      return next;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    gate.release();
+    await expect(waiting).resolves.toEqual({ done: true, value: undefined });
+  });
+
+  it('delivers a later message into the same stream, and ignores one pushed after release', async () => {
+    const gate = createPromptGate(first);
+    const iterator = gate.stream[Symbol.asyncIterator]();
+    await iterator.next();
+
+    const followUp = userMessageFromPrompt('continue');
+    const waiting = iterator.next();
+    gate.push(followUp);
+    await expect(waiting).resolves.toEqual({ done: false, value: followUp });
+
+    gate.release();
+    gate.push(userMessageFromPrompt('too late'));
+    await expect(iterator.next()).resolves.toEqual({
+      done: true,
+      value: undefined,
+    });
   });
 });
 
