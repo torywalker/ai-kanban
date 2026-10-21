@@ -10,6 +10,7 @@ import {
   Archive,
   ArchiveRestore,
   Copy,
+  ExternalLink,
   Loader2,
   Maximize2,
   Minimize2,
@@ -673,6 +674,20 @@ export function CardViewDialog({
               updateCard(boardId, listId, cardId, { attachments: next })
             }
           />
+
+          {/* Rendered only when a link is set. */}
+          {card.link ? (
+            <button
+              type="button"
+              onClick={() => api.shell.openExternal(card.link)}
+              className="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink className="size-3.5 shrink-0" />
+              <span className="truncate underline-offset-2 hover:underline">
+                {card.link}
+              </span>
+            </button>
+          ) : null}
 
           {/*
             Rendered only when non-empty. `notes` is optional on most cards
