@@ -90,6 +90,40 @@ describe('archiving cards', () => {
     Element.prototype.setPointerCapture = jest.fn();
     Element.prototype.releasePointerCapture = jest.fn();
     Element.prototype.scrollIntoView = jest.fn();
+
+    // Radix context menus (right-click) position themselves with
+    // DOMRect.fromRect, which jsdom does not provide. A static method is
+    // all the menu calls.
+    if (typeof window.DOMRect === 'undefined') {
+      Object.defineProperty(window, 'DOMRect', {
+        configurable: true,
+        value: {
+          fromRect(
+            rect: {
+              x?: number;
+              y?: number;
+              width?: number;
+              height?: number;
+            } = {},
+          ) {
+            const x = rect.x ?? 0;
+            const y = rect.y ?? 0;
+            const width = rect.width ?? 0;
+            const height = rect.height ?? 0;
+            return {
+              x,
+              y,
+              width,
+              height,
+              top: y,
+              left: x,
+              bottom: y + height,
+              right: x + width,
+            };
+          },
+        },
+      });
+    }
   });
 
   beforeEach(async () => {
@@ -192,6 +226,33 @@ describe('archiving cards', () => {
     expect(waiting.find((c) => c.id === waitingCard)!.archived).toBe(true);
     expect(waiting.find((c) => c.id === extraWaiting)!.archived).toBe(true);
     expect(done.find((c) => c.id === doneCard)!.archived).toBe(false);
+  });
+
+  it('archives a card from its right-click menu', () => {
+    renderListColumn(boardId, waitingId);
+
+    fireEvent.contextMenu(screen.getByText('Keep me visible'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }));
+
+    const card = useDocStore
+      .getState()
+      .doc!.boards[0].lists[0].cards.find((c) => c.id === waitingCard);
+    expect(card!.archived).toBe(true);
+    expect(screen.queryByText('Keep me visible')).not.toBeInTheDocument();
+  });
+
+  it('offers Unarchive from the right-click menu once a card is archived', () => {
+    useDocStore.getState().archiveCard(boardId, waitingId, waitingCard);
+    useUiStore.setState({ showArchived: true });
+    renderListColumn(boardId, waitingId);
+
+    fireEvent.contextMenu(screen.getByText('Keep me visible'));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unarchive' }));
+
+    const card = useDocStore
+      .getState()
+      .doc!.boards[0].lists[0].cards.find((c) => c.id === waitingCard);
+    expect(card!.archived).toBe(false);
   });
 
   /**

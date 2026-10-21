@@ -5,6 +5,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { useDocStore } from '@/store/docStore';
 import { MoveCardToBoardDialog } from './MoveCardToBoardDialog';
 
 interface Props {
@@ -16,31 +17,38 @@ interface Props {
 }
 
 /**
- * Shared actions a menu item's `onSelect` can reach for. Today that's just
- * opening the move dialog; a future item that needs its own modal (e.g.
- * "Duplicate") would add another opener here rather than each item owning
- * private state.
+ * Shared actions a menu item's `onSelect` can reach for. Today that's
+ * opening the move dialog and toggling archive state; a future item that
+ * needs its own modal (e.g. "Duplicate") would add another opener here
+ * rather than each item owning private state.
  */
 interface CardMenuActions {
+  archived: boolean;
   openMoveDialog: () => void;
+  toggleArchived: () => void;
 }
 
 interface CardMenuItemConfig {
   id: string;
-  label: string;
+  label: (actions: CardMenuActions) => string;
   onSelect: (actions: CardMenuActions) => void;
 }
 
 /**
  * The card right-click menu's contents. Adding a future option — Duplicate,
- * Archive, Delete, etc. — is one more entry in this array; nothing else
- * about how the menu is built or wired into `PromptCard` needs to change.
+ * Delete, etc. — is one more entry in this array; nothing else about how
+ * the menu is built or wired into `PromptCard` needs to change.
  */
 const CARD_CONTEXT_MENU_ITEMS: CardMenuItemConfig[] = [
   {
     id: 'move-to-board',
-    label: 'Move to board…',
+    label: () => 'Move to board…',
     onSelect: (actions) => actions.openMoveDialog(),
+  },
+  {
+    id: 'archive',
+    label: (actions) => (actions.archived ? 'Unarchive' : 'Archive'),
+    onSelect: (actions) => actions.toggleArchived(),
   },
 ];
 
@@ -59,9 +67,23 @@ export function CardContextMenu({
   children,
 }: Props) {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const archived = useDocStore(
+    (s) =>
+      s.doc?.boards
+        .find((b) => b.id === boardId)
+        ?.lists.find((l) => l.id === listId)
+        ?.cards.find((c) => c.id === cardId)?.archived ?? false,
+  );
+  const archiveCard = useDocStore((s) => s.archiveCard);
+  const unarchiveCard = useDocStore((s) => s.unarchiveCard);
 
   const actions: CardMenuActions = {
+    archived,
     openMoveDialog: () => setMoveDialogOpen(true),
+    toggleArchived: () =>
+      archived
+        ? unarchiveCard(boardId, listId, cardId)
+        : archiveCard(boardId, listId, cardId),
   };
 
   return (
@@ -74,7 +96,7 @@ export function CardContextMenu({
               key={item.id}
               onSelect={() => item.onSelect(actions)}
             >
-              {item.label}
+              {item.label(actions)}
             </ContextMenuItem>
           ))}
         </ContextMenuContent>
