@@ -21,21 +21,36 @@ const STATUS_COLOR: Record<SessionStatus, string> = {
   interrupted: 'text-muted-foreground',
 };
 
+function statusLabel(status: SessionStatus, backgroundLabel: string): string {
+  if (backgroundLabel === 'finished') {
+    return 'Background command finished, waiting for Claude';
+  }
+  if (backgroundLabel) return `Background: ${backgroundLabel}`;
+  return STATUS_LABEL[status];
+}
+
 interface Props {
   cardId: string;
 }
 
 export function SessionStatusBadge({ cardId }: Props) {
-  const snapshot = useSessionStore((s) => s.sessions[cardId]);
-  if (!snapshot) return null;
+  const status = useSessionStore((s) => s.sessions[cardId]?.status);
+  const backgroundLabel = useSessionStore((s) => {
+    const session = s.sessions[cardId];
+    if (!session?.backgroundTasks?.length) {
+      return session?.backgroundContinuing ? 'finished' : '';
+    }
+    return session.backgroundTasks.map((task) => task.description).join(', ');
+  });
+  if (!status) return null;
 
-  const label = STATUS_LABEL[snapshot.status];
+  const label = statusLabel(status, backgroundLabel);
   const Icon =
-    snapshot.status === 'working'
+    status === 'working'
       ? Loader2
-      : snapshot.status === 'done'
+      : status === 'done'
         ? CircleCheck
-        : snapshot.status === 'interrupted'
+        : status === 'interrupted'
           ? Unplug
           : CircleAlert;
 
@@ -44,7 +59,7 @@ export function SessionStatusBadge({ cardId }: Props) {
       <Icon
         role="img"
         aria-label={label}
-        className={`size-3.5 ${STATUS_COLOR[snapshot.status]} ${snapshot.status === 'working' ? 'animate-spin' : ''}`}
+        className={`size-3.5 ${STATUS_COLOR[status]} ${status === 'working' ? 'animate-spin' : ''}`}
       />
     </span>
   );

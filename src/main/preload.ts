@@ -89,6 +89,10 @@ const api = {
     openExternal: (url: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.openExternal, url),
   },
+  notifications: {
+    taskFinished: (cardTitle: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.notificationTaskFinished, cardTitle),
+  },
   session: {
     run: (
       cardId: string,

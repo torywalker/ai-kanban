@@ -16,7 +16,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { SessionSnapshot } from '../shared/daemonProtocol';
-import { cacheDirFor, readCachedSnapshot, writeCachedSnapshot } from '../main/daemon/sessionCache';
+import {
+  cacheDirFor,
+  enqueueCachedSnapshot,
+  readCachedSnapshot,
+  writeCachedSnapshot,
+} from '../main/daemon/sessionCache';
 
 function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   return {
@@ -42,7 +47,9 @@ describe('writeCachedSnapshot + readCachedSnapshot', () => {
   let cacheDir: string;
 
   beforeEach(() => {
-    cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-kanban-session-cache-test-'));
+    cacheDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'ai-kanban-session-cache-test-'),
+    );
   });
 
   afterEach(() => {
@@ -68,16 +75,47 @@ describe('writeCachedSnapshot + readCachedSnapshot', () => {
 
   it('returns null (not a throw) for a corrupt cache file', () => {
     fs.mkdirSync(cacheDir, { recursive: true });
-    fs.writeFileSync(path.join(cacheDir, 'crd_corrupt.json'), '{ not valid json');
+    fs.writeFileSync(
+      path.join(cacheDir, 'crd_corrupt.json'),
+      '{ not valid json',
+    );
     expect(readCachedSnapshot(cacheDir, 'crd_corrupt')).toBeNull();
   });
 
   it('keeps different cards in separate files, overwriting only the one written', () => {
-    writeCachedSnapshot(cacheDir, snapshot({ cardId: 'crd_a', status: 'done' }));
-    writeCachedSnapshot(cacheDir, snapshot({ cardId: 'crd_b', status: 'failed' }));
-    writeCachedSnapshot(cacheDir, snapshot({ cardId: 'crd_a', status: 'interrupted' }));
+    writeCachedSnapshot(
+      cacheDir,
+      snapshot({ cardId: 'crd_a', status: 'done' }),
+    );
+    writeCachedSnapshot(
+      cacheDir,
+      snapshot({ cardId: 'crd_b', status: 'failed' }),
+    );
+    writeCachedSnapshot(
+      cacheDir,
+      snapshot({ cardId: 'crd_a', status: 'interrupted' }),
+    );
 
     expect(readCachedSnapshot(cacheDir, 'crd_a')?.status).toBe('interrupted');
     expect(readCachedSnapshot(cacheDir, 'crd_b')?.status).toBe('failed');
+  });
+
+  it('does not let a superseded checkpoint overwrite a newer durable snapshot', async () => {
+    const quiet = enqueueCachedSnapshot(
+      cacheDir,
+      snapshot({
+        status: 'working',
+        messages: [
+          { id: 'evt_1:0', kind: 'text', text: 'Still working', seq: 1 },
+        ],
+      }),
+    );
+    writeCachedSnapshot(
+      cacheDir,
+      snapshot({ status: 'done', lastError: null }),
+    );
+    await quiet;
+
+    expect(readCachedSnapshot(cacheDir, 'crd_1')?.status).toBe('done');
   });
 });

@@ -32,14 +32,67 @@ function cacheFilePath(cacheDir: string, cardId: string): string {
  * future reattach, it is not a durability guarantee this daemon depends
  * on to keep functioning right now.
  */
-export function writeCachedSnapshot(cacheDir: string, snapshot: SessionSnapshot): void {
+const cacheRevision = new Map<string, number>();
+let cacheShuttingDown = false;
+
+function nextCacheRevision(cardId: string): number {
+  const revision = (cacheRevision.get(cardId) ?? 0) + 1;
+  cacheRevision.set(cardId, revision);
+  return revision;
+}
+
+export function writeCachedSnapshot(
+  cacheDir: string,
+  snapshot: SessionSnapshot,
+): boolean {
+  nextCacheRevision(snapshot.cardId);
   try {
     fs.mkdirSync(cacheDir, { recursive: true });
-    fs.writeFileSync(cacheFilePath(cacheDir, snapshot.cardId), JSON.stringify(snapshot));
+    fs.writeFileSync(
+      cacheFilePath(cacheDir, snapshot.cardId),
+      JSON.stringify(snapshot),
+    );
+    return true;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('daemon: failed to write session cache', error);
+    return false;
+  }
+}
+
+/**
+ * Writes a progress checkpoint without blocking the session on disk. A newer
+ * durable write (or shutdown) wins: this rename is skipped once its revision
+ * is no longer current.
+ */
+export async function enqueueCachedSnapshot(
+  cacheDir: string,
+  snapshot: SessionSnapshot,
+): Promise<void> {
+  const revision = nextCacheRevision(snapshot.cardId);
+  const filePath = cacheFilePath(cacheDir, snapshot.cardId);
+  const tempPath = `${filePath}.${revision}.tmp`;
+  try {
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    await fs.promises.writeFile(tempPath, JSON.stringify(snapshot));
+    if (cacheShuttingDown || cacheRevision.get(snapshot.cardId) !== revision) {
+      try {
+        await fs.promises.unlink(tempPath);
+      } catch {
+        // The temp file may already have been removed.
+      }
+      return;
+    }
+    fs.renameSync(tempPath, filePath);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('daemon: failed to write session cache', error);
   }
+}
+
+/** Stops a checkpoint rename from overwriting the shutdown's durable write. */
+export function stopQueuedCacheWrites(): void {
+  cacheShuttingDown = true;
 }
 
 /**

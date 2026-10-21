@@ -38,21 +38,21 @@ export function transcriptImagesFrom(
 }
 
 /**
- * The `prompt` a turn should be handed to the SDK.
+ * The user message a turn should be handed to the SDK, before it is wrapped
+ * in {@link createPromptGate}.
  *
- * Text-only turns keep the literal string they have always used. That is
- * not cosmetic: the SDK branches on `typeof prompt === 'string'` to set its
- * internal `isSingleUserTurn` flag (verified in the installed
- * `sdk.mjs`), which is what closes the CLI's stdin once the first `result`
- * message arrives — i.e. what makes the turn end at all. The streamed form
- * below reaches the same end state by a different route (see
- * {@link singleUserMessageStream}), but there is no reason to take it when
- * there are no images.
+ * Text-only turns used to be handed over as a bare string. That is not a
+ * harmless shortcut: the SDK branches on `typeof prompt === 'string'` to set
+ * its internal `isSingleUserTurn` flag (verified in the installed
+ * `sdk.mjs`), and that flag closes the CLI's stdin at the first `result`.
+ * A command the model put in the background dies with that process, which
+ * is why a card could say it was "running in the background" and then never
+ * resume. `runTurn` always streams, and closes the stream itself once
+ * background work is actually finished.
  *
- * With images, the turn becomes one user message whose content is every
- * image block in attachment order followed by exactly one text block —
- * images first because the text almost always refers back to them
- * ("what's wrong with this screenshot?").
+ * With images, the message content is every image block in attachment order
+ * followed by exactly one text block — images first because the text almost
+ * always refers back to them ("what's wrong with this screenshot?").
  *
  * Every file is read up front. The first unreadable one throws, so a turn
  * with a missing attachment never reaches `query()`: a half-sent prompt
@@ -104,28 +104,90 @@ export async function buildQueryPrompt(
 }
 
 /**
- * Wraps the one user message in the `AsyncIterable` the SDK's `query()`
- * actually accepts — its `prompt` is `string | AsyncIterable<
- * SDKUserMessage>`, never a bare message object.
+ * The one user message as the `AsyncIterable` `query()` accepts — its
+ * `prompt` is `string | AsyncIterable<SDKUserMessage>`, never a bare
+ * message object.
  *
- * Ending the iterable after a single message is what keeps this a one-shot
- * turn: the SDK's `streamInput` writes the message and then calls
- * `endInput()` unconditionally once the iterable is exhausted, so the CLI's
- * stdin always closes and the output iterator always ends. Nothing here can
- * hang waiting for a second message that will never come.
- *
- * `hasBidirectionalNeeds()` (true whenever `canUseTool` is set, which
- * `buildSessionPermissionOptions` guarantees) only changes WHEN that close
- * happens: it defers it until the first `result` arrives, which is what
- * keeps the control channel open for tool-approval round trips mid-turn —
- * the same point at which a plain string prompt closes stdin. Losing
- * `canUseTool` would close stdin sooner, not leave the turn hanging; the
- * cost would be approvals, not liveness. `SessionPermissionOptions` types
- * `canUseTool` as required and `daemonPermissionConfig.test.ts` asserts the
- * exact option keys, so it cannot quietly go missing.
+ * Yielding once and returning is the one-shot form: `streamInput` then
+ * calls `endInput()`, and a background command dies with the process.
+ * {@link createPromptGate} is what `runTurn` actually passes. This remains
+ * for the case that genuinely wants that close.
  */
 export async function* singleUserMessageStream(
   message: SDKUserMessage,
 ): AsyncIterable<SDKUserMessage> {
   yield message;
+}
+
+/** A text prompt in the same shape `buildQueryPrompt` uses for images. */
+export function userMessageFromPrompt(
+  prompt: string | SDKUserMessage,
+): SDKUserMessage {
+  if (typeof prompt !== 'string') return prompt;
+  return {
+    type: 'user',
+    session_id: '',
+    parent_tool_use_id: null,
+    message: { role: 'user', content: [{ type: 'text', text: prompt }] },
+  };
+}
+
+/**
+ * An input stream that stays open after the first message.
+ *
+ * `streamInput` only calls `endInput()` once this iterable finishes. Holding
+ * it open is what keeps the Claude process — and any command it backgrounded
+ * — alive past the first `result`. `push` delivers a later message into the
+ * same process (the "continue" nudge). `release` lets the iterable finish;
+ * it is safe to call more than once, and drops anything still queued so a
+ * stop does not send one last message into a process that is going away.
+ */
+export function createPromptGate(first: SDKUserMessage): {
+  stream: AsyncIterable<SDKUserMessage>;
+  push: (message: SDKUserMessage) => void;
+  release: () => void;
+} {
+  const pending: SDKUserMessage[] = [first];
+  let released = false;
+  let wake: (() => void) | null = null;
+
+  const stream: AsyncIterable<SDKUserMessage> = {
+    async *[Symbol.asyncIterator]() {
+      while (!released) {
+        if (pending.length === 0) {
+          // The assignment is the waiter for this one stream. It is not a
+          // per-iteration callback racing a changing binding: `wake` is the
+          // slot `push`/`release` fire, and only one next() is outstanding.
+          // eslint-disable-next-line no-await-in-loop, no-loop-func
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+        } else {
+          const next = pending.shift();
+          if (next) yield next;
+        }
+      }
+    },
+  };
+
+  const resume = (): void => {
+    const pendingWake = wake;
+    wake = null;
+    pendingWake?.();
+  };
+
+  return {
+    stream,
+    push(message) {
+      if (released) return;
+      pending.push(message);
+      resume();
+    },
+    release() {
+      if (released) return;
+      released = true;
+      pending.length = 0;
+      resume();
+    },
+  };
 }

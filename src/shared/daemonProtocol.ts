@@ -91,7 +91,7 @@ export interface TranscriptImageRef {
  */
 export interface TranscriptMessage {
   id: string;
-  kind: 'text' | 'thinking' | 'user';
+  kind: 'text' | 'thinking' | 'user' | 'note';
   text: string;
   seq: number;
   /**
@@ -114,6 +114,16 @@ export interface PendingApproval {
  * message, and inventing a price here would mean maintaining a local rate
  * table that goes stale the moment Anthropic changes rates.
  */
+/**
+ * One live background command or subagent, as shown on the card. `id` is
+ * the CLI's task id. `description` is the model's own one-line label when
+ * it gave one ("Run full Jest test suite in background").
+ */
+export interface BackgroundTask {
+  id: string;
+  description: string;
+}
+
 export interface LiveTokenUsage {
   inputTokens: number;
   outputTokens: number;
@@ -142,6 +152,20 @@ export interface SessionSnapshot {
    * hydrate without it (the cache is deliberately unvalidated).
    */
   liveUsage?: Record<string, LiveTokenUsage>;
+  /**
+   * Commands and subagents the model has put in the background and that
+   * this Claude process is still running. Absent (not `[]`) when nothing
+   * is, so a snapshot from before this field hydrates unchanged. Cleared
+   * the moment the process is gone: a finished or reloaded card must not
+   * keep claiming work that died with the process.
+   */
+  backgroundTasks?: BackgroundTask[];
+  /**
+   * The background work has finished and the same process is being held
+   * open so Claude can read the result and continue. Absent once that
+   * follow-up starts, or once the turn ends.
+   */
+  backgroundContinuing?: true;
 }
 
 export type DaemonRequest =
@@ -153,9 +177,9 @@ export type DaemonRequest =
       approvalMode: ApprovalMode;
       model: string | null;
       /**
-       * The card's own attachments. Omitted/empty keeps the turn on the
-       * plain string prompt the SDK has always been given — see
-       * `queryPrompt.ts`.
+       * The card's own attachments. Omitted or empty is a text-only turn.
+       * Either way the daemon holds the prompt stream open until background
+       * work has finished — see `queryPrompt.ts`.
        */
       images?: DaemonImage[];
     }
@@ -212,11 +236,10 @@ export type DaemonRequest =
   | { op: 'ping' };
 
 /**
- * The daemon always emits the FULL current snapshot on any change, never an
- * incremental delta — the same "whole document, not a diff" philosophy this
- * app's own data file already uses. Simpler consumer logic (replace, don't
- * merge) at the cost of resending the checklist on every change; the payload
- * is small enough that this is free.
+ * A snapshot replaces the client's whole entry for that card. Progress is
+ * coalesced by the daemon: a long turn must not serialize and resend the
+ * accumulated transcript on every SDK message. Clients still do not merge
+ * partial events.
  */
 export type DaemonEvent =
   | { event: 'snapshot'; snapshot: SessionSnapshot }

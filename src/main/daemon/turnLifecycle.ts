@@ -4,6 +4,7 @@ import type {
   TranscriptImageRef,
   TranscriptMessage,
 } from '@shared/daemonProtocol';
+import { withoutBackgroundHold } from './backgroundTasks';
 
 /**
  * Pure decision helpers for the daemon's per-card turn lifecycle, extracted
@@ -114,8 +115,11 @@ export function startTurnSnapshot(
   // `liveUsage: {}` on BOTH paths: the live figure is scoped to the turn in
   // flight, so a reply must start its own count from zero rather than
   // inheriting the previous turn's — those tokens are already in the ledger.
+  // A new process starts with an empty background set. Carrying the
+  // previous turn's tasks forward would show a command that process is
+  // not running.
   const base = {
-    ...previous,
+    ...withoutBackgroundHold(previous),
     status: 'working' as const,
     lastError: null,
     liveUsage: {},
@@ -132,15 +136,21 @@ export function startTurnSnapshot(
  * whatever daemon was running it, and nothing will ever move it off that
  * status again on its own. Left as-is, the UI would show a spinner (or a
  * stale, unresolvable approval box) for a turn that can never finish.
- * Anything already terminal (`done`/`failed`/`interrupted`) is left
- * completely untouched — those are legitimately accurate as cached.
+ * Anything already terminal (`done`/`failed`/`interrupted`) keeps its
+ * status. A background-task list is still dropped: it described a process
+ * that is gone, and a snapshot that never had one is returned as-is.
  */
 export function normalizeHydratedSnapshot(
   cached: SessionSnapshot,
 ): SessionSnapshot {
-  if (cached.status !== 'working' && cached.status !== 'waiting') return cached;
+  // Whatever this snapshot last said was running died with the process
+  // that wrote it. A terminal snapshot that never carried the field comes
+  // back as the same object.
+  const stripped = withoutBackgroundHold(cached);
+  if (cached.status !== 'working' && cached.status !== 'waiting')
+    return stripped;
   return {
-    ...cached,
+    ...stripped,
     status: 'interrupted',
     pendingApproval: null,
     lastError: HYDRATED_MID_TURN_ERROR,
@@ -159,7 +169,7 @@ export function normalizeHydratedSnapshot(
  */
 export function stopSnapshot(previous: SessionSnapshot): SessionSnapshot {
   return {
-    ...previous,
+    ...withoutBackgroundHold(previous),
     status: 'failed',
     lastError: STOPPED_BY_USER_ERROR,
     pendingApproval: null,
@@ -212,7 +222,7 @@ export function settleTurnSnapshot(
   snapshot: SessionSnapshot,
   outcome: TurnOutcome | null,
 ): SessionSnapshot {
-  const settled = { ...snapshot, pendingApproval: null };
+  const settled = { ...withoutBackgroundHold(snapshot), pendingApproval: null };
   if (!outcome || outcome.kind === 'success') {
     return { ...settled, status: 'done', lastError: null };
   }

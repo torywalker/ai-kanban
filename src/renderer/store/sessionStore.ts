@@ -5,6 +5,7 @@ import {
   playTaskFinishedSound,
   playNeedsInputSound,
 } from '@/lib/notificationSound';
+import showTaskFinishedNotification from '@/lib/nativeNotification';
 
 interface SessionStore {
   sessions: Record<string, SessionSnapshot>;
@@ -45,8 +46,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // was already true", not "what just happened" -- consume the flag and
     // apply the status silently, with no chime.
     if (pendingReattachCardIds.delete(snapshot.cardId)) return;
-    if (snapshot.status === 'done') playTaskFinishedSound();
-    else if (snapshot.status === 'waiting') playNeedsInputSound();
+    if (snapshot.status === 'done') {
+      // `done` is emitted only after the SDK iterator has closed, so any
+      // foreground/background Claude work for this card has drained.
+      playTaskFinishedSound();
+      showTaskFinishedNotification(snapshot.cardId);
+    } else if (snapshot.status === 'waiting') {
+      playNeedsInputSound();
+    }
   },
 
   clearSession: (cardId) =>

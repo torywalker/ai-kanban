@@ -21,6 +21,7 @@ export const CHANNELS = {
   attachmentsPasteFromClipboard: 'attachments:paste-from-clipboard',
   clipboardWrite: 'clipboard:write',
   openExternal: 'shell:open-external',
+  notificationTaskFinished: 'notification:task-finished',
   sessionRun: 'session:run',
   sessionReply: 'session:reply',
   sessionApprove: 'session:approve',
