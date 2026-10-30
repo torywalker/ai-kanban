@@ -55,6 +55,7 @@ import {
   type SnapshotPersistTiming,
 } from './snapshotPublisher';
 import { buildUsageEntries } from './usageEntry';
+import { createTranscriptUsageReader } from './transcriptUsage';
 import { appendUsageEntries, usageLedgerPathFor } from './usageLedger';
 import {
   computeBuildId,
@@ -104,6 +105,7 @@ if (fs.existsSync(socketPath)) {
 
 const cacheDir = cacheDirFor(socketPath);
 const usageLedgerPath = usageLedgerPathFor(socketPath);
+const transcriptUsage = createTranscriptUsageReader();
 
 /**
  * This process hashes its OWN bundle (argv[1] is the path it was launched
@@ -178,7 +180,24 @@ const terminalHost = createTerminalHost({
   baseEnv: process.env,
   publishSnapshot: (snapshot) => snapshotPublisher.publish(snapshot),
   publishEvent: broadcast,
-  onUsageBatch: () => undefined,
+  onUsageBatch: (cardId, transcriptPath, first) => {
+    // The reader is defensive, but a throw here would still be an uncaught
+    // exception on the hook-poll timer and take every live session with it.
+    try {
+      appendUsageEntries(
+        usageLedgerPath,
+        transcriptUsage.read(
+          cardId,
+          transcriptPath,
+          first,
+          new Date().toISOString(),
+        ),
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('daemon: failed to record terminal usage', error);
+    }
+  },
   now: () => Date.now(),
 });
 
