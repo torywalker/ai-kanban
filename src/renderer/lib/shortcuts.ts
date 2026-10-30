@@ -16,6 +16,7 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['⌘', 'Z'], description: 'Undo' },
   { keys: ['⌘', '⇧', 'Z'], description: 'Redo' },
   { keys: ['⌘', 'N'], description: 'New card' },
+  { keys: ['⌘', '⌥', 'N'], description: 'New prompt from anywhere' },
   { keys: ['⌘', 'B'], description: 'Toggle sidebar' },
   { keys: ['⌘', '⌥', '↑ / ↓'], description: 'Switch board' },
   { keys: ['⌘', 'K'], description: 'Search cards' },

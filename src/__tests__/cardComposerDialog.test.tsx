@@ -109,6 +109,29 @@ describe('CardComposerDialog', () => {
     });
   });
 
+  describe('saving an existing card', () => {
+    it('edits the card in place without adding a copy', () => {
+      render(
+        <CardComposerDialog
+          open
+          onOpenChange={() => {}}
+          boardId={boardId}
+          listId={listId}
+          cardId={cardId}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText('Title'), {
+        target: { value: 'Edited title' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      const cards = useDocStore.getState().doc!.boards[0].lists[0].cards;
+      expect(cards.map((card) => card.id)).toEqual([cardId]);
+      expect(cards[0].title).toBe('Edited title');
+    });
+  });
+
   describe('worktree override', () => {
     it('writes the override when creating a new card', () => {
       render(

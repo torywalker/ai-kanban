@@ -45,6 +45,12 @@ export const CHANNELS = {
   gitShipStatus: 'git:ship-status',
   gitShipStatusGet: 'git:ship-status-get',
   gitShipCancel: 'git:ship-cancel',
+  // The floating quick-add panel is a second window. It asks the main
+  // window's renderer (which owns the open document) to read and to add.
+  quickAddContext: 'quick-add:context',
+  quickAddCommit: 'quick-add:commit',
+  quickAddAsk: 'quick-add:ask',
+  quickAddReply: 'quick-add:reply',
 } as const;
 
 export type IpcResult<T> =

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CardColor, Priority } from '@shared/schema';
 import type { AttachmentMeta } from '@shared/attachments';
+import type { QuickAddBoardChoice } from '@shared/quickAdd';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -12,8 +13,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useDocStore } from '@/store/docStore';
+import { useDocStore, type NewCardFields } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { api } from '@/lib/api';
 import { TagPicker } from '@/components/tags/TagPicker';
@@ -41,6 +49,24 @@ interface Props {
   boardId: string;
   listId: string;
   cardId: string | null;
+  /**
+   * Set by the floating quick-add window. Absent for the in-app composer,
+   * which already belongs to one board.
+   *
+   * Defaults live as absent props rather than defaultProps: React 19 warns
+   * on defaultProps for function components, and the in-app composer must
+   * keep working when these are omitted.
+   */
+  // eslint-disable-next-line react/require-default-props
+  boardChoices?: QuickAddBoardChoice[];
+  // eslint-disable-next-line react/require-default-props
+  onBoardChange?: (boardId: string) => void;
+  /**
+   * When set, a new card is handed back instead of being written into the
+   * local document. Return false to keep the dialog open (the save failed).
+   */
+  // eslint-disable-next-line react/require-default-props
+  onCreate?: (fields: NewCardFields) => boolean | Promise<boolean>;
 }
 
 export function CardComposerDialog({
@@ -49,6 +75,9 @@ export function CardComposerDialog({
   boardId,
   listId,
   cardId,
+  boardChoices,
+  onBoardChange,
+  onCreate,
 }: Props) {
   const existing = useDocStore((s) =>
     cardId
@@ -148,25 +177,41 @@ export function CardComposerDialog({
         sessionModel,
         useWorktree,
       });
-    } else {
-      // addCard registers new tag names and creates the card in a single
-      // mutate/commit, so one Save is one undo step.
-      addCard(boardId, listId, {
-        id: draftCardId,
-        title: trimmedTitle,
-        prompt,
-        attachments: draftAttachmentsRef.current,
-        tags,
-        priority,
-        color,
-        dueDate,
-        notes,
-        link: link.trim(),
-        sessionRepo,
-        sessionModel,
-        useWorktree,
-      });
+      onOpenChange(false);
+      return;
     }
+    const fields: NewCardFields = {
+      id: draftCardId,
+      title: trimmedTitle,
+      prompt,
+      attachments: draftAttachmentsRef.current,
+      tags,
+      priority,
+      color,
+      dueDate,
+      notes,
+      link: link.trim(),
+      sessionRepo,
+      sessionModel,
+      useWorktree,
+    };
+    if (onCreate) {
+      const created = onCreate(fields);
+      if (created instanceof Promise) {
+        created
+          .then((ok) => {
+            if (ok) onOpenChange(false);
+            return null;
+          })
+          .catch(() => null);
+        return;
+      }
+      if (created) onOpenChange(false);
+      return;
+    }
+    // addCard registers new tag names and creates the card in a single
+    // mutate/commit, so one Save is one undo step.
+    addCard(boardId, listId, fields);
     onOpenChange(false);
   };
 
@@ -332,6 +377,26 @@ export function CardComposerDialog({
         {/* See CardViewDialog for why header/footer need shrink-0 here. */}
         <DialogHeader className="shrink-0">
           <DialogTitle>{cardId ? 'Edit prompt' : 'New prompt'}</DialogTitle>
+          {boardChoices && onBoardChange && !cardId ? (
+            <div className="flex flex-col gap-1.5 text-left">
+              <Label htmlFor="card-board">Board</Label>
+              <Select value={boardId} onValueChange={onBoardChange}>
+                <SelectTrigger id="card-board" aria-label="Board">
+                  <SelectValue>
+                    {boardChoices.find((choice) => choice.id === boardId)
+                      ?.name ?? 'Choose a board'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {boardChoices.map((choice) => (
+                    <SelectItem key={choice.id} value={choice.id}>
+                      {choice.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">

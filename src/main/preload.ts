@@ -19,6 +19,12 @@ import type {
   AttachmentPickResult,
   AttachmentRef,
 } from '../shared/attachments';
+import type {
+  QuickAddAsk,
+  QuickAddCommitRequest,
+  QuickAddContextValue,
+  QuickAddReply,
+} from '../shared/quickAdd';
 
 const api = {
   settings: {
@@ -223,6 +229,22 @@ const api = {
         callback(snapshot);
       ipcRenderer.on(CHANNELS.gitShipStatus, listener);
       return () => ipcRenderer.removeListener(CHANNELS.gitShipStatus, listener);
+    },
+  },
+  quickAdd: {
+    context: (): Promise<IpcResult<QuickAddContextValue | null>> =>
+      ipcRenderer.invoke(CHANNELS.quickAddContext),
+    commit: (
+      commit: QuickAddCommitRequest,
+    ): Promise<IpcResult<QuickAddContextValue | null>> =>
+      ipcRenderer.invoke(CHANNELS.quickAddCommit, commit),
+    onAsk: (callback: (ask: QuickAddAsk) => void): (() => void) => {
+      const listener = (_event: unknown, ask: QuickAddAsk) => callback(ask);
+      ipcRenderer.on(CHANNELS.quickAddAsk, listener);
+      return () => ipcRenderer.removeListener(CHANNELS.quickAddAsk, listener);
+    },
+    reply: (reply: QuickAddReply): void => {
+      ipcRenderer.send(CHANNELS.quickAddReply, reply);
     },
   },
 };

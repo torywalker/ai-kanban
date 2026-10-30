@@ -12,6 +12,7 @@ import path from 'path';
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import { registerQuickAdd } from './quickAddWindow';
 import { registerIpc } from './services/registerIpc';
 import { stopWatching } from './services/watcher';
 import {
@@ -412,6 +413,7 @@ app
   .whenReady()
   .then(() => {
     createWindow();
+    registerQuickAdd(() => mainWindow);
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

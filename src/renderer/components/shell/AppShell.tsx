@@ -245,6 +245,68 @@ export function AppShell() {
     });
   }, []);
 
+  // The floating quick-add panel is another window. It cannot see this
+  // store, so it asks over IPC and this window — still running while it
+  // sits behind other apps — applies the card here.
+  useEffect(() => {
+    const bridge = window.electron?.quickAdd;
+    if (!bridge) return undefined;
+    return bridge.onAsk((ask) => {
+      const state = useDocStore.getState();
+      if (state.status.kind !== 'ready' || !state.doc) {
+        bridge.reply({
+          requestId: ask.requestId,
+          result: { ok: false, error: 'Open a board file first.' },
+        });
+        return;
+      }
+      if (ask.kind === 'context') {
+        bridge.reply({
+          requestId: ask.requestId,
+          result: {
+            ok: true,
+            value: {
+              doc: state.doc,
+              activeBoardId: state.activeBoardId,
+              defaultModel: state.defaultModel,
+              useWorktrees: state.useWorktrees,
+              slashSnippets: state.slashSnippets,
+            },
+          },
+        });
+        return;
+      }
+      if (!ask.commit) {
+        bridge.reply({
+          requestId: ask.requestId,
+          result: { ok: false, error: 'Open a board file first.' },
+        });
+        return;
+      }
+      const id = state.addCard(
+        ask.commit.boardId,
+        ask.commit.listId,
+        ask.commit.fields,
+      );
+      const landed = useDocStore
+        .getState()
+        .doc?.boards.find((board) => board.id === ask.commit?.boardId)
+        ?.lists.find((list) => list.id === ask.commit?.listId)
+        ?.cards.some((card) => card.id === id);
+      if (!landed) {
+        bridge.reply({
+          requestId: ask.requestId,
+          result: { ok: false, error: 'That board no longer has a column.' },
+        });
+        return;
+      }
+      bridge.reply({
+        requestId: ask.requestId,
+        result: { ok: true, value: null },
+      });
+    });
+  }, []);
+
   // Defensive reset for the quick-add dialog above: if the board it was
   // targeting stops existing (deleted, or an undo/redo lands on a document
   // that predates it) while the dialog is open, drop the open flag too --
