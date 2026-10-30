@@ -299,6 +299,64 @@ describe('createTranscriptUsageReader', () => {
     expect(row.costUSD).toBeCloseTo(perRequest, 10);
   });
 
+  it('bills only messages appended after prime', () => {
+    const file = path.join(dir, 'session.jsonl');
+    const usage = {
+      input_tokens: 1,
+      cache_read_input_tokens: 0,
+      cache_creation_input_tokens: 0,
+    };
+    fs.writeFileSync(
+      file,
+      `${[
+        assistantLine('msg_old_1', 'claude-sonnet-5', {
+          ...usage,
+          output_tokens: 10,
+        }),
+        assistantLine('msg_old_2', 'claude-sonnet-5', {
+          ...usage,
+          output_tokens: 20,
+        }),
+      ].join('\n')}\n`,
+    );
+    const reader = createTranscriptUsageReader();
+    reader.prime(file);
+    fs.appendFileSync(
+      file,
+      `${assistantLine('msg_new', 'claude-sonnet-5', {
+        ...usage,
+        output_tokens: 3,
+      })}\n`,
+    );
+
+    const rows = reader.read('crd_1', file, true, AT);
+    expect(rows).toEqual([
+      expect.objectContaining({
+        turnId: 'terminal:msg_new',
+        outputTokens: 3,
+        estimated: true,
+      }),
+    ]);
+  });
+
+  it('primes a missing file at offset 0 without throwing', () => {
+    const file = path.join(dir, 'missing.jsonl');
+    const reader = createTranscriptUsageReader();
+    expect(() => reader.prime(file)).not.toThrow();
+    fs.writeFileSync(
+      file,
+      `${assistantLine('msg_a', 'claude-sonnet-5', {
+        input_tokens: 1,
+        output_tokens: 2,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+      })}\n`,
+    );
+    expect(reader.read('crd_1', file, true, AT)).toEqual([
+      expect.objectContaining({ turnId: 'terminal:msg_a', outputTokens: 2 }),
+    ]);
+  });
+
   it('records an unknown model with its tokens and a zero cost', () => {
     const file = path.join(dir, 'session.jsonl');
     fs.writeFileSync(

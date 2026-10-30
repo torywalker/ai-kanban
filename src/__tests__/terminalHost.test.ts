@@ -54,6 +54,7 @@ let spawnCalls: Array<{ file: string; args: string[]; opts: unknown }>;
 let snapshots: SessionSnapshot[];
 let events: DaemonEvent[];
 let usage: jest.Mock;
+let transcriptStart: jest.Mock;
 let host: TerminalHost;
 let clock: number;
 
@@ -87,6 +88,7 @@ beforeEach(() => {
   snapshots = [];
   events = [];
   usage = jest.fn();
+  transcriptStart = jest.fn();
   clock = 0;
   host = createTerminalHost({
     spawnPty: (file, args, opts) => {
@@ -102,6 +104,7 @@ beforeEach(() => {
     publishSnapshot: (s) => snapshots.push(s),
     publishEvent: (e) => events.push(e),
     onUsageBatch: usage,
+    onTranscriptStart: transcriptStart,
     now: () => clock,
   });
 });
@@ -178,6 +181,7 @@ describe('start', () => {
       publishSnapshot: (s) => snapshots.push(s),
       publishEvent: (e) => events.push(e),
       onUsageBatch: usage,
+      onTranscriptStart: jest.fn(),
       now: () => Date.now(),
     });
     expect(() => failing.start(request())).not.toThrow();
@@ -202,6 +206,7 @@ describe('start', () => {
       publishSnapshot: (s) => snapshots.push(s),
       publishEvent: (e) => events.push(e),
       onUsageBatch: usage,
+      onTranscriptStart: jest.fn(),
       now: () => clock,
     });
     failing.start(request({ sessionId: null }));
@@ -267,6 +272,40 @@ describe('hook status', () => {
       sessionId: 'real',
       terminal: { shellAlive: true, claudeRunning: true },
     });
+  });
+
+  it('primes on every SessionStart that names a transcript, before Stop in the same poll', () => {
+    host.start(request());
+    const order: string[] = [];
+    transcriptStart.mockImplementation(() => order.push('start'));
+    usage.mockImplementation(() => order.push('usage'));
+    appendHook(
+      record({
+        hook_event_name: 'SessionStart',
+        session_id: 's',
+        transcript_path: '/tmp/a.jsonl',
+      }) +
+        record({
+          hook_event_name: 'Stop',
+          session_id: 's',
+          transcript_path: '/tmp/a.jsonl',
+        }),
+    );
+    jest.advanceTimersByTime(250);
+    expect(transcriptStart).toHaveBeenCalledTimes(1);
+    expect(transcriptStart).toHaveBeenCalledWith('crd_1', '/tmp/a.jsonl');
+    expect(order).toEqual(['start', 'usage']);
+
+    appendHook(
+      record({
+        hook_event_name: 'SessionStart',
+        session_id: 's',
+        transcript_path: '/tmp/b.jsonl',
+      }),
+    );
+    jest.advanceTimersByTime(250);
+    expect(transcriptStart).toHaveBeenCalledTimes(2);
+    expect(transcriptStart).toHaveBeenLastCalledWith('crd_1', '/tmp/b.jsonl');
   });
 
   it('records usage on Stop (first batch, then later ones) and on SessionEnd', () => {

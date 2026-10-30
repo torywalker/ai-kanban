@@ -180,6 +180,14 @@ const terminalHost = createTerminalHost({
   baseEnv: process.env,
   publishSnapshot: (snapshot) => snapshotPublisher.publish(snapshot),
   publishEvent: broadcast,
+  onTranscriptStart: (cardId, transcriptPath) => {
+    try {
+      transcriptUsage.prime(transcriptPath);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('daemon: failed to prime terminal usage', cardId, error);
+    }
+  },
   onUsageBatch: (cardId, transcriptPath, first) => {
     // The reader is defensive, but a throw here would still be an uncaught
     // exception on the hook-poll timer and take every live session with it.

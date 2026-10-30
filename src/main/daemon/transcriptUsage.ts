@@ -47,6 +47,23 @@ function cacheWrites(usage: Record<string, unknown>): {
   return { write5m: flat, write1h: 0, creation: flat };
 }
 
+function assistantMessageId(line: string): string | null {
+  if (!line) return null;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (typeof raw !== 'object' || raw === null) return null;
+  const record = raw as Record<string, unknown>;
+  if (record.type !== 'assistant') return null;
+  const { message } = record;
+  if (typeof message !== 'object' || message === null) return null;
+  const { id } = message as Record<string, unknown>;
+  return typeof id === 'string' && id ? id : null;
+}
+
 function parseAssistant(line: string): ParsedMessage | null {
   if (!line) return null;
   let raw: unknown;
@@ -122,6 +139,12 @@ function emptySum(): ModelSum {
 }
 
 export interface TranscriptUsageReader {
+  /**
+   * Treats the file's current contents as already billed. A resumed
+   * conversation appends to a transcript whose earlier turns were priced
+   * by the SDK or a previous daemon process.
+   */
+  prime: (transcriptPath: string) => void;
   read: (
     cardId: string,
     transcriptPath: string,
@@ -140,6 +163,45 @@ export function createTranscriptUsageReader(): TranscriptUsageReader {
   const cursors = new Map<string, TranscriptCursor>();
 
   return {
+    prime(transcriptPath) {
+      const fresh = { offset: 0, recordedIds: new Set<string>() };
+      let fd: number;
+      try {
+        fd = fs.openSync(transcriptPath, 'r');
+      } catch {
+        cursors.set(transcriptPath, fresh);
+        return;
+      }
+      try {
+        const { size } = fs.fstatSync(fd);
+        const buf = Buffer.alloc(size);
+        const read = size === 0 ? 0 : fs.readSync(fd, buf, 0, size, 0);
+        const bytes = buf.subarray(0, read);
+        const lastNewline = bytes.lastIndexOf(0x0a);
+        if (lastNewline < 0) {
+          cursors.set(transcriptPath, fresh);
+          return;
+        }
+        const recordedIds = new Set<string>();
+        bytes
+          .subarray(0, lastNewline + 1)
+          .toString('utf8')
+          .split('\n')
+          .forEach((line) => {
+            const id = assistantMessageId(line);
+            if (id) recordedIds.add(id);
+          });
+        cursors.set(transcriptPath, {
+          offset: lastNewline + 1,
+          recordedIds,
+        });
+      } catch {
+        cursors.set(transcriptPath, fresh);
+      } finally {
+        fs.closeSync(fd);
+      }
+    },
+
     read(cardId, transcriptPath, first, at) {
       const cursor = cursors.get(transcriptPath) ?? {
         offset: 0,

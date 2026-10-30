@@ -48,6 +48,8 @@ export interface TerminalHostDeps {
     transcriptPath: string,
     first: boolean,
   ) => void;
+  /** SessionStart: the transcript up to now is history, not a new bill. */
+  onTranscriptStart: (cardId: string, transcriptPath: string) => void;
   now: () => number;
 }
 
@@ -126,9 +128,13 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     const { events, rest } = splitHookRecords(terminal.pendingHook + text);
     terminal.pendingHook = rest;
     if (events.length === 0) return;
+    const transcriptStarts: string[] = [];
     const usageBatches: string[] = [];
     events.forEach((event) => {
       terminal.snapshot = applyHookEvent(terminal.snapshot, event);
+      if (event.name === 'SessionStart' && event.transcriptPath) {
+        transcriptStarts.push(event.transcriptPath);
+      }
       if (
         (event.name === 'Stop' || event.name === 'SessionEnd') &&
         event.transcriptPath
@@ -137,6 +143,11 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
       }
     });
     deps.publishSnapshot(terminal.snapshot);
+    // Prime every SessionStart in this poll before any Stop bills it.
+    // A resume appends to a transcript that already holds billed turns.
+    transcriptStarts.forEach((transcriptPath) => {
+      deps.onTranscriptStart(terminal.cardId, transcriptPath);
+    });
     usageBatches.forEach((transcriptPath) => {
       deps.onUsageBatch(terminal.cardId, transcriptPath, terminal.firstBatch);
       terminal.firstBatch = false;
