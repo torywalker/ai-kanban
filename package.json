@@ -201,6 +201,7 @@
     "files": [
       "dist",
       "node_modules",
+      "!**/node_modules/node-pty/prebuilds/win32-*",
       "package.json"
     ],
     "mac": {

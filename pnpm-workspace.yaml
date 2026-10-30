@@ -3,6 +3,8 @@
 # node_modules, which pnpm's default isolated layout does not provide.
 nodeLinker: hoisted
 
+# electron-rebuild reads Electron's ABI from node-abi; older releases don't
+# know Electron 35 and fail to rebuild node-pty. Bump this with Electron.
 overrides:
   node-abi: 4.40.0
 
