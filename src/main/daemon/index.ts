@@ -1,5 +1,6 @@
 import net from 'net';
 import fs from 'fs';
+import path from 'path';
 // `@anthropic-ai/claude-agent-sdk` publishes as an ESM-only package
 // ("type": "module", main: sdk.mjs). This repo's tsconfig uses
 // `module: node16`, and this file has no package.json "type": "module"
@@ -72,6 +73,7 @@ import {
   turnOutcomeFromMessage,
   type TurnOutcome,
 } from './turnLifecycle';
+import { createTerminalHost } from './terminalHost';
 
 // Last-resort backstop. Nothing supervises this process: it is spawned
 // detached and unref()'d specifically so it outlives the Electron app, so an
@@ -160,6 +162,24 @@ function persistSnapshot(
 const snapshotPublisher = createSnapshotPublisher({
   broadcast: (snapshot) => broadcast({ event: 'snapshot', snapshot }),
   persist: persistSnapshot,
+});
+
+const terminalHost = createTerminalHost({
+  spawnPty: (file, args, opts) => {
+    // Loaded on first use: a native binary that fails to load then fails
+    // that one terminal instead of the whole daemon at startup.
+    // eslint-disable-next-line global-require
+    const pty = require('node-pty') as typeof import('node-pty');
+    return pty.spawn(file, args, { ...opts, name: 'xterm-256color' });
+  },
+  hookDir: path.join(path.dirname(cacheDir), 'terminal-hooks'),
+  platform: process.platform,
+  envShell: process.env.SHELL,
+  baseEnv: process.env,
+  publishSnapshot: (snapshot) => snapshotPublisher.publish(snapshot),
+  publishEvent: broadcast,
+  onUsageBatch: () => undefined,
+  now: () => Date.now(),
 });
 
 function updateSnapshot(
@@ -480,10 +500,12 @@ const server = net.createServer((socket) => {
       // process while it still has work streaming — see
       // `shouldReplaceDaemon`. Counted live rather than tracked separately:
       // `turnActive` is already the single source of truth for "a turn is
-      // running", maintained by `runTurn`/`stop`.
-      const activeTurns = [...sessions.values()].filter(
+      // running", maintained by `runTurn`/`stop`. Open terminals count too:
+      // evicting this daemon would kill their ptys.
+      const runningTurns = [...sessions.values()].filter(
         (session) => session.turnActive,
       ).length;
+      const activeTurns = runningTurns + terminalHost.openCount();
       frameSender.write(
         socket,
         encodeFrame(
@@ -588,15 +610,45 @@ const server = net.createServer((socket) => {
       // Hydrates from the disk cache when this daemon has no live record
       // for the card — this is what lets AppShell's reattach effect show
       // the real prior checklist/transcript instead of the empty
-      // "Reconnecting…" placeholder it started with.
-      const session = getOrHydrateSession(request.cardId);
-      if (session) {
+      // "Reconnecting…" placeholder it started with. A live terminal's own
+      // snapshot wins over anything cached for the card.
+      const snapshot =
+        terminalHost.snapshot(request.cardId) ??
+        getOrHydrateSession(request.cardId)?.snapshot;
+      if (snapshot) {
         frameSender.write(
           socket,
-          encodeFrame({ event: 'snapshot', snapshot: session.snapshot }),
+          encodeFrame({ event: 'snapshot', snapshot }),
           'control',
         );
       }
+      return;
+    }
+
+    switch (request.op) {
+      case 'terminalStart':
+        terminalHost.start(request);
+        break;
+      case 'terminalInput':
+        terminalHost.input(request.cardId, request.data);
+        break;
+      case 'terminalResize':
+        terminalHost.resize(request.cardId, request.cols, request.rows);
+        break;
+      case 'terminalInterrupt':
+        terminalHost.interrupt(request.cardId);
+        break;
+      case 'terminalClose':
+        terminalHost.close(request.cardId);
+        break;
+      case 'terminalAttach':
+        terminalHost.attach(request.cardId);
+        break;
+      case 'terminalCloseIdle':
+        terminalHost.closeIdle();
+        break;
+      default:
+        break;
     }
   });
 
@@ -609,6 +661,7 @@ server.listen(socketPath, () => {
 });
 
 process.on('SIGTERM', () => {
+  terminalHost.dispose();
   stopQueuedCacheWrites();
   snapshotPublisher.flushAll();
   server.close(() => process.exit(0));

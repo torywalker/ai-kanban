@@ -145,8 +145,11 @@ export function normalizeHydratedSnapshot(
 ): SessionSnapshot {
   // Whatever this snapshot last said was running died with the process
   // that wrote it. A terminal snapshot that never carried the field comes
-  // back as the same object.
-  const stripped = withoutBackgroundHold(cached);
+  // back as the same object. So did a terminal-engine card's pty.
+  const unheld = withoutBackgroundHold(cached);
+  const stripped = cached.terminal
+    ? { ...unheld, terminal: { shellAlive: false, claudeRunning: false } }
+    : unheld;
   if (cached.status !== 'working' && cached.status !== 'waiting')
     return stripped;
   return {

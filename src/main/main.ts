@@ -29,7 +29,10 @@ import {
   cardUsageTotals,
   type UsageTotals,
 } from '../shared/usage';
-import type { ApprovalMode } from '../shared/daemonProtocol';
+import type {
+  ApprovalMode,
+  TerminalStartRequest,
+} from '../shared/daemonProtocol';
 import type { AttachmentRef } from '../shared/attachments';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import { readSettings } from './services/settings';
@@ -177,6 +180,39 @@ ipcMain.handle(CHANNELS.sessionGetState, (_e, cardId: string) =>
 // daemon process itself.
 ipcMain.handle(CHANNELS.sessionRestartDaemon, () => restartDaemon());
 
+ipcMain.handle(
+  CHANNELS.terminalStart,
+  (_e, req: Omit<TerminalStartRequest, 'op'>) =>
+    sendDaemonRequest({ ...req, op: 'terminalStart' }),
+);
+// Keystrokes and resizes are sent, not invoked: one round trip per key
+// would be wasted on a reply nobody reads.
+ipcMain.on(CHANNELS.terminalInput, (_e, cardId: string, data: string) => {
+  sendDaemonRequest({ op: 'terminalInput', cardId, data }).catch((error) =>
+    console.error('terminal input:', error),
+  );
+});
+ipcMain.on(
+  CHANNELS.terminalResize,
+  (_e, cardId: string, cols: number, rows: number) => {
+    sendDaemonRequest({ op: 'terminalResize', cardId, cols, rows }).catch(
+      (error) => console.error('terminal resize:', error),
+    );
+  },
+);
+ipcMain.handle(CHANNELS.terminalInterrupt, (_e, cardId: string) =>
+  sendDaemonRequest({ op: 'terminalInterrupt', cardId }),
+);
+ipcMain.handle(CHANNELS.terminalClose, (_e, cardId: string) =>
+  sendDaemonRequest({ op: 'terminalClose', cardId }),
+);
+ipcMain.handle(CHANNELS.terminalAttach, (_e, cardId: string) =>
+  sendDaemonRequest({ op: 'terminalAttach', cardId }),
+);
+ipcMain.handle(CHANNELS.terminalCloseIdle, () =>
+  sendDaemonRequest({ op: 'terminalCloseIdle' }),
+);
+
 /**
  * Read straight from the ledger file rather than asked of the daemon: usage
  * is durable history, not live session state, so a card's spend must be
@@ -206,10 +242,17 @@ ipcMain.handle(
 );
 
 subscribeDaemonEvents((event) => {
-  if (event.event !== 'snapshot') return;
-  BrowserWindow.getAllWindows().forEach((win) =>
-    win.webContents.send(CHANNELS.sessionSnapshot, event.snapshot),
-  );
+  const send = (channel: string, ...args: unknown[]) =>
+    BrowserWindow.getAllWindows().forEach((win) =>
+      win.webContents.send(channel, ...args),
+    );
+  if (event.event === 'snapshot') {
+    send(CHANNELS.sessionSnapshot, event.snapshot);
+  } else if (event.event === 'terminalData') {
+    send(CHANNELS.terminalData, event.cardId, event.data);
+  } else if (event.event === 'terminalReplay') {
+    send(CHANNELS.terminalReplay, event.cardId, event.data);
+  }
 });
 
 const shipService = createShipService({

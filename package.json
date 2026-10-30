@@ -190,7 +190,10 @@
     "appId": "com.torywalker.ai-kanban",
     "asar": true,
     "afterSign": ".erb/scripts/notarize.js",
-    "asarUnpack": "**\\*.{node,dll}",
+    "asarUnpack": [
+      "**\\*.{node,dll}",
+      "**/node_modules/node-pty/**"
+    ],
     "files": [
       "dist",
       "node_modules",

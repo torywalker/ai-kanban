@@ -381,6 +381,21 @@ describe('normalizeHydratedSnapshot', () => {
     expect(normalized.backgroundTasks).toBeUndefined();
   });
 
+  it('marks a hydrated terminal as closed, since its pty died with the old daemon', () => {
+    const cached = snapshot({
+      status: 'done',
+      engine: 'terminal',
+      terminal: { shellAlive: true, claudeRunning: true },
+    });
+    const normalized = normalizeHydratedSnapshot(cached);
+    expect(normalized.terminal).toEqual({
+      shellAlive: false,
+      claudeRunning: false,
+    });
+    expect(normalized.engine).toBe('terminal');
+    expect(normalized.status).toBe('done');
+  });
+
   it('preserves the checklist/messages built up before the interruption', () => {
     const cached = snapshot({ status: 'working' });
     const normalized = normalizeHydratedSnapshot(cached);

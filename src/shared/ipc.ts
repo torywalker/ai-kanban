@@ -30,6 +30,15 @@ export const CHANNELS = {
   sessionGetState: 'session:get-state',
   sessionRestartDaemon: 'session:restart-daemon',
   sessionSnapshot: 'session:snapshot',
+  terminalStart: 'terminal:start',
+  terminalInput: 'terminal:input',
+  terminalResize: 'terminal:resize',
+  terminalInterrupt: 'terminal:interrupt',
+  terminalClose: 'terminal:close',
+  terminalAttach: 'terminal:attach',
+  terminalCloseIdle: 'terminal:close-idle',
+  terminalData: 'terminal:data',
+  terminalReplay: 'terminal:replay',
   // The ledger behind both of these is a single file of timestamped
   // per-turn rows covering every card, so a card's total and a board's
   // total are two filtered reads of the same data rather than separate
