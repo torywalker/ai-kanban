@@ -3,6 +3,9 @@
 # node_modules, which pnpm's default isolated layout does not provide.
 nodeLinker: hoisted
 
+overrides:
+  node-abi: 4.40.0
+
 # @electron/rebuild depends on @electron/node-gyp from a git repository.
 # pnpm blocks that by default, and the app cannot rebuild native modules without it.
 blockExoticSubdeps: false

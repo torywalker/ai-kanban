@@ -97,6 +97,7 @@ function killQuietly(pty: PtyLike): void {
  */
 export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
   const terminals = new Map<string, Terminal>();
+  const lastSnapshots = new Map<string, SessionSnapshot>();
 
   const readNewHookText = (terminal: Terminal): string => {
     let fd: number;
@@ -154,11 +155,12 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
   return {
     start(req) {
       if (terminals.has(req.cardId)) return;
-      const sessionId = req.sessionId ?? randomUUID();
+      lastSnapshots.delete(req.cardId);
+      const launchSessionId = req.sessionId ?? randomUUID();
       const hookFile = path.join(deps.hookDir, `${req.cardId}.log`);
       const initial: SessionSnapshot = {
         cardId: req.cardId,
-        sessionId,
+        sessionId: req.sessionId,
         status: 'working',
         checklist: [],
         messages: [],
@@ -181,7 +183,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
           prompt: req.prompt,
           model: req.model,
           approvalMode: req.approvalMode,
-          sessionId,
+          sessionId: launchSessionId,
           resume: req.sessionId !== null,
           hookFile,
           baseEnv: deps.baseEnv,
@@ -193,12 +195,14 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
           env: launch.env,
         });
       } catch (error) {
-        deps.publishSnapshot({
+        const failed: SessionSnapshot = {
           ...initial,
           status: 'failed',
           lastError: error instanceof Error ? error.message : String(error),
           terminal: { shellAlive: false, claudeRunning: false },
-        });
+        };
+        lastSnapshots.set(req.cardId, failed);
+        deps.publishSnapshot(failed);
         return;
       }
 
@@ -228,6 +232,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         clearInterval(terminal.pollTimer);
         terminals.delete(req.cardId);
         terminal.snapshot = applyPtyExit(terminal.snapshot);
+        lastSnapshots.set(req.cardId, terminal.snapshot);
         deps.publishSnapshot(terminal.snapshot);
       });
 
@@ -281,7 +286,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     },
 
     snapshot(cardId) {
-      return terminals.get(cardId)?.snapshot;
+      return terminals.get(cardId)?.snapshot ?? lastSnapshots.get(cardId);
     },
 
     dispose() {
@@ -290,6 +295,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         killQuietly(terminal.pty);
       });
       terminals.clear();
+      lastSnapshots.clear();
     },
   };
 }

@@ -141,12 +141,14 @@ describe('start', () => {
 
   it('starts a new conversation with a generated uuid when there is no session id', () => {
     host.start(request({ sessionId: null }));
-    const { sessionId } = lastSnapshot();
-    expect(sessionId).toMatch(
+    expect(lastSnapshot().sessionId).toBeNull();
+    const script = spawnCalls[0].args[3];
+    const generatedId = script.match(/--session-id '([^']+)'/)?.[1];
+    expect(generatedId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
-    expect(spawnCalls[0].args[3]).toContain(`--session-id '${sessionId}'`);
-    expect(spawnCalls[0].args[3]).toContain("-- 'do it'");
+    expect(script).toContain(`--session-id '${generatedId}'`);
+    expect(script).toContain("-- 'do it'");
   });
 
   it('does not spawn a second pty for a card that already has one', () => {
@@ -182,9 +184,32 @@ describe('start', () => {
     expect(lastSnapshot()).toMatchObject({
       status: 'failed',
       lastError: 'posix_spawnp failed.',
+      sessionId: 'sess-1',
       terminal: { shellAlive: false, claudeRunning: false },
     });
     expect(failing.openCount()).toBe(0);
+  });
+
+  it('does not persist a generated id when a new-conversation spawn fails', () => {
+    const failing = createTerminalHost({
+      spawnPty: () => {
+        throw new Error('spawn failed');
+      },
+      hookDir,
+      platform: 'darwin',
+      envShell: undefined,
+      baseEnv: {},
+      publishSnapshot: (s) => snapshots.push(s),
+      publishEvent: (e) => events.push(e),
+      onUsageBatch: usage,
+      now: () => clock,
+    });
+    failing.start(request({ sessionId: null }));
+    expect(lastSnapshot()).toMatchObject({
+      status: 'failed',
+      sessionId: null,
+      terminal: { shellAlive: false, claudeRunning: false },
+    });
   });
 });
 
@@ -234,7 +259,8 @@ describe('hook status', () => {
   });
 
   it('adopts the session id SessionStart reports and marks claude running', () => {
-    host.start(request());
+    host.start(request({ sessionId: null }));
+    expect(lastSnapshot().sessionId).toBeNull();
     appendHook(record({ hook_event_name: 'SessionStart', session_id: 'real' }));
     jest.advanceTimersByTime(250);
     expect(lastSnapshot()).toMatchObject({
@@ -384,10 +410,19 @@ describe('dispose', () => {
 });
 
 describe('snapshot', () => {
-  it('returns the live snapshot only while the terminal is open', () => {
+  it('retains the last terminal snapshot after exit for getState', () => {
     host.start(request());
     expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
     ptys[0].emitExit();
-    expect(host.snapshot('crd_1')).toBeUndefined();
+    expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
+  });
+
+  it('clears a previous terminal snapshot when starting again', () => {
+    host.start(request());
+    ptys[0].emitExit();
+    const exited = host.snapshot('crd_1');
+    host.start(request());
+    expect(host.snapshot('crd_1')).not.toEqual(exited);
+    expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
   });
 });
