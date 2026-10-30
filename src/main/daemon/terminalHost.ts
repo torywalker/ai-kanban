@@ -11,6 +11,7 @@ import { buildTerminalLaunch, defaultShell } from './terminalLaunch';
 import {
   appendCapped,
   applyHookEvent,
+  applyInterrupt,
   applyPtyExit,
   isIdleTerminal,
   splitHookRecords,
@@ -62,8 +63,12 @@ export interface TerminalHost {
   attach(cardId: string): void;
   closeIdle(): void;
   openCount(): number;
-  /** The live snapshot, or undefined once the card's pty has exited. */
+  /** The live snapshot, or the last one once the card's pty has exited. */
   snapshot(cardId: string): SessionSnapshot | undefined;
+  /** The snapshot of a live pty only. */
+  liveSnapshot(cardId: string): SessionSnapshot | undefined;
+  /** Drops the card's exited-terminal snapshot. */
+  forget(cardId: string): void;
   dispose(): void;
 }
 
@@ -81,6 +86,7 @@ interface Terminal {
   pendingHook: string;
   snapshot: SessionSnapshot;
   firstBatch: boolean;
+  transcriptPath: string | null;
   pollTimer: ReturnType<typeof setInterval>;
   lastActivity: number;
 }
@@ -122,17 +128,30 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     }
   };
 
-  const pollHooks = (terminal: Terminal): void => {
+  const billUsage = (terminal: Terminal, transcriptPath: string): void => {
+    deps.onUsageBatch(terminal.cardId, transcriptPath, terminal.firstBatch);
+    terminal.firstBatch = false;
+  };
+
+  /** Returns whether the poll billed a SessionEnd. */
+  const pollHooks = (terminal: Terminal): boolean => {
     const text = readNewHookText(terminal);
-    if (!text) return;
+    if (!text) return false;
     const { events, rest } = splitHookRecords(terminal.pendingHook + text);
     terminal.pendingHook = rest;
-    if (events.length === 0) return;
+    if (events.length === 0) return false;
     const transcriptStarts: string[] = [];
     const usageBatches: string[] = [];
+    let billedSessionEnd = false;
     events.forEach((event) => {
       terminal.snapshot = applyHookEvent(terminal.snapshot, event);
-      if (event.name === 'SessionStart' && event.transcriptPath) {
+      if (event.transcriptPath) terminal.transcriptPath = event.transcriptPath;
+      // A compacted session keeps its transcript, so its tokens are unbilled.
+      if (
+        event.name === 'SessionStart' &&
+        event.transcriptPath &&
+        event.source !== 'compact'
+      ) {
         transcriptStarts.push(event.transcriptPath);
       }
       if (
@@ -140,6 +159,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         event.transcriptPath
       ) {
         usageBatches.push(event.transcriptPath);
+        billedSessionEnd = event.name === 'SessionEnd';
       }
     });
     deps.publishSnapshot(terminal.snapshot);
@@ -148,10 +168,10 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     transcriptStarts.forEach((transcriptPath) => {
       deps.onTranscriptStart(terminal.cardId, transcriptPath);
     });
-    usageBatches.forEach((transcriptPath) => {
-      deps.onUsageBatch(terminal.cardId, transcriptPath, terminal.firstBatch);
-      terminal.firstBatch = false;
-    });
+    usageBatches.forEach((transcriptPath) =>
+      billUsage(terminal, transcriptPath),
+    );
+    return billedSessionEnd;
   };
 
   const tick = (terminal: Terminal): void => {
@@ -165,7 +185,11 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
 
   return {
     start(req) {
-      if (terminals.has(req.cardId)) return;
+      const running = terminals.get(req.cardId);
+      if (running) {
+        deps.publishSnapshot(running.snapshot);
+        return;
+      }
       lastSnapshots.delete(req.cardId);
       const launchSessionId = req.sessionId ?? randomUUID();
       const hookFile = path.join(deps.hookDir, `${req.cardId}.log`);
@@ -227,6 +251,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         pendingHook: '',
         snapshot: initial,
         firstBatch: true,
+        transcriptPath: null,
         pollTimer: setInterval(() => tick(terminal), HOOK_POLL_MS),
         lastActivity: deps.now(),
       };
@@ -247,7 +272,11 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
       });
       pty.onExit(() => {
         if (terminals.get(req.cardId) !== terminal) return;
-        pollHooks(terminal);
+        const billedSessionEnd = pollHooks(terminal);
+        // Killing the pty skips Claude's SessionEnd hook.
+        if (terminal.transcriptPath && !billedSessionEnd) {
+          billUsage(terminal, terminal.transcriptPath);
+        }
         clearInterval(terminal.pollTimer);
         terminals.delete(req.cardId);
         terminal.snapshot = applyPtyExit(terminal.snapshot);
@@ -276,7 +305,13 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     },
 
     interrupt(cardId) {
-      terminals.get(cardId)?.pty.write('\x1b');
+      const terminal = terminals.get(cardId);
+      if (!terminal) return;
+      terminal.pty.write('\x1b');
+      const next = applyInterrupt(terminal.snapshot);
+      if (next === terminal.snapshot) return;
+      terminal.snapshot = next;
+      deps.publishSnapshot(next);
     },
 
     close(cardId) {
@@ -291,6 +326,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         cardId,
         data: terminal?.buffer ?? '',
       });
+      if (terminal) deps.publishSnapshot(terminal.snapshot);
     },
 
     closeIdle() {
@@ -305,6 +341,14 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
 
     snapshot(cardId) {
       return terminals.get(cardId)?.snapshot ?? lastSnapshots.get(cardId);
+    },
+
+    liveSnapshot(cardId) {
+      return terminals.get(cardId)?.snapshot;
+    },
+
+    forget(cardId) {
+      lastSnapshots.delete(cardId);
     },
 
     dispose() {

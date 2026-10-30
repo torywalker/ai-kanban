@@ -118,11 +118,15 @@ export function startTurnSnapshot(
   // A new process starts with an empty background set. Carrying the
   // previous turn's tasks forward would show a command that process is
   // not running.
+  // An SDK turn on a card whose last snapshot came from its terminal must
+  // not read as a terminal snapshot.
   const base = {
     ...withoutBackgroundHold(previous),
     status: 'working' as const,
     lastError: null,
     liveUsage: {},
+    engine: undefined,
+    terminal: undefined,
   };
   if (kind === 'run')
     return { ...base, checklist: [], messages: [], pendingApproval: null };
@@ -265,4 +269,28 @@ export function shouldApplyTurnWrite(
 ): boolean {
   if (!flags || !isOwningTurn) return false;
   return !flags.stopped;
+}
+
+/**
+ * Whether an SDK turn is in flight for the card. Ship's conflict turns read
+ * the card's status to learn when theirs finished, so a terminal publish
+ * must not land on top of one.
+ */
+export function sdkTurnInFlight(
+  session: { snapshot: SessionSnapshot } | null | undefined,
+): boolean {
+  const status = session?.snapshot.status;
+  return status === 'working' || status === 'waiting';
+}
+
+/**
+ * The snapshot `getState` reports: a live terminal, then the SDK session
+ * (live or hydrated from cache), then the last exited terminal.
+ */
+export function resolveCardSnapshot(sources: {
+  liveTerminal: SessionSnapshot | undefined;
+  session: () => SessionSnapshot | undefined;
+  lastTerminal: () => SessionSnapshot | undefined;
+}): SessionSnapshot | undefined {
+  return sources.liveTerminal ?? sources.session() ?? sources.lastTerminal();
 }

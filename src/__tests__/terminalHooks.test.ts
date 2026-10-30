@@ -2,6 +2,7 @@ import type { SessionSnapshot } from '../shared/daemonProtocol';
 import {
   appendCapped,
   applyHookEvent,
+  applyInterrupt,
   applyPtyExit,
   isIdleTerminal,
   splitHookRecords,
@@ -23,8 +24,19 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
   };
 }
 
-function hook(name: string, sessionId: string | null = null): HookEvent {
-  return { name, sessionId, transcriptPath: null };
+function hook(
+  name: string,
+  sessionId: string | null = null,
+  extra: Partial<HookEvent> = {},
+): HookEvent {
+  return {
+    name,
+    sessionId,
+    transcriptPath: null,
+    notificationType: null,
+    source: null,
+    ...extra,
+  };
 }
 
 describe('splitHookRecords', () => {
@@ -35,7 +47,7 @@ describe('splitHookRecords', () => {
         `{"hook_event_name":"Stop","session_id":"s"}\n\x1e\n${partial}`,
       ),
     ).toEqual({
-      events: [{ name: 'Stop', sessionId: 's', transcriptPath: null }],
+      events: [hook('Stop', 's')],
       rest: partial,
     });
   });
@@ -44,8 +56,17 @@ describe('splitHookRecords', () => {
     const { events } = splitHookRecords(
       '{"hook_event_name":"Stop","session_id":"s","transcript_path":"/t.jsonl"}\n\x1e\n',
     );
+    expect(events).toEqual([hook('Stop', 's', { transcriptPath: '/t.jsonl' })]);
+  });
+
+  it('reads the notification type and the session start source', () => {
+    const { events } = splitHookRecords(
+      '{"hook_event_name":"Notification","notification_type":"idle_prompt"}\n\x1e\n' +
+        '{"hook_event_name":"SessionStart","source":"compact"}\n\x1e\n',
+    );
     expect(events).toEqual([
-      { name: 'Stop', sessionId: 's', transcriptPath: '/t.jsonl' },
+      hook('Notification', null, { notificationType: 'idle_prompt' }),
+      hook('SessionStart', null, { source: 'compact' }),
     ]);
   });
 
@@ -95,6 +116,34 @@ describe('applyHookEvent (spec §4.3)', () => {
     );
   });
 
+  it('Notification: an idle prompt leaves the status alone', () => {
+    const before = snapshot({ status: 'done' });
+    expect(
+      applyHookEvent(
+        before,
+        hook('Notification', null, { notificationType: 'idle_prompt' }),
+      ),
+    ).toBe(before);
+  });
+
+  it('Notification: a permission prompt is still waiting', () => {
+    expect(
+      applyHookEvent(
+        snapshot({ status: 'done' }),
+        hook('Notification', null, { notificationType: 'permission_prompt' }),
+      ).status,
+    ).toBe('waiting');
+  });
+
+  it('UserPromptSubmit: an interrupted turn is working again', () => {
+    expect(
+      applyHookEvent(
+        snapshot({ status: 'interrupted' }),
+        hook('UserPromptSubmit'),
+      ).status,
+    ).toBe('working');
+  });
+
   it('Stop: done', () => {
     const next = applyHookEvent(snapshot(), hook('Stop'));
     expect(next.status).toBe('done');
@@ -139,6 +188,21 @@ describe('applyPtyExit', () => {
   });
 });
 
+describe('applyInterrupt', () => {
+  it('marks a working turn interrupted', () => {
+    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe(
+      'interrupted',
+    );
+  });
+
+  it('leaves any other status alone', () => {
+    const waiting = snapshot({ status: 'waiting' });
+    expect(applyInterrupt(waiting)).toBe(waiting);
+    const done = snapshot({ status: 'done' });
+    expect(applyInterrupt(done)).toBe(done);
+  });
+});
+
 describe('appendCapped', () => {
   it('keeps only the newest max characters', () => {
     expect(appendCapped('a'.repeat(10), 'bcd', 8)).toBe('aaaaabcd');
@@ -163,6 +227,7 @@ describe('isIdleTerminal', () => {
   it('is idle while claude waits or has finished', () => {
     expect(isIdleTerminal(snapshot({ status: 'waiting' }))).toBe(true);
     expect(isIdleTerminal(snapshot({ status: 'done' }))).toBe(true);
+    expect(isIdleTerminal(snapshot({ status: 'interrupted' }))).toBe(true);
   });
 
   it('is busy while claude is working', () => {

@@ -9,7 +9,14 @@ export interface HookEvent {
   name: string;
   sessionId: string | null;
   transcriptPath: string | null;
+  /** Notification's `notification_type`, e.g. `idle_prompt`. */
+  notificationType: string | null;
+  /** SessionStart's `source`: `startup`, `resume`, `clear` or `compact`. */
+  source: string | null;
 }
+
+const stringOrNull = (value: unknown): string | null =>
+  typeof value === 'string' ? value : null;
 
 const RECORD_SEPARATOR = '\n\x1e\n';
 
@@ -27,11 +34,10 @@ function parseRecord(text: string): HookEvent | null {
   if (typeof record.hook_event_name !== 'string') return null;
   return {
     name: record.hook_event_name,
-    sessionId: typeof record.session_id === 'string' ? record.session_id : null,
-    transcriptPath:
-      typeof record.transcript_path === 'string'
-        ? record.transcript_path
-        : null,
+    sessionId: stringOrNull(record.session_id),
+    transcriptPath: stringOrNull(record.transcript_path),
+    notificationType: stringOrNull(record.notification_type),
+    source: stringOrNull(record.source),
   };
 }
 
@@ -81,6 +87,8 @@ export function applyHookEvent(
     case 'UserPromptSubmit':
       return { ...snapshot, status: 'working' };
     case 'Notification':
+      // Claude sends this a minute after finishing; it is not a question.
+      if (event.notificationType === 'idle_prompt') return snapshot;
       return { ...snapshot, status: 'waiting' };
     case 'Stop':
       return { ...snapshot, status: 'done' };
@@ -93,6 +101,13 @@ export function applyHookEvent(
     default:
       return snapshot;
   }
+}
+
+/** Claude fires no hook when Escape interrupts it mid-turn. */
+export function applyInterrupt(snapshot: SessionSnapshot): SessionSnapshot {
+  return snapshot.status === 'working'
+    ? { ...snapshot, status: 'interrupted' }
+    : snapshot;
 }
 
 export function applyPtyExit(snapshot: SessionSnapshot): SessionSnapshot {
@@ -120,5 +135,9 @@ export function appendCapped(
 export function isIdleTerminal(snapshot: SessionSnapshot): boolean {
   const terminal = terminalOf(snapshot);
   if (terminal.shellAlive && !terminal.claudeRunning) return true;
-  return snapshot.status === 'waiting' || snapshot.status === 'done';
+  return (
+    snapshot.status === 'waiting' ||
+    snapshot.status === 'done' ||
+    snapshot.status === 'interrupted'
+  );
 }

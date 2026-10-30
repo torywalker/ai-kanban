@@ -66,7 +66,9 @@ import {
   canStartTurn,
   normalizeHydratedSnapshot,
   rejectTurnSnapshot,
+  resolveCardSnapshot,
   resolveResumeSessionId,
+  sdkTurnInFlight,
   settleTurnSnapshot,
   shouldApplyTurnWrite,
   startTurnSnapshot,
@@ -178,7 +180,11 @@ const terminalHost = createTerminalHost({
   platform: process.platform,
   envShell: process.env.SHELL,
   baseEnv: process.env,
-  publishSnapshot: (snapshot) => snapshotPublisher.publish(snapshot),
+  publishSnapshot: (snapshot) => {
+    // The host keeps its own copy; getState still finds it afterwards.
+    if (sdkTurnInFlight(sessions.get(snapshot.cardId))) return;
+    snapshotPublisher.publish(snapshot);
+  },
   publishEvent: broadcast,
   onTranscriptStart: (cardId, transcriptPath) => {
     try {
@@ -290,6 +296,7 @@ async function runTurn(
     return;
   }
 
+  terminalHost.forget(cardId);
   const abortController = new AbortController();
   const snapshot = existing?.snapshot ?? createInitialSnapshot(cardId);
   sessions.set(cardId, {
@@ -637,11 +644,12 @@ const server = net.createServer((socket) => {
       // Hydrates from the disk cache when this daemon has no live record
       // for the card — this is what lets AppShell's reattach effect show
       // the real prior checklist/transcript instead of the empty
-      // "Reconnecting…" placeholder it started with. A live terminal's own
-      // snapshot wins over anything cached for the card.
-      const snapshot =
-        terminalHost.snapshot(request.cardId) ??
-        getOrHydrateSession(request.cardId)?.snapshot;
+      // "Reconnecting…" placeholder it started with.
+      const snapshot = resolveCardSnapshot({
+        liveTerminal: terminalHost.liveSnapshot(request.cardId),
+        session: () => getOrHydrateSession(request.cardId)?.snapshot,
+        lastTerminal: () => terminalHost.snapshot(request.cardId),
+      });
       if (snapshot) {
         frameSender.write(
           socket,

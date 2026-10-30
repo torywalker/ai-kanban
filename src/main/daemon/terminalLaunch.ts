@@ -36,6 +36,22 @@ const PERMISSION_MODES: Record<ApprovalMode, string> = {
   auto: 'auto',
 };
 
+/**
+ * Shells that cannot run the POSIX launch script themselves. Each hands
+ * `$AI_KANBAN_SCRIPT` to /bin/sh in its own syntax for reading the env.
+ */
+const NON_POSIX_RUNNERS: Record<string, string> = {
+  fish: 'exec /bin/sh -c "$AI_KANBAN_SCRIPT"',
+  nu: 'exec /bin/sh -c $env.AI_KANBAN_SCRIPT',
+  xonsh: 'exec /bin/sh -c $AI_KANBAN_SCRIPT',
+  elvish: 'exec /bin/sh -c $E:AI_KANBAN_SCRIPT',
+  pwsh: '& /bin/sh -c $env:AI_KANBAN_SCRIPT; exit $LASTEXITCODE',
+};
+
+function shellName(shell: string): string {
+  return shell.slice(shell.lastIndexOf('/') + 1);
+}
+
 /** POSIX single-quoting: nothing inside is expanded by the shell. */
 export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -101,5 +117,10 @@ export function buildTerminalLaunch(
   env.AI_KANBAN_HOOK_FILE = input.hookFile;
   env.TERM = 'xterm-256color';
 
+  const runner = NON_POSIX_RUNNERS[shellName(input.shell)];
+  if (runner) {
+    env.AI_KANBAN_SCRIPT = script;
+    return { file: input.shell, args: ['-l', '-i', '-c', runner], env };
+  }
   return { file: input.shell, args: ['-l', '-i', '-c', script], env };
 }

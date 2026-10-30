@@ -1,4 +1,7 @@
 import { execFileSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import {
   buildHookSettings,
   buildTerminalLaunch,
@@ -132,6 +135,79 @@ describe('buildTerminalLaunch', () => {
     const argv = output.split('\0').slice(0, -1);
     expect(argv.slice(-2)).toEqual(['--', PROMPT]);
     expect(argv[argv.indexOf('--settings') + 1]).toBe(buildHookSettings());
+  });
+});
+
+describe('non-POSIX shells', () => {
+  const FISH = '/opt/homebrew/bin/fish';
+  const launch = buildTerminalLaunch(launchInput({ shell: FISH }));
+
+  it('has fish hand the POSIX script to /bin/sh through the env', () => {
+    expect(launch.file).toBe(FISH);
+    expect(launch.args).toEqual([
+      '-l',
+      '-i',
+      '-c',
+      'exec /bin/sh -c "$AI_KANBAN_SCRIPT"',
+    ]);
+    expect(launch.env.AI_KANBAN_SCRIPT).toBe(
+      scriptOf(launchInput()).replace(
+        "exec '/bin/zsh' -l -i",
+        `exec '${FISH}' -l -i`,
+      ),
+    );
+  });
+
+  it("re-execs the user's own shell when claude exits", () => {
+    expect(launch.env.AI_KANBAN_SCRIPT!.endsWith(`exec '${FISH}' -l -i`)).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['/usr/local/bin/nu', '$env.AI_KANBAN_SCRIPT'],
+    ['/usr/bin/xonsh', '$AI_KANBAN_SCRIPT'],
+    ['/usr/bin/elvish', '$E:AI_KANBAN_SCRIPT'],
+    ['/usr/local/bin/pwsh', '$env:AI_KANBAN_SCRIPT'],
+  ])('reads the script from the env in %s syntax', (shell, variable) => {
+    const { args, env } = buildTerminalLaunch(launchInput({ shell }));
+    expect(args.slice(0, 3)).toEqual(['-l', '-i', '-c']);
+    expect(args[3]).toContain(`/bin/sh -c ${variable}`);
+    expect(env.AI_KANBAN_SCRIPT).toBeDefined();
+  });
+
+  it('leaves POSIX shells running the script directly', () => {
+    const zsh = buildTerminalLaunch(launchInput());
+    expect(zsh.args[3]).toBe(scriptOf(launchInput()));
+    expect(zsh.env).not.toHaveProperty('AI_KANBAN_SCRIPT');
+  });
+
+  // fish is not installed in CI; this runs the same handoff under sh, which
+  // reads "$AI_KANBAN_SCRIPT" the same way, with a fake claude on disk.
+  it('delivers the prompt verbatim through the /bin/sh handoff', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-launch-'));
+    const fakeClaude = path.join(dir, 'claude');
+    fs.writeFileSync(
+      fakeClaude,
+      '#!/bin/sh\nfor a in "$@"; do printf \'%s\\0\' "$a"; done\n',
+      { mode: 0o755 },
+    );
+    try {
+      const { args, env } = buildTerminalLaunch(
+        launchInput({ shell: FISH, claudeCliPath: fakeClaude }),
+      );
+      const output = execFileSync('/bin/sh', ['-c', args[3]], {
+        encoding: 'utf8',
+        env: {
+          ...env,
+          AI_KANBAN_SCRIPT: env.AI_KANBAN_SCRIPT!.replace(/; exec .*$/, ''),
+        },
+      });
+      const argv = output.split('\0').slice(0, -1);
+      expect(argv.slice(-2)).toEqual(['--', PROMPT]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

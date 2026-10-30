@@ -160,6 +160,16 @@ describe('start', () => {
     expect(spawnCalls).toHaveLength(1);
   });
 
+  it('republishes the live snapshot when started again', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'Notification' }));
+    jest.advanceTimersByTime(250);
+    snapshots = [];
+    host.start(request());
+    expect(snapshots).toEqual([host.snapshot('crd_1')]);
+    expect(lastSnapshot().status).toBe('waiting');
+  });
+
   it('refuses a working directory that does not exist', () => {
     host.start(request({ cwd: '/no/such/dir' }));
     expect(spawnCalls).toHaveLength(0);
@@ -253,6 +263,18 @@ describe('output', () => {
     expect(events).toEqual([
       { event: 'terminalReplay', cardId: 'crd_none', data: '' },
     ]);
+    expect(snapshots).toEqual([]);
+  });
+
+  it('republishes the live snapshot on attach', () => {
+    host.start(request());
+    snapshots = [];
+    host.attach('crd_1');
+    expect(snapshots).toEqual([host.snapshot('crd_1')]);
+    expect(lastSnapshot()).toMatchObject({
+      engine: 'terminal',
+      terminal: { shellAlive: true },
+    });
   });
 });
 
@@ -325,6 +347,21 @@ describe('hook status', () => {
     expect(transcriptStart).toHaveBeenLastCalledWith('crd_1', '/tmp/b.jsonl');
   });
 
+  it('does not prime after a compaction, whose turns are not yet billed', () => {
+    host.start(request());
+    appendHook(
+      record({
+        hook_event_name: 'SessionStart',
+        session_id: 's',
+        transcript_path: '/tmp/a.jsonl',
+        source: 'compact',
+      }),
+    );
+    jest.advanceTimersByTime(250);
+    expect(transcriptStart).not.toHaveBeenCalled();
+    expect(lastSnapshot().status).toBe('working');
+  });
+
   it('records usage on Stop (first batch, then later ones) and on SessionEnd', () => {
     host.start(request());
     const stop = record({
@@ -366,6 +403,26 @@ describe('controls', () => {
     expect(ptys[0].written).toEqual(['\x1b']);
   });
 
+  it('marks a working turn interrupted, and a new prompt makes it working', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
+    jest.advanceTimersByTime(250);
+    host.interrupt('crd_1');
+    expect(lastSnapshot().status).toBe('interrupted');
+    appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
+    jest.advanceTimersByTime(250);
+    expect(lastSnapshot().status).toBe('working');
+  });
+
+  it('does not republish an interrupt while claude is waiting', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'Notification' }));
+    jest.advanceTimersByTime(250);
+    snapshots = [];
+    host.interrupt('crd_1');
+    expect(snapshots).toEqual([]);
+  });
+
   it('close kills the pty, and its exit closes the terminal', () => {
     host.start(request());
     host.close('crd_1');
@@ -376,6 +433,42 @@ describe('controls', () => {
       status: 'done',
       terminal: { shellAlive: false, claudeRunning: false },
     });
+  });
+
+  it('reads usage one last time when the pty exits without SessionEnd', () => {
+    host.start(request());
+    appendHook(
+      record({
+        hook_event_name: 'Stop',
+        session_id: 's',
+        transcript_path: '/t.jsonl',
+      }),
+    );
+    jest.advanceTimersByTime(250);
+    expect(usage).toHaveBeenCalledTimes(1);
+    ptys[0].emitExit();
+    expect(usage).toHaveBeenCalledTimes(2);
+    expect(usage).toHaveBeenLastCalledWith('crd_1', '/t.jsonl', false);
+  });
+
+  it('does not read usage again when the final poll already billed SessionEnd', () => {
+    host.start(request());
+    appendHook(
+      record({
+        hook_event_name: 'SessionEnd',
+        session_id: 's',
+        transcript_path: '/t.jsonl',
+      }),
+    );
+    ptys[0].emitExit();
+    expect(usage).toHaveBeenCalledTimes(1);
+    expect(usage).toHaveBeenCalledWith('crd_1', '/t.jsonl', true);
+  });
+
+  it('reads no usage on exit when no transcript is known', () => {
+    host.start(request());
+    ptys[0].emitExit();
+    expect(usage).not.toHaveBeenCalled();
   });
 
   it('reads the hook records written just before the pty exited', () => {
@@ -471,6 +564,21 @@ describe('snapshot', () => {
     expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
     ptys[0].emitExit();
     expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
+  });
+
+  it('liveSnapshot is only the live pty', () => {
+    host.start(request());
+    expect(host.liveSnapshot('crd_1')).toEqual(lastSnapshot());
+    ptys[0].emitExit();
+    expect(host.liveSnapshot('crd_1')).toBeUndefined();
+    expect(host.snapshot('crd_1')).toEqual(lastSnapshot());
+  });
+
+  it('forget drops an exited terminal snapshot', () => {
+    host.start(request());
+    ptys[0].emitExit();
+    host.forget('crd_1');
+    expect(host.snapshot('crd_1')).toBeUndefined();
   });
 
   it('clears a previous terminal snapshot when starting again', () => {
