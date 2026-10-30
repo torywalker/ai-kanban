@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
@@ -47,6 +48,7 @@ import {
 } from '@/domain/sessionStartup';
 import { sumLiveUsage } from '@shared/usage';
 import type { LiveTokenUsage } from '@shared/daemonProtocol';
+import { resolveSessionEngine } from '@shared/sessionEngine';
 import {
   resolveUseWorktree,
   WORKTREE_MISSING_ERROR,
@@ -57,6 +59,7 @@ import { TagPicker } from '@/components/tags/TagPicker';
 import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
 import { SessionTranscript } from './SessionTranscript';
+import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
@@ -99,11 +102,19 @@ export function CardViewDialog({
   const approvalMode = useDocStore((s) => s.approvalMode);
   const defaultModel = useDocStore((s) => s.defaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
+  const sessionEngine = useDocStore((s) => s.sessionEngine);
+  const claudeCliPath = useDocStore((s) => s.claudeCliPath);
   const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
   const sessionStatus = useSessionStore((s) => s.sessions[cardId]?.status);
   const sessionId = useSessionStore(
     (s) => s.sessions[cardId]?.sessionId ?? null,
   );
+  const shellAlive =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.shellAlive) === true;
+  const claudeRunning =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
+    true;
+  const snapshotEngine = useSessionStore((s) => s.sessions[cardId]?.engine);
   const expanded = useUiStore((s) => s.cardDialogExpanded[cardId] ?? false);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -149,6 +160,7 @@ export function CardViewDialog({
   const [shipTargetOpen, setShipTargetOpen] = useState(false);
   const [shipQueue, setShipQueue] = useState<ShipQueueSnapshot | null>(null);
   const [shipPending, setShipPending] = useState(false);
+  const [closeTerminalOpen, setCloseTerminalOpen] = useState(false);
   const shipCancelledByUser = useRef(false);
   const shipPlanRequestId = useRef(0);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
@@ -171,7 +183,18 @@ export function CardViewDialog({
    * container (see `chatExpanded` below), so there is no body offset left to
    * follow — the transcript's own `feedRef` does that job instead.
    */
-  const bodyRef = useStickToBottom<HTMLDivElement>(hasSession && !expanded);
+  const terminalMode =
+    snapshotEngine === 'terminal'
+      ? true
+      : resolveSessionEngine(
+          card?.sessionEngine ?? null,
+          sessionEngine,
+          window.electron?.platform ?? '',
+        ) === 'terminal';
+  const layoutExpanded = expanded || terminalMode;
+  const bodyRef = useStickToBottom<HTMLDivElement>(
+    hasSession && !layoutExpanded,
+  );
 
   useEffect(() => {
     if (!open) {
@@ -252,11 +275,20 @@ export function CardViewDialog({
   const canSendReply =
     hasSession && !controlsBusy && !!cwd && reply.trim().length > 0;
   const canShowShip =
-    useWorktree && !!card?.sessionWorktree && hasSession && !turnInFlight;
+    useWorktree &&
+    !!card?.sessionWorktree &&
+    hasSession &&
+    (!turnInFlight || claudeRunning);
 
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
-    if (!open || !canShowShip || !primary || !card?.sessionWorktree) {
+    if (
+      !open ||
+      !canShowShip ||
+      claudeRunning ||
+      !primary ||
+      !card?.sessionWorktree
+    ) {
       setShipPlan(null);
       return undefined;
     }
@@ -272,7 +304,13 @@ export function CardViewDialog({
     return () => {
       disposed = true;
     };
-  }, [open, canShowShip, primary, card?.sessionWorktree?.recordedTargetBranch]);
+  }, [
+    open,
+    canShowShip,
+    claudeRunning,
+    primary,
+    card?.sessionWorktree?.recordedTargetBranch,
+  ]);
 
   if (!card) return null;
   /**
@@ -286,7 +324,7 @@ export function CardViewDialog({
    * `overflow-y-auto` unconditionally would leave that prompt unreachable
    * with no inner scroller to replace it.
    */
-  const chatExpanded = expanded && hasSession;
+  const chatExpanded = layoutExpanded && (hasSession || terminalMode);
 
   /**
    * Every session IPC call can reject before any daemon event exists: if
@@ -313,7 +351,11 @@ export function CardViewDialog({
     if (!primary || !card.prompt.trim()) return;
     // Before the await, not after: the point is to have something on screen
     // for the whole gap until the daemon's first broadcast arrives.
-    useSessionStore.getState().applySnapshot(pendingRunSnapshot(cardId));
+    // Skipped for a terminal: that placeholder has no `engine`, and writing
+    // it would replace a terminal snapshot the dialog is still showing.
+    if (!terminalMode) {
+      useSessionStore.getState().applySnapshot(pendingRunSnapshot(cardId));
+    }
     try {
       let runCwd = primary;
       if (useWorktree) {
@@ -331,6 +373,20 @@ export function CardViewDialog({
       } else {
         updateCard(boardId, listId, cardId, { usedWorktree: false });
       }
+      if (terminalMode) {
+        await window.electron?.terminal?.start({
+          cardId,
+          cwd: runCwd,
+          prompt: substitute(card.prompt, card.variables),
+          model,
+          approvalMode,
+          sessionId: card.sessionId,
+          claudeCliPath,
+          cols: 120,
+          rows: 32,
+        });
+        return;
+      }
       await api.session.run(
         cardId,
         substitute(card.prompt, card.variables),
@@ -341,6 +397,10 @@ export function CardViewDialog({
       );
     } catch (error) {
       reportFailure(error);
+      // The transcript that normally shows this error is not on screen.
+      if (terminalMode) {
+        toast.error(error instanceof Error ? error.message : String(error));
+      }
     }
   };
 
@@ -389,9 +449,12 @@ export function CardViewDialog({
   const stop = async () => {
     shipCancelledByUser.current = true;
     try {
+      const stopTurn = claudeRunning
+        ? (window.electron?.terminal?.interrupt(cardId) ?? Promise.resolve())
+        : api.session.stop(cardId);
       const [cancelled] = await Promise.all([
         api.git.shipCancel(cardId),
-        api.session.stop(cardId),
+        stopTurn,
       ]);
       if (!cancelled.ok) {
         reportFailure(new Error(cancelled.error));
@@ -445,6 +508,10 @@ export function CardViewDialog({
   };
 
   const requestShip = async () => {
+    if (claudeRunning) {
+      toast.error('Exit Claude in the terminal before shipping.');
+      return;
+    }
     if (!primary || !card.sessionWorktree || shipBusy) return;
     const requestId = ++shipPlanRequestId.current;
     setShipPending(true);
@@ -499,6 +566,15 @@ export function CardViewDialog({
     await copyText(card.prompt);
     recordCopy(boardId, listId, cardId);
     toast.success('Prompt copied');
+  };
+
+  const requestCloseTerminal = () => {
+    if (claudeRunning) {
+      setCloseTerminalOpen(true);
+      return;
+    }
+    const closing = window.electron?.terminal?.close(cardId);
+    if (closing) closing.catch(() => undefined);
   };
 
   const archive = () => {
@@ -561,7 +637,7 @@ export function CardViewDialog({
           // short transcript would keep the chat cramped in a dialog the
           // user just asked to be big. A fixed height guarantees the room
           // is there for the feed to flex into as the agent talks.
-          expanded
+          layoutExpanded
             ? 'h-[92vh] max-h-[92vh] sm:max-w-[92vw]'
             : 'max-h-[85vh] sm:max-w-2xl',
         )}
@@ -601,10 +677,10 @@ export function CardViewDialog({
           variant="ghost"
           size="icon-sm"
           className="absolute top-3.5 right-10 text-muted-foreground hover:text-foreground"
-          aria-label={expanded ? 'Collapse' : 'Expand'}
-          onClick={() => setExpanded(!expanded)}
+          aria-label={layoutExpanded ? 'Collapse' : 'Expand'}
+          onClick={() => setExpanded(!layoutExpanded)}
         >
-          {expanded ? (
+          {layoutExpanded ? (
             <Minimize2 className="size-4" />
           ) : (
             <Maximize2 className="size-4" />
@@ -713,7 +789,16 @@ export function CardViewDialog({
             </p>
           ) : null}
 
-          <SessionTranscript cardId={cardId} expanded={chatExpanded} />
+          {terminalMode ? (
+            <>
+              <TerminalPanel cardId={cardId} />
+              <p className="shrink-0 text-xs text-muted-foreground">
+                Cost is estimated from token counts for terminal sessions.
+              </p>
+            </>
+          ) : (
+            <SessionTranscript cardId={cardId} expanded={chatExpanded} />
+          )}
 
           <BackgroundTasksIndicator cardId={cardId} />
 
@@ -728,7 +813,7 @@ export function CardViewDialog({
             asks for, and visibly disabled with a reason while a turn is in
             flight. Stop stays scoped to an in-flight turn.
           */}
-          {hasSession ? (
+          {hasSession && !terminalMode ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-end gap-2">
                 <div className="relative flex-1">
@@ -807,6 +892,16 @@ export function CardViewDialog({
           <Button variant="ghost" onClick={() => setEditing(true)}>
             Edit
           </Button>
+          {terminalMode && (claudeRunning || shipBusy) ? (
+            <Button variant="destructive" onClick={stop}>
+              Stop
+            </Button>
+          ) : null}
+          {shellAlive ? (
+            <Button variant="outline" onClick={requestCloseTerminal}>
+              Close terminal
+            </Button>
+          ) : null}
           {canShowShip ? (
             <div className="flex min-w-0 flex-col items-end gap-0.5">
               <Button onClick={requestShip} disabled={shipBusy}>
@@ -826,7 +921,7 @@ export function CardViewDialog({
               ) : null}
             </div>
           ) : null}
-          {canRun ? (
+          {canRun && !shellAlive ? (
             <Button onClick={run} disabled={!primary || !card.prompt.trim()}>
               {hasSession ? 'Run again' : 'Run'}
             </Button>
@@ -846,6 +941,18 @@ export function CardViewDialog({
         onOpenChange={setShipTargetOpen}
         plan={choicePlan}
         onSelect={(branch) => void shipInto(branch)}
+      />
+      <ConfirmDialog
+        open={closeTerminalOpen}
+        onOpenChange={setCloseTerminalOpen}
+        title="Close terminal?"
+        body="Claude is still running in this terminal. Close it anyway?"
+        confirmLabel="Close it"
+        onConfirm={() => {
+          setCloseTerminalOpen(false);
+          const closing = window.electron?.terminal?.close(cardId);
+          if (closing) closing.catch(() => undefined);
+        }}
       />
     </Dialog>
   );

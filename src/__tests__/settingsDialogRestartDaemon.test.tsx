@@ -11,6 +11,7 @@ import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { SettingsDialog } from '@/components/shell/SettingsDialog';
 import { CURRENT_VERSION, type KanbanDoc } from '@shared/schema';
+import type { SessionSnapshot } from '@shared/daemonProtocol';
 import { installElectronMock } from '../testUtils/electronMock';
 import { selectTab } from '../testUtils/tabs';
 
@@ -120,5 +121,79 @@ describe('SettingsDialog "Restart Daemon"', () => {
         CARD_WITH_SESSION,
       ),
     );
+  });
+
+  it('does not mention terminals in the restart warning when none are open', () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    selectTab('Agent sessions');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
+
+    expect(
+      screen.queryByText(/Open terminals will be closed/),
+    ).not.toBeInTheDocument();
+  });
+});
+
+function openTerminal(cardId: string, shellAlive: boolean): SessionSnapshot {
+  return {
+    cardId,
+    sessionId: null,
+    status: 'working',
+    checklist: [],
+    messages: [],
+    pendingApproval: null,
+    lastError: null,
+    engine: 'terminal',
+    terminal: { shellAlive, claudeRunning: false },
+  };
+}
+
+describe('SettingsDialog open terminals', () => {
+  beforeEach(() => {
+    installElectronMock();
+    window.electron.terminal = {
+      start: jest.fn().mockResolvedValue(undefined),
+      input: jest.fn(),
+      resize: jest.fn(),
+      interrupt: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+      attach: jest.fn().mockResolvedValue(undefined),
+      closeIdle: jest.fn().mockResolvedValue(undefined),
+      onData: jest.fn().mockReturnValue(() => {}),
+      onReplay: jest.fn().mockReturnValue(() => {}),
+    };
+    useDocStore.setState({ doc: seededDoc() });
+    useSessionStore.setState({
+      sessions: {
+        crd_a: openTerminal('crd_a', true),
+        crd_b: openTerminal('crd_b', true),
+        crd_idle_dead: openTerminal('crd_idle_dead', false),
+      },
+    });
+  });
+
+  it('shows how many terminals are open and closes the idle ones', () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    selectTab('Agent sessions');
+
+    expect(screen.getByText('2 terminals open')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close idle terminals' }),
+    );
+
+    expect(window.electron.terminal.closeIdle).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns that restarting the daemon closes open terminals', () => {
+    render(<SettingsDialog open onOpenChange={() => {}} />);
+    selectTab('Agent sessions');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
+
+    expect(
+      screen.getByText(/Open terminals will be closed/),
+    ).toBeInTheDocument();
   });
 });

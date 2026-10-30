@@ -209,6 +209,33 @@ interface DocStore {
   setTagColor: (key: string, color: string) => void;
 }
 
+function cardIds(
+  doc: KanbanDoc | null,
+  boardId: string,
+  listId?: string,
+): string[] {
+  const board = doc?.boards.find((candidate) => candidate.id === boardId);
+  if (!board) return [];
+  const lists = listId
+    ? board.lists.filter((list) => list.id === listId)
+    : board.lists;
+  return lists.flatMap((list) => list.cards.map((card) => card.id));
+}
+
+function closeLiveTerminals(ids: readonly string[]): void {
+  // sessionStore imports this module through nativeNotification.
+  /* eslint-disable global-require, @typescript-eslint/no-var-requires */
+  const { useSessionStore } =
+    require('./sessionStore') as typeof import('./sessionStore');
+  /* eslint-enable global-require, @typescript-eslint/no-var-requires */
+  const { sessions } = useSessionStore.getState();
+  ids.forEach((id) => {
+    if (!sessions[id]?.terminal?.shellAlive) return;
+    const closing = window.electron?.terminal?.close(id);
+    if (closing) closing.catch(() => undefined);
+  });
+}
+
 export const useDocStore = create<DocStore>((set, get) => ({
   status: { kind: 'loading' },
   doc: null,
@@ -249,7 +276,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
       return;
     }
     await get().openAt(settings.dataFilePath);
-    const doc = get().doc;
+    const { doc } = get();
     if (!doc || get().status.kind !== 'ready') return;
     // A saved selection that points at an archived (or deleted) board would
     // reopen onto something the sidebar no longer shows. Fall back to the
@@ -452,6 +479,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   },
 
   deleteBoard: (boardId) => {
+    closeLiveTerminals(cardIds(get().doc, boardId));
     const remaining = (get().doc?.boards ?? []).filter((b) => b.id !== boardId);
     get().mutate((draft) => {
       draft.boards = draft.boards.filter((b) => b.id !== boardId);
@@ -522,6 +550,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   },
 
   deleteList: (boardId, listId) => {
+    closeLiveTerminals(cardIds(get().doc, boardId, listId));
     get().mutate((draft) => {
       const board = draft.boards.find((b) => b.id === boardId);
       if (board) board.lists = board.lists.filter((l) => l.id !== listId);
@@ -612,6 +641,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   },
 
   deleteCard: (boardId, listId, cardId) => {
+    closeLiveTerminals([cardId]);
     get().mutate((draft) => {
       const list = draft.boards
         .find((b) => b.id === boardId)
@@ -641,6 +671,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   },
 
   archiveCard: (boardId, listId, cardId) => {
+    closeLiveTerminals([cardId]);
     get().updateCard(boardId, listId, cardId, { archived: true });
   },
 
@@ -649,6 +680,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   },
 
   archiveAllCardsInList: (boardId, listId) => {
+    closeLiveTerminals(cardIds(get().doc, boardId, listId));
     get().mutate((draft) => {
       const list = draft.boards
         .find((b) => b.id === boardId)

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { useDocStore } from '@/store/docStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { selectSessionCardIds } from '@/store/selectors';
 import { writeNow } from '@/store/persistence';
 import { TagManager } from '@/components/tags/TagManager';
@@ -25,6 +26,9 @@ import { reattachSessions } from '@/lib/reattachSessions';
 import { cn } from '@/lib/utils';
 import type { ApprovalMode } from '@shared/daemonProtocol';
 import { terminalSupported, type SessionEngine } from '@shared/sessionEngine';
+
+const RESTART_DAEMON_BODY =
+  'This will disconnect all cards from the current session daemon. Any in-progress work will be interrupted, then reconnected once the new daemon starts.';
 
 const APPROVAL_MODE_OPTIONS: {
   value: ApprovalMode;
@@ -151,6 +155,16 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   // to be open right now.
   const [restartDaemonConfirmOpen, setRestartDaemonConfirmOpen] =
     useState(false);
+  const openTerminals = useSessionStore(
+    (state) =>
+      Object.values(state.sessions).filter(
+        (session) => session.terminal?.shellAlive,
+      ).length,
+  );
+  const restartDaemonBody =
+    openTerminals > 0
+      ? `${RESTART_DAEMON_BODY} Open terminals will be closed.`
+      : RESTART_DAEMON_BODY;
   // The path is saved on blur, so the field holds a draft. Resync when the
   // dialog opens or the stored path changes; the dialog stays mounted while
   // closed, and a post-paint effect would race the blur that just wrote.
@@ -400,7 +414,24 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
               description="Restarts the background process every card’s agent session runs through. Use this if a card’s session seems stuck."
               indent={false}
             >
-              <div>
+              <div className="flex flex-col items-start gap-3">
+                {openTerminals > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {openTerminals === 1
+                      ? '1 terminal open'
+                      : `${openTerminals} terminals open`}
+                  </p>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const closing = window.electron?.terminal?.closeIdle();
+                    if (closing) closing.catch(() => undefined);
+                  }}
+                >
+                  Close idle terminals
+                </Button>
                 <Button
                   size="sm"
                   variant="destructive"
@@ -445,7 +476,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
         open={restartDaemonConfirmOpen}
         onOpenChange={setRestartDaemonConfirmOpen}
         title="Restart Daemon?"
-        body="This will disconnect all cards from the current session daemon. Any in-progress work will be interrupted, then reconnected once the new daemon starts."
+        body={restartDaemonBody}
         confirmLabel="Restart the daemon"
         onConfirm={() => {
           setRestartDaemonConfirmOpen(false);
