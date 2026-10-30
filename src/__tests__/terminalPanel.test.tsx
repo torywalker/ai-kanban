@@ -93,6 +93,23 @@ describe('TerminalPanel', () => {
     expect(term.write).not.toHaveBeenCalledWith('nope');
   });
 
+  it('writes data that follows an empty replay and resets on the next one', () => {
+    const { emitData, emitReplay } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const term = Terminal.instances[0];
+
+    emitReplay('crd_1', '');
+    emitData('crd_1', 'hi');
+    expect(term.write).toHaveBeenCalledWith('hi');
+
+    emitReplay('crd_1', 'again');
+    expect(term.reset).toHaveBeenCalledTimes(2);
+    expect(term.reset.mock.invocationCallOrder[1]).toBeLessThan(
+      term.write.mock.invocationCallOrder.at(-1) ?? 0,
+    );
+    expect(term.write).toHaveBeenLastCalledWith('again');
+  });
+
   it('sends keystrokes to the card’s pty', () => {
     const { terminal } = installTerminalBridge();
     render(<TerminalPanel cardId="crd_1" />);

@@ -223,6 +223,7 @@ describe('output', () => {
     host.start(request());
     ptys[0].emitData('hello');
     expect(events).toEqual([
+      { event: 'terminalReplay', cardId: 'crd_1', data: '' },
       { event: 'terminalData', cardId: 'crd_1', data: 'hello' },
     ]);
     ptys[0].emitData(' world\r\n');
@@ -233,9 +234,25 @@ describe('output', () => {
     ]);
   });
 
-  it('replays nothing for a card with no terminal', () => {
+  it('publishes an empty replay before any pty data on start', () => {
+    host.start(request());
+    expect(events[0]).toEqual({
+      event: 'terminalReplay',
+      cardId: 'crd_1',
+      data: '',
+    });
+    ptys[0].emitData('hello');
+    const replayAt = events.findIndex((e) => e.event === 'terminalReplay');
+    const dataAt = events.findIndex((e) => e.event === 'terminalData');
+    expect(replayAt).toBeGreaterThanOrEqual(0);
+    expect(dataAt).toBeGreaterThan(replayAt);
+  });
+
+  it('publishes an empty replay when the card has no live pty', () => {
     host.attach('crd_none');
-    expect(events).toEqual([]);
+    expect(events).toEqual([
+      { event: 'terminalReplay', cardId: 'crd_none', data: '' },
+    ]);
   });
 });
 

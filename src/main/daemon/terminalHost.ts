@@ -231,6 +231,14 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         lastActivity: deps.now(),
       };
       terminals.set(req.cardId, terminal);
+      // The panel drops live output until the first replay. An empty one
+      // has to go out before the pty can emit, or a Run that attached
+      // early — and a Run after Close — never paints.
+      deps.publishEvent({
+        event: 'terminalReplay',
+        cardId: req.cardId,
+        data: '',
+      });
 
       pty.onData((data) => {
         terminal.buffer = appendCapped(terminal.buffer, data);
@@ -278,11 +286,10 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
 
     attach(cardId) {
       const terminal = terminals.get(cardId);
-      if (!terminal) return;
       deps.publishEvent({
         event: 'terminalReplay',
         cardId,
-        data: terminal.buffer,
+        data: terminal?.buffer ?? '',
       });
     },
 

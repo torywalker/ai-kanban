@@ -6,7 +6,13 @@
  * anything actually happens.
  */
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { SettingsDialog } from '@/components/shell/SettingsDialog';
@@ -68,6 +74,16 @@ function seededDoc(): KanbanDoc {
   };
 }
 
+async function renderSettings() {
+  const view = render(<SettingsDialog open onOpenChange={() => {}} />);
+  await act(async () => {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  });
+  return view;
+}
+
 beforeEach(() => {
   installElectronMock();
   useSessionStore.setState({ sessions: {} });
@@ -75,8 +91,8 @@ beforeEach(() => {
 });
 
 describe('SettingsDialog "Restart Daemon"', () => {
-  it('does not restart the daemon until the warning is confirmed', () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+  it('does not restart the daemon until the warning is confirmed', async () => {
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
@@ -87,7 +103,7 @@ describe('SettingsDialog "Restart Daemon"', () => {
   });
 
   it('restarts the daemon once the warning is confirmed', async () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
@@ -98,8 +114,8 @@ describe('SettingsDialog "Restart Daemon"', () => {
     );
   });
 
-  it('does not restart the daemon when the warning is cancelled', () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+  it('does not restart the daemon when the warning is cancelled', async () => {
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
@@ -110,7 +126,7 @@ describe('SettingsDialog "Restart Daemon"', () => {
   });
 
   it('re-queries every card with a session once the daemon is back up', async () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
@@ -123,8 +139,8 @@ describe('SettingsDialog "Restart Daemon"', () => {
     );
   });
 
-  it('does not mention terminals in the restart warning when none are open', () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+  it('does not mention terminals in the restart warning when none are open', async () => {
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));
@@ -173,8 +189,8 @@ describe('SettingsDialog open terminals', () => {
     });
   });
 
-  it('shows how many terminals are open and closes the idle ones', () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+  it('shows how many terminals are open and closes the idle ones', async () => {
+    await renderSettings();
     selectTab('Agent sessions');
 
     expect(screen.getByText('2 terminals open')).toBeInTheDocument();
@@ -186,8 +202,8 @@ describe('SettingsDialog open terminals', () => {
     expect(window.electron.terminal.closeIdle).toHaveBeenCalledTimes(1);
   });
 
-  it('warns that restarting the daemon closes open terminals', () => {
-    render(<SettingsDialog open onOpenChange={() => {}} />);
+  it('warns that restarting the daemon closes open terminals', async () => {
+    await renderSettings();
     selectTab('Agent sessions');
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart Daemon' }));

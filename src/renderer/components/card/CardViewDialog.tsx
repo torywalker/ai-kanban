@@ -58,6 +58,7 @@ import {
 import { TagPicker } from '@/components/tags/TagPicker';
 import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
+import { SessionLastError } from './SessionLastError';
 import { SessionTranscript } from './SessionTranscript';
 import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
@@ -106,6 +107,9 @@ export function CardViewDialog({
   const claudeCliPath = useDocStore((s) => s.claudeCliPath);
   const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
   const sessionStatus = useSessionStore((s) => s.sessions[cardId]?.status);
+  const lastError = useSessionStore(
+    (s) => s.sessions[cardId]?.lastError ?? null,
+  );
   const sessionId = useSessionStore(
     (s) => s.sessions[cardId]?.sessionId ?? null,
   );
@@ -114,7 +118,6 @@ export function CardViewDialog({
   const claudeRunning =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
-  const snapshotEngine = useSessionStore((s) => s.sessions[cardId]?.engine);
   const expanded = useUiStore((s) => s.cardDialogExpanded[cardId] ?? false);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -184,13 +187,12 @@ export function CardViewDialog({
    * follow — the transcript's own `feedRef` does that job instead.
    */
   const terminalMode =
-    snapshotEngine === 'terminal'
-      ? true
-      : resolveSessionEngine(
-          card?.sessionEngine ?? null,
-          sessionEngine,
-          window.electron?.platform ?? '',
-        ) === 'terminal';
+    shellAlive ||
+    resolveSessionEngine(
+      card?.sessionEngine ?? null,
+      sessionEngine,
+      window.electron?.platform ?? '',
+    ) === 'terminal';
   const layoutExpanded = expanded || terminalMode;
   const bodyRef = useStickToBottom<HTMLDivElement>(
     hasSession && !layoutExpanded,
@@ -792,6 +794,11 @@ export function CardViewDialog({
           {terminalMode ? (
             <>
               <TerminalPanel cardId={cardId} />
+              {sessionStatus === 'failed' && lastError ? (
+                <div className="shrink-0">
+                  <SessionLastError status="failed" message={lastError} />
+                </div>
+              ) : null}
               <p className="shrink-0 text-xs text-muted-foreground">
                 Cost is estimated from token counts for terminal sessions.
               </p>

@@ -6,6 +6,7 @@
 import '@testing-library/jest-dom';
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -58,8 +59,8 @@ describe('CardViewDialog terminal controls', () => {
   let listId: string;
   let cardId: string;
 
-  const renderDialog = () =>
-    render(
+  const renderDialog = async () => {
+    const view = render(
       <CardViewDialog
         open
         onOpenChange={() => {}}
@@ -68,6 +69,13 @@ describe('CardViewDialog terminal controls', () => {
         cardId={cardId}
       />,
     );
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+    return view;
+  };
 
   beforeEach(async () => {
     installResizeObserver();
@@ -110,6 +118,7 @@ describe('CardViewDialog terminal controls', () => {
   });
 
   afterEach(() => {
+    cleanup();
     useDocStore.setState({
       sessionEngine: 'sdk',
       claudeCliPath: null,
@@ -119,7 +128,7 @@ describe('CardViewDialog terminal controls', () => {
   });
 
   it('starts a terminal and does not call the Agent SDK', async () => {
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
@@ -142,7 +151,7 @@ describe('CardViewDialog terminal controls', () => {
     (window.electron.terminal.start as jest.Mock).mockRejectedValue(
       new Error('daemon down'),
     );
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Run' }));
 
@@ -151,13 +160,13 @@ describe('CardViewDialog terminal controls', () => {
     });
   });
 
-  it('replaces Run and the reply box while a terminal is open', () => {
+  it('replaces Run and the reply box while a terminal is open', async () => {
     useSessionStore
       .getState()
       .applySnapshot(
         terminalSnapshot(cardId, { shellAlive: true, claudeRunning: true }),
       );
-    renderDialog();
+    await renderDialog();
 
     expect(
       screen.queryByRole('button', { name: /^Run/ }),
@@ -181,7 +190,7 @@ describe('CardViewDialog terminal controls', () => {
       .applySnapshot(
         terminalSnapshot(cardId, { shellAlive: true, claudeRunning: true }),
       );
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
 
@@ -190,13 +199,13 @@ describe('CardViewDialog terminal controls', () => {
     );
   });
 
-  it('confirms before closing a terminal that is still running Claude', () => {
+  it('confirms before closing a terminal that is still running Claude', async () => {
     useSessionStore
       .getState()
       .applySnapshot(
         terminalSnapshot(cardId, { shellAlive: true, claudeRunning: true }),
       );
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close terminal' }));
 
@@ -212,7 +221,7 @@ describe('CardViewDialog terminal controls', () => {
     expect(window.electron.terminal.close).toHaveBeenCalledWith(cardId);
   });
 
-  it('closes an idle terminal without confirming', () => {
+  it('closes an idle terminal without confirming', async () => {
     useSessionStore
       .getState()
       .applySnapshot(
@@ -222,7 +231,7 @@ describe('CardViewDialog terminal controls', () => {
           'done',
         ),
       );
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close terminal' }));
 
@@ -237,7 +246,7 @@ describe('CardViewDialog terminal controls', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('refuses to ship while Claude is running in the terminal', () => {
+  it('refuses to ship while Claude is running in the terminal', async () => {
     useDocStore.setState({ useWorktrees: true });
     act(() => {
       useDocStore.getState().updateCard(boardId, listId, cardId, {
@@ -253,7 +262,7 @@ describe('CardViewDialog terminal controls', () => {
       .applySnapshot(
         terminalSnapshot(cardId, { shellAlive: true, claudeRunning: true }),
       );
-    renderDialog();
+    await renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Ship' }));
 
@@ -263,7 +272,7 @@ describe('CardViewDialog terminal controls', () => {
     expect(window.electron.git.shipPlan).not.toHaveBeenCalled();
   });
 
-  it('keeps the transcript and reply box for a built-in session', () => {
+  it('keeps the transcript and reply box for a built-in session', async () => {
     act(() => {
       useDocStore.getState().updateCard(boardId, listId, cardId, {
         sessionEngine: 'sdk',
@@ -278,7 +287,7 @@ describe('CardViewDialog terminal controls', () => {
       pendingApproval: null,
       lastError: null,
     });
-    renderDialog();
+    await renderDialog();
 
     expect(screen.getByText('Read: a.py')).toBeInTheDocument();
     expect(
@@ -362,5 +371,56 @@ describe('CardViewDialog terminal controls', () => {
     useDocStore.getState().deleteBoard(boardId);
 
     expect(window.electron.terminal.close).toHaveBeenCalledWith(cardId);
+  });
+
+  it('runs the built-in engine once a terminal has exited and the card is sdk', async () => {
+    act(() => {
+      useDocStore.getState().updateCard(boardId, listId, cardId, {
+        sessionEngine: 'sdk',
+      });
+    });
+    useSessionStore.getState().applySnapshot({
+      cardId,
+      sessionId: 'sess_old',
+      status: 'done',
+      checklist: [{ id: 'tu_1', label: 'Read: a.py', done: true, seq: 0 }],
+      messages: [],
+      pendingApproval: null,
+      lastError: null,
+      engine: 'terminal',
+      terminal: { shellAlive: false, claudeRunning: false },
+    });
+    await renderDialog();
+
+    expect(screen.getByText('Read: a.py')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Run/ }));
+
+    await waitFor(() => {
+      expect(window.electron.session.run).toHaveBeenCalled();
+    });
+    expect(window.electron.terminal.start).not.toHaveBeenCalled();
+  });
+
+  it('shows a failed terminal start under the panel', async () => {
+    useSessionStore.getState().applySnapshot({
+      cardId,
+      sessionId: null,
+      status: 'failed',
+      checklist: [],
+      messages: [],
+      pendingApproval: null,
+      lastError: 'Working directory does not exist: /nope',
+      engine: 'terminal',
+      terminal: { shellAlive: false, claudeRunning: false },
+    });
+    await renderDialog();
+
+    const box = screen.getByText('Working directory does not exist: /nope');
+    expect(box.className).toMatch(/destructive/);
+    expect(
+      screen.getByText(
+        'Cost is estimated from token counts for terminal sessions.',
+      ),
+    ).toBeInTheDocument();
   });
 });
