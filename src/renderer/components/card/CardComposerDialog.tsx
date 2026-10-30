@@ -285,10 +285,11 @@ export function CardComposerDialog({
     void cleanup().catch((error) => {
       toast.error(error instanceof Error ? error.message : String(error));
     });
-    // Otherwise the deleted card's snapshot lingers in the session store
-    // for the rest of the app's lifetime.
-    useSessionStore.getState().clearSession(cardId);
+    // deleteCard reads the snapshot to close a live terminal, so it goes
+    // first. Clearing after keeps the snapshot from lingering for the rest
+    // of the app's lifetime.
     deleteCard(boardId, listId, cardId);
+    useSessionStore.getState().clearSession(cardId);
     onOpenChange(false);
   };
 

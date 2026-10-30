@@ -401,6 +401,83 @@ describe('CardViewDialog terminal controls', () => {
     expect(window.electron.terminal.start).not.toHaveBeenCalled();
   });
 
+  it('shows the SDK approval UI while a conflict turn waits on a terminal card', async () => {
+    useSessionStore.getState().applySnapshot({
+      cardId,
+      sessionId: 'sess_sdk',
+      status: 'waiting',
+      checklist: [],
+      messages: [],
+      pendingApproval: {
+        requestId: 'req_1',
+        toolName: 'Bash',
+        input: { command: 'git merge main' },
+      },
+      lastError: null,
+    });
+    await renderDialog();
+
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Cost is estimated from token counts for terminal sessions.',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  describe('Escape', () => {
+    const renderWithClose = async () => {
+      const onOpenChange = jest.fn();
+      render(
+        <CardViewDialog
+          open
+          onOpenChange={onOpenChange}
+          boardId={boardId}
+          listId={listId}
+          cardId={cardId}
+        />,
+      );
+      await act(async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      });
+      return onOpenChange;
+    };
+
+    beforeEach(() => {
+      useSessionStore
+        .getState()
+        .applySnapshot(
+          terminalSnapshot(cardId, { shellAlive: true, claudeRunning: true }),
+        );
+    });
+
+    it('stays open when Escape is pressed inside the terminal', async () => {
+      const onOpenChange = await renderWithClose();
+      const input = document.createElement('textarea');
+      document.querySelector('[data-terminal-host]')!.appendChild(input);
+      input.focus();
+
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it('still closes when Escape is pressed outside the terminal', async () => {
+      const onOpenChange = await renderWithClose();
+      const closeButton = screen.getByRole('button', {
+        name: 'Close terminal',
+      });
+      closeButton.focus();
+
+      fireEvent.keyDown(closeButton, { key: 'Escape' });
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
   it('shows a failed terminal start under the panel', async () => {
     useSessionStore.getState().applySnapshot({
       cardId,

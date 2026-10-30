@@ -739,6 +739,30 @@ describe('CardComposerDialog', () => {
       ).toBeUndefined();
     });
 
+    it('closes the card’s live terminal on delete', () => {
+      const close = jest.fn().mockResolvedValue(undefined);
+      (window.electron as unknown as { terminal: unknown }).terminal = {
+        close,
+      };
+      useSessionStore.getState().applySnapshot({
+        cardId,
+        sessionId: 'sess_live',
+        status: 'working',
+        checklist: [],
+        messages: [],
+        pendingApproval: null,
+        lastError: null,
+        engine: 'terminal',
+        terminal: { shellAlive: true, claudeRunning: true },
+      });
+
+      renderOpen();
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+      expect(close).toHaveBeenCalledWith(cardId);
+      expect(useSessionStore.getState().sessions[cardId]).toBeUndefined();
+    });
+
     it('removes an app-managed worktree before deleting its card', async () => {
       useDocStore
         .getState()

@@ -118,6 +118,7 @@ export function CardViewDialog({
   const claudeRunning =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
+  const snapshotEngine = useSessionStore((s) => s.sessions[cardId]?.engine);
   const expanded = useUiStore((s) => s.cardDialogExpanded[cardId] ?? false);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -186,13 +187,23 @@ export function CardViewDialog({
    * container (see `chatExpanded` below), so there is no body offset left to
    * follow — the transcript's own `feedRef` does that job instead.
    */
+  const queuedForShip =
+    shipQueue?.active?.cardId === cardId ||
+    shipQueue?.waiters.some((waiter) => waiter.cardId === cardId) === true;
+  const shipBusy = shipPending || queuedForShip;
+  const resolvedEngine = resolveSessionEngine(
+    card?.sessionEngine ?? null,
+    sessionEngine,
+    window.electron?.platform ?? '',
+  );
+  // Ship's conflict turns run on the SDK even for a terminal card, and their
+  // Approve/Deny lives only in the transcript.
+  const sdkTurnActive =
+    (snapshotEngine !== 'terminal' &&
+      (sessionStatus === 'working' || sessionStatus === 'waiting')) ||
+    shipBusy;
   const terminalMode =
-    shellAlive ||
-    resolveSessionEngine(
-      card?.sessionEngine ?? null,
-      sessionEngine,
-      window.electron?.platform ?? '',
-    ) === 'terminal';
+    shellAlive || (resolvedEngine === 'terminal' && !sdkTurnActive);
   const layoutExpanded = expanded || terminalMode;
   const bodyRef = useStickToBottom<HTMLDivElement>(
     hasSession && !layoutExpanded,
@@ -265,10 +276,6 @@ export function CardViewDialog({
    */
   const turnInFlight =
     sessionStatus === 'working' || sessionStatus === 'waiting';
-  const queuedForShip =
-    shipQueue?.active?.cardId === cardId ||
-    shipQueue?.waiters.some((waiter) => waiter.cardId === cardId) === true;
-  const shipBusy = shipPending || queuedForShip;
   const controlsBusy = turnInFlight || shipBusy;
   // Only the agent's own turn gets the inline reply-box spinner — ship and
   // waiting-on-approval have their own explanatory text below instead.
@@ -632,6 +639,15 @@ export function CardViewDialog({
         onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
+        onEscapeKeyDown={(event) => {
+          // Escape is Claude's interrupt key, not a request to close.
+          if (
+            terminalMode &&
+            document.activeElement?.closest('[data-terminal-host]')
+          ) {
+            event.preventDefault();
+          }
+        }}
         className={cn(
           'flex flex-col',
           // Expanded uses a fixed `h-` and not merely a taller `max-h-`: a

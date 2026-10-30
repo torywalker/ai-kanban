@@ -75,6 +75,10 @@ export function TerminalPanel({ cardId }: { cardId: string }) {
   }, [cardId]);
 
   return (
-    <div ref={hostRef} className="min-h-0 w-full flex-1 overflow-hidden" />
+    <div
+      ref={hostRef}
+      data-terminal-host=""
+      className="min-h-0 w-full flex-1 overflow-hidden"
+    />
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -22,6 +22,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ModelPicker } from '@/components/common/ModelPicker';
 import { SettingsSection } from '@/components/common/SettingsSection';
 import { SettingsCheckboxRow } from '@/components/common/SettingsCheckboxRow';
+import { OptionButtons } from '@/components/common/OptionButtons';
 import { reattachSessions } from '@/lib/reattachSessions';
 import { cn } from '@/lib/utils';
 import type { ApprovalMode } from '@shared/daemonProtocol';
@@ -66,54 +67,6 @@ const SESSION_ENGINE_OPTIONS: {
     description: 'Opens a terminal in the card running your own claude CLI.',
   },
 ];
-
-function OptionButtons<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: {
-    value: T;
-    label: string;
-    description: string;
-    disabled?: boolean;
-  }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  const baseId = useId();
-  return (
-    <div className="flex flex-col gap-1.5">
-      {options.map((option) => {
-        const active = value === option.value;
-        const descriptionId = `${baseId}-${option.value}-desc`;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-label={option.label}
-            aria-describedby={descriptionId}
-            aria-pressed={active}
-            disabled={option.disabled}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left',
-              active
-                ? 'border-primary bg-accent'
-                : 'border-border hover:bg-accent/50',
-              option.disabled && 'opacity-50',
-            )}
-          >
-            <span className="text-sm font-medium">{option.label}</span>
-            <span id={descriptionId} className="text-xs text-muted-foreground">
-              {option.description}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // Every tab panel scrolls on its own so the dialog itself stays inside its
 // max height; `min-h-0` is what lets a panel shrink below its content. The
