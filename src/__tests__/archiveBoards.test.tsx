@@ -20,6 +20,8 @@ const SETTINGS: Settings = {
   approvalMode: 'ask',
   defaultModel: null,
   useWorktrees: false,
+  sessionEngine: 'sdk',
+  claudeCliPath: null,
   soundEnabled: true,
   sidebarCollapsed: false,
   slashSnippets: [],

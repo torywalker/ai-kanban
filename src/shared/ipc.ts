@@ -1,3 +1,4 @@
+import type { SessionEngine } from './sessionEngine';
 import type { SlashSnippet } from './slashSnippets';
 
 export const CHANNELS = {
@@ -76,6 +77,14 @@ export interface Settings {
   // Global default for per-card git worktrees. A card's own `useWorktree`
   // overrides this when non-null.
   useWorktrees: boolean;
+  // Global default session engine. 'sdk' is the built-in Agent SDK
+  // transcript; 'terminal' opens the Claude CLI in a terminal. A card's
+  // own `sessionEngine` overrides this when non-null. Windows always
+  // resolves to sdk.
+  sessionEngine: SessionEngine;
+  // Absolute path to the claude binary. Null uses whichever `claude` the
+  // login shell finds on PATH.
+  claudeCliPath: string | null;
   // Whether a chime plays when a card finishes or needs your input. Global
   // only — there is no per-card override, the same reasoning as
   // `approvalMode` above.

@@ -51,6 +51,7 @@ function seededDoc(): KanbanDoc {
                 sessionId: 'sess_before_restart',
                 sessionModel: null,
                 useWorktree: null,
+                sessionEngine: null,
                 sessionWorktree: null,
                 usedWorktree: null,
                 archived: false,

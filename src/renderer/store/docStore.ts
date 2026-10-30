@@ -10,6 +10,7 @@ import {
   type Priority,
 } from '@shared/schema';
 import type { ApprovalMode } from '@shared/daemonProtocol';
+import type { SessionEngine } from '@shared/sessionEngine';
 import type { AttachmentMeta } from '@shared/attachments';
 import { normalizeTrigger, type SlashSnippet } from '@shared/slashSnippets';
 import { api } from '@/lib/api';
@@ -39,6 +40,7 @@ export interface NewCardFields {
   sessionRepo?: string | null;
   sessionModel?: string | null;
   useWorktree?: boolean | null;
+  sessionEngine?: SessionEngine | null;
 }
 
 const MAX_HISTORY = 50;
@@ -112,6 +114,8 @@ interface DocStore {
   approvalMode: ApprovalMode;
   defaultModel: string | null;
   useWorktrees: boolean;
+  sessionEngine: SessionEngine;
+  claudeCliPath: string | null;
   soundEnabled: boolean;
   sidebarCollapsed: boolean;
   slashSnippets: SlashSnippet[];
@@ -178,6 +182,8 @@ interface DocStore {
   setApprovalMode: (mode: ApprovalMode) => void;
   setDefaultModel: (model: string | null) => void;
   setUseWorktrees: (enabled: boolean) => void;
+  setSessionEngine: (engine: SessionEngine) => void;
+  setClaudeCliPath: (path: string | null) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   addSlashSnippet: (
@@ -216,6 +222,8 @@ export const useDocStore = create<DocStore>((set, get) => ({
   approvalMode: 'ask',
   defaultModel: null,
   useWorktrees: false,
+  sessionEngine: 'sdk',
+  claudeCliPath: null,
   soundEnabled: true,
   sidebarCollapsed: false,
   slashSnippets: [],
@@ -230,6 +238,8 @@ export const useDocStore = create<DocStore>((set, get) => ({
       approvalMode: settings.approvalMode,
       defaultModel: settings.defaultModel,
       useWorktrees: settings.useWorktrees,
+      sessionEngine: settings.sessionEngine ?? 'sdk',
+      claudeCliPath: settings.claudeCliPath ?? null,
       soundEnabled: settings.soundEnabled,
       sidebarCollapsed: settings.sidebarCollapsed,
       slashSnippets: settings.slashSnippets ?? [],
@@ -556,6 +566,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         sessionTool: null,
         sessionId: null,
         useWorktree: fields.useWorktree ?? null,
+        sessionEngine: fields.sessionEngine ?? null,
         sessionWorktree: null,
         usedWorktree: null,
         archived: false,
@@ -769,6 +780,16 @@ export const useDocStore = create<DocStore>((set, get) => ({
   setUseWorktrees: (enabled) => {
     set({ useWorktrees: enabled });
     void api.settings.write({ useWorktrees: enabled });
+  },
+
+  setSessionEngine: (engine) => {
+    set({ sessionEngine: engine });
+    void api.settings.write({ sessionEngine: engine });
+  },
+
+  setClaudeCliPath: (cliPath) => {
+    set({ claudeCliPath: cliPath });
+    void api.settings.write({ claudeCliPath: cliPath });
   },
 
   setSoundEnabled: (enabled) => {

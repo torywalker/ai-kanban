@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
@@ -23,6 +24,7 @@ import { SettingsCheckboxRow } from '@/components/common/SettingsCheckboxRow';
 import { reattachSessions } from '@/lib/reattachSessions';
 import { cn } from '@/lib/utils';
 import type { ApprovalMode } from '@shared/daemonProtocol';
+import { terminalSupported, type SessionEngine } from '@shared/sessionEngine';
 
 const APPROVAL_MODE_OPTIONS: {
   value: ApprovalMode;
@@ -42,6 +44,72 @@ const APPROVAL_MODE_OPTIONS: {
       'Matches the Claude CLI’s own Auto Mode: a hosted model classifier approves or denies almost every action itself, including edits, commands, and network access. The Approve/Deny prompt will rarely appear — you’re trusting the classifier’s judgment, not this app’s.',
   },
 ];
+
+const SESSION_ENGINE_OPTIONS: {
+  value: SessionEngine;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'sdk',
+    label: 'Built-in (Agent SDK)',
+    description:
+      'Runs Claude through the Agent SDK and shows a structured transcript.',
+  },
+  {
+    value: 'terminal',
+    label: 'Terminal (Claude CLI)',
+    description: 'Opens a terminal in the card running your own claude CLI.',
+  },
+];
+
+function OptionButtons<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: {
+    value: T;
+    label: string;
+    description: string;
+    disabled?: boolean;
+  }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const baseId = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      {options.map((option) => {
+        const active = value === option.value;
+        const descriptionId = `${baseId}-${option.value}-desc`;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-label={option.label}
+            aria-describedby={descriptionId}
+            aria-pressed={active}
+            disabled={option.disabled}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left',
+              active
+                ? 'border-primary bg-accent'
+                : 'border-border hover:bg-accent/50',
+              option.disabled && 'opacity-50',
+            )}
+          >
+            <span className="text-sm font-medium">{option.label}</span>
+            <span id={descriptionId} className="text-xs text-muted-foreground">
+              {option.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 // Every tab panel scrolls on its own so the dialog itself stays inside its
 // max height; `min-h-0` is what lets a panel shrink below its content. The
@@ -64,6 +132,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   const setDefaultModel = useDocStore((s) => s.setDefaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
   const setUseWorktrees = useDocStore((s) => s.setUseWorktrees);
+  const sessionEngine = useDocStore((s) => s.sessionEngine);
+  const setSessionEngine = useDocStore((s) => s.setSessionEngine);
+  const claudeCliPath = useDocStore((s) => s.claudeCliPath);
+  const setClaudeCliPath = useDocStore((s) => s.setClaudeCliPath);
   const soundEnabled = useDocStore((s) => s.soundEnabled);
   const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
   const [recents, setRecents] = useState<string[]>([]);
@@ -79,6 +151,20 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   // to be open right now.
   const [restartDaemonConfirmOpen, setRestartDaemonConfirmOpen] =
     useState(false);
+  // The path is saved on blur, so the field holds a draft. Resync when the
+  // dialog opens or the stored path changes; the dialog stays mounted while
+  // closed, and a post-paint effect would race the blur that just wrote.
+  const storedCliPath = claudeCliPath ?? '';
+  const [cliPath, setCliPath] = useState(storedCliPath);
+  const [cliDraftFor, setCliDraftFor] = useState<string | null>(
+    open ? storedCliPath : null,
+  );
+  const cliDraftKey = open ? storedCliPath : null;
+  if (cliDraftKey !== cliDraftFor) {
+    setCliDraftFor(cliDraftKey);
+    if (open) setCliPath(storedCliPath);
+  }
+  const terminalOk = terminalSupported(window.electron?.platform ?? '');
 
   useEffect(() => {
     if (!open) return;
@@ -245,32 +331,45 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
 
               <div className="flex flex-col gap-1.5">
                 <Label>Tool approval</Label>
-                <div className="flex flex-col gap-1.5">
-                  {APPROVAL_MODE_OPTIONS.map((option) => {
-                    const active = approvalMode === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setApprovalMode(option.value)}
-                        className={cn(
-                          'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left',
-                          active
-                            ? 'border-primary bg-accent'
-                            : 'border-border hover:bg-accent/50',
-                        )}
-                      >
-                        <span className="text-sm font-medium">
-                          {option.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <OptionButtons
+                  options={APPROVAL_MODE_OPTIONS}
+                  value={approvalMode}
+                  onChange={setApprovalMode}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>Session engine</Label>
+                <OptionButtons
+                  options={SESSION_ENGINE_OPTIONS.map((option) => ({
+                    ...option,
+                    disabled: option.value === 'terminal' && !terminalOk,
+                  }))}
+                  value={sessionEngine}
+                  onChange={setSessionEngine}
+                />
+                {terminalOk ? null : (
+                  <p className="text-xs text-muted-foreground">
+                    Terminal sessions aren&apos;t available on Windows yet.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="claude-cli-path">Claude CLI path</Label>
+                <Input
+                  id="claude-cli-path"
+                  value={cliPath}
+                  placeholder="claude (found through your login shell)"
+                  onChange={(event) => setCliPath(event.target.value)}
+                  onBlur={() => {
+                    const trimmed = cliPath.trim();
+                    setClaudeCliPath(trimmed === '' ? null : trimmed);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to use the claude on your login shell&apos;s PATH.
+                </p>
               </div>
 
               <div className="flex flex-col gap-1.5">

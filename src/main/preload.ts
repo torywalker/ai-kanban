@@ -27,6 +27,7 @@ import type {
 } from '../shared/quickAdd';
 
 const api = {
+  platform: process.platform,
   settings: {
     read: (): Promise<Settings> => ipcRenderer.invoke(CHANNELS.settingsRead),
     write: (patch: Partial<Settings>): Promise<Settings> =>

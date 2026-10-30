@@ -1,5 +1,6 @@
 import type { AttachmentMeta } from './attachments';
 import type { IpcResult } from './ipc';
+import type { SessionEngine } from './sessionEngine';
 import type { Card, CardColor, KanbanDoc, Priority } from './schema';
 import type { SlashSnippet } from './slashSnippets';
 import { nextTagColor, normalizeTagName } from '../renderer/domain/tags';
@@ -28,6 +29,7 @@ export interface QuickAddCardFields {
   sessionRepo?: string | null;
   sessionModel?: string | null;
   useWorktree?: boolean | null;
+  sessionEngine?: SessionEngine | null;
 }
 
 export interface QuickAddContextValue {
@@ -35,6 +37,7 @@ export interface QuickAddContextValue {
   activeBoardId: string | null;
   defaultModel: string | null;
   useWorktrees: boolean;
+  sessionEngine: SessionEngine;
   slashSnippets: SlashSnippet[];
 }
 
@@ -137,6 +140,7 @@ export function insertNewCard(
     sessionTool: null,
     sessionId: null,
     useWorktree: fields.useWorktree ?? null,
+    sessionEngine: fields.sessionEngine ?? null,
     sessionWorktree: null,
     usedWorktree: null,
     archived: false,
