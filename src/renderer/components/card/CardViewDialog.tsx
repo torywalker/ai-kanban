@@ -169,6 +169,10 @@ export function CardViewDialog({
   const shipCancelledByUser = useRef(false);
   const shipPlanRequestId = useRef(0);
   const replyInputRef = useRef<HTMLTextAreaElement>(null);
+  // Filled in each render once the handlers exist (they sit below the
+  // `!card` early return); the keydown listener reads it so it never goes
+  // stale and never has to re-subscribe.
+  const shortcutsRef = useRef<Record<string, () => void>>({});
   /**
    * The transcript pins itself to its own newest entry, but that only helps
    * if the transcript is on screen: everything in this dialog shares one
@@ -323,6 +327,45 @@ export function CardViewDialog({
     primary,
     card?.sessionWorktree?.recordedTargetBranch,
   ]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      const action = shortcutsRef.current[event.key.toLowerCase()];
+      if (!action) return;
+      // Cmd+C/A/E belong to the terminal (interrupt, readline) and to text
+      // fields (line start/end, copy) when focus is there.
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest(
+          '[data-terminal-host], input, textarea, [contenteditable="true"]',
+        )
+      ) {
+        return;
+      }
+      // A nested dialog (composer, confirm, ship target) owns the keyboard.
+      if (
+        document.querySelectorAll('[role="dialog"][data-state="open"]').length >
+        1
+      ) {
+        return;
+      }
+      // Cmd+C with a selection is the user copying that text, not the prompt.
+      if (
+        event.key.toLowerCase() === 'c' &&
+        window.getSelection()?.toString()
+      ) {
+        return;
+      }
+      event.preventDefault();
+      action();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open]);
 
   if (!card) return null;
   /**
@@ -615,6 +658,15 @@ export function CardViewDialog({
         onOpenChange(false);
       },
     });
+  };
+
+  shortcutsRef.current = {
+    e: () => setEditing(true),
+    r: () => {
+      if (canRun && !shellAlive && primary && card.prompt.trim()) void run();
+    },
+    c: () => void copy(),
+    a: archive,
   };
 
   // Resolved against the store as each ingest lands rather than against this
@@ -919,7 +971,11 @@ export function CardViewDialog({
 
         <DialogFooter className="shrink-0">
           <div className="flex gap-2 sm:mr-auto">
-            <Button variant="ghost" onClick={archive}>
+            <Button
+              variant="ghost"
+              onClick={archive}
+              title={`${card.archived ? 'Unarchive' : 'Archive'} (⌘A)`}
+            >
               {card.archived ? (
                 <ArchiveRestore className="size-3.5" />
               ) : (
@@ -927,12 +983,20 @@ export function CardViewDialog({
               )}
               {card.archived ? 'Unarchive' : 'Archive'}
             </Button>
-            <Button variant="ghost" onClick={() => void copy()}>
+            <Button
+              variant="ghost"
+              onClick={() => void copy()}
+              title="Copy prompt (⌘C)"
+            >
               <Copy className="size-3.5" />
               Copy
             </Button>
           </div>
-          <Button variant="ghost" onClick={() => setEditing(true)}>
+          <Button
+            variant="ghost"
+            onClick={() => setEditing(true)}
+            title="Edit (⌘E)"
+          >
             Edit
           </Button>
           {terminalMode && (claudeRunning || shipBusy) ? (
@@ -965,7 +1029,11 @@ export function CardViewDialog({
             </div>
           ) : null}
           {canRun && !shellAlive ? (
-            <Button onClick={run} disabled={!primary || !card.prompt.trim()}>
+            <Button
+              onClick={run}
+              disabled={!primary || !card.prompt.trim()}
+              title={`${hasSession ? 'Run again' : 'Run'} (⌘R)`}
+            >
               {hasSession ? 'Run again' : 'Run'}
             </Button>
           ) : null}
