@@ -50,16 +50,32 @@ export function TerminalPanel({
     term.loadAddon(fit);
 
     // Chunks that arrive before the replay would paint, then get wiped.
+    // The replay itself waits for the fit to settle: Claude's bottom area
+    // is drawn with cursor-relative moves, so replaying it into a grid that
+    // is then resized leaves that area garbled until something repaints it.
     let sawReplay = false;
+    let fitSettled = false;
+    let pending: string | null = null;
+    const paintReplay = (data: string) => {
+      term.reset();
+      term.write(data);
+    };
     const unsubscribeData = bridge.onData((id, data) => {
       if (id !== cardId || !sawReplay) return;
+      if (pending !== null) {
+        pending += data;
+        return;
+      }
       term.write(data);
     });
     const unsubscribeReplay = bridge.onReplay((id, data) => {
       if (id !== cardId) return;
       sawReplay = true;
-      term.reset();
-      term.write(data);
+      if (!fitSettled) {
+        pending = data;
+        return;
+      }
+      paintReplay(data);
     });
     // Escape closes the dialog; the Stop button is the interrupt. Returning
     // false keeps xterm from sending it to the pty while the event still
@@ -115,8 +131,19 @@ export function TerminalPanel({
       if (!termEl) return false;
       return host.clientHeight - termEl.clientHeight < 8;
     };
+    const settleFit = () => {
+      fitSettled = true;
+      if (pending === null) return;
+      const data = pending;
+      pending = null;
+      paintReplay(data);
+    };
     const refitUntilFilled = () => {
-      if (cancelled || frames >= 8 || fillsHost()) return;
+      if (cancelled) return;
+      if (frames >= 8 || fillsHost()) {
+        settleFit();
+        return;
+      }
       frames += 1;
       rafId = requestAnimationFrame(() => {
         fitToHost();
