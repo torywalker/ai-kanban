@@ -6,6 +6,9 @@ import '@xterm/xterm/css/xterm.css';
 const FONT_FAMILY =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
+/** How long the pty stays one column narrow so Claude sees a resize. */
+const REDRAW_NUDGE_MS = 80;
+
 function themeForDocument(): ITheme {
   const dark = document.documentElement.classList.contains('dark');
   if (dark) {
@@ -56,9 +59,21 @@ export function TerminalPanel({
     let sawReplay = false;
     let fitSettled = false;
     let pending: string | null = null;
+    // The replay is raw output from the pty's whole life, including the
+    // sizes it had before the first fit, so it can't recreate what a live
+    // terminal showed. Nudging the pty's size makes Claude repaint its UI
+    // for the real one, as tmux does on attach. A same-size resize sends
+    // no SIGWINCH, so the width has to actually change.
+    let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
     const paintReplay = (data: string) => {
       term.reset();
       term.write(data);
+      if (data === '') return;
+      clearTimeout(nudgeTimer);
+      bridge.resize(cardId, Math.max(term.cols - 1, 1), term.rows);
+      nudgeTimer = setTimeout(() => {
+        bridge.resize(cardId, term.cols, term.rows);
+      }, REDRAW_NUDGE_MS);
     };
     const unsubscribeData = bridge.onData((id, data) => {
       if (id !== cardId || !sawReplay) return;
@@ -160,6 +175,7 @@ export function TerminalPanel({
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
+      clearTimeout(nudgeTimer);
       observer.disconnect();
       keyInput.dispose();
       unsubscribeData();

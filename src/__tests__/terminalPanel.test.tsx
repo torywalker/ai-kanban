@@ -93,6 +93,35 @@ describe('TerminalPanel', () => {
     expect(term.write).not.toHaveBeenCalledWith('nope');
   });
 
+  it('nudges the pty size after a replay so Claude repaints its UI', () => {
+    jest.useFakeTimers();
+    try {
+      const { terminal, emitReplay } = installTerminalBridge();
+      render(<TerminalPanel cardId="crd_1" />);
+      const term = Terminal.instances[0];
+
+      emitReplay('crd_1', '');
+      jest.runAllTimers();
+      terminal.resize.mockClear();
+
+      emitReplay('crd_1', 'history');
+      expect(terminal.resize).toHaveBeenLastCalledWith(
+        'crd_1',
+        term.cols - 1,
+        term.rows,
+      );
+
+      jest.runAllTimers();
+      expect(terminal.resize).toHaveBeenLastCalledWith(
+        'crd_1',
+        term.cols,
+        term.rows,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('writes data that follows an empty replay and resets on the next one', () => {
     const { emitData, emitReplay } = installTerminalBridge();
     render(<TerminalPanel cardId="crd_1" />);
