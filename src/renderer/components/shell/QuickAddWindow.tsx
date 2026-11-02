@@ -52,6 +52,7 @@ export default function QuickAddWindow() {
           activeBoardId: selected,
           defaultModel: result.value.defaultModel,
           useWorktrees: result.value.useWorktrees,
+          sessionEngine: result.value.sessionEngine,
           slashSnippets: result.value.slashSnippets,
           savedSnapshot: null,
           past: [],

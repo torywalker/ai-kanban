@@ -1,3 +1,4 @@
+import type { SessionEngine } from './sessionEngine';
 import type { SlashSnippet } from './slashSnippets';
 
 export const CHANNELS = {
@@ -29,6 +30,15 @@ export const CHANNELS = {
   sessionGetState: 'session:get-state',
   sessionRestartDaemon: 'session:restart-daemon',
   sessionSnapshot: 'session:snapshot',
+  terminalStart: 'terminal:start',
+  terminalInput: 'terminal:input',
+  terminalResize: 'terminal:resize',
+  terminalInterrupt: 'terminal:interrupt',
+  terminalClose: 'terminal:close',
+  terminalAttach: 'terminal:attach',
+  terminalCloseIdle: 'terminal:close-idle',
+  terminalData: 'terminal:data',
+  terminalReplay: 'terminal:replay',
   // The ledger behind both of these is a single file of timestamped
   // per-turn rows covering every card, so a card's total and a board's
   // total are two filtered reads of the same data rather than separate
@@ -76,6 +86,14 @@ export interface Settings {
   // Global default for per-card git worktrees. A card's own `useWorktree`
   // overrides this when non-null.
   useWorktrees: boolean;
+  // Global default session engine. 'sdk' is the built-in Agent SDK
+  // transcript; 'terminal' opens the Claude CLI in a terminal. A card's
+  // own `sessionEngine` overrides this when non-null. Windows always
+  // resolves to sdk.
+  sessionEngine: SessionEngine;
+  // Absolute path to the claude binary. Null uses whichever `claude` the
+  // login shell finds on PATH.
+  claudeCliPath: string | null;
   // Whether a chime plays when a card finishes or needs your input. Global
   // only — there is no per-card override, the same reasoning as
   // `approvalMode` above.

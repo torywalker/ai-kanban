@@ -1,5 +1,6 @@
 import net from 'net';
 import fs from 'fs';
+import path from 'path';
 // `@anthropic-ai/claude-agent-sdk` publishes as an ESM-only package
 // ("type": "module", main: sdk.mjs). This repo's tsconfig uses
 // `module: node16`, and this file has no package.json "type": "module"
@@ -54,6 +55,7 @@ import {
   type SnapshotPersistTiming,
 } from './snapshotPublisher';
 import { buildUsageEntries } from './usageEntry';
+import { createTranscriptUsageReader } from './transcriptUsage';
 import { appendUsageEntries, usageLedgerPathFor } from './usageLedger';
 import {
   computeBuildId,
@@ -64,14 +66,18 @@ import {
   canStartTurn,
   normalizeHydratedSnapshot,
   rejectTurnSnapshot,
+  resolveCardSnapshot,
   resolveResumeSessionId,
+  sdkTurnInFlight,
   settleTurnSnapshot,
   shouldApplyTurnWrite,
   startTurnSnapshot,
   stopSnapshot,
+  terminalSnapshotToRepublish,
   turnOutcomeFromMessage,
   type TurnOutcome,
 } from './turnLifecycle';
+import { createTerminalHost } from './terminalHost';
 
 // Last-resort backstop. Nothing supervises this process: it is spawned
 // detached and unref()'d specifically so it outlives the Electron app, so an
@@ -102,6 +108,7 @@ if (fs.existsSync(socketPath)) {
 
 const cacheDir = cacheDirFor(socketPath);
 const usageLedgerPath = usageLedgerPathFor(socketPath);
+const transcriptUsage = createTranscriptUsageReader();
 
 /**
  * This process hashes its OWN bundle (argv[1] is the path it was launched
@@ -162,6 +169,53 @@ const snapshotPublisher = createSnapshotPublisher({
   persist: persistSnapshot,
 });
 
+const terminalHost = createTerminalHost({
+  spawnPty: (file, args, opts) => {
+    // Loaded on first use: a native binary that fails to load then fails
+    // that one terminal instead of the whole daemon at startup.
+    // eslint-disable-next-line global-require
+    const pty = require('node-pty') as typeof import('node-pty');
+    return pty.spawn(file, args, { ...opts, name: 'xterm-256color' });
+  },
+  hookDir: path.join(path.dirname(cacheDir), 'terminal-hooks'),
+  platform: process.platform,
+  envShell: process.env.SHELL,
+  baseEnv: process.env,
+  publishSnapshot: (snapshot) => {
+    // The host keeps its own copy; getState still finds it afterwards.
+    if (sdkTurnInFlight(sessions.get(snapshot.cardId))) return;
+    snapshotPublisher.publish(snapshot);
+  },
+  publishEvent: broadcast,
+  onTranscriptStart: (cardId, transcriptPath) => {
+    try {
+      transcriptUsage.prime(transcriptPath);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('daemon: failed to prime terminal usage', cardId, error);
+    }
+  },
+  onUsageBatch: (cardId, transcriptPath, first) => {
+    // The reader is defensive, but a throw here would still be an uncaught
+    // exception on the hook-poll timer and take every live session with it.
+    try {
+      appendUsageEntries(
+        usageLedgerPath,
+        transcriptUsage.read(
+          cardId,
+          transcriptPath,
+          first,
+          new Date().toISOString(),
+        ),
+      );
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('daemon: failed to record terminal usage', error);
+    }
+  },
+  now: () => Date.now(),
+});
+
 function updateSnapshot(
   cardId: string,
   updater: (snapshot: SessionSnapshot) => SessionSnapshot,
@@ -170,6 +224,14 @@ function updateSnapshot(
   if (!session) return;
   session.snapshot = updater(session.snapshot);
   snapshotPublisher.publish(session.snapshot);
+}
+
+function republishLiveTerminal(cardId: string): void {
+  const snapshot = terminalSnapshotToRepublish(
+    sessions.get(cardId),
+    terminalHost.liveSnapshot(cardId),
+  );
+  if (snapshot) snapshotPublisher.publish(snapshot);
 }
 
 /**
@@ -243,6 +305,7 @@ async function runTurn(
     return;
   }
 
+  terminalHost.forget(cardId);
   const abortController = new AbortController();
   const snapshot = existing?.snapshot ?? createInitialSnapshot(cardId);
   sessions.set(cardId, {
@@ -292,6 +355,7 @@ async function runTurn(
       lastError: `Working directory does not exist: ${options.cwd}`,
     }));
     finishTurn();
+    republishLiveTerminal(cardId);
     return;
   }
 
@@ -439,6 +503,10 @@ async function runTurn(
       settleTurnSnapshot(noteUnresumedBackgroundWork(s, hold), outcome),
     );
     finishTurn();
+    // Before the cache write below, so the cache keeps the SDK transcript.
+    if (sessions.get(cardId)?.abortController === abortController) {
+      republishLiveTerminal(cardId);
+    }
     const finished = sessions.get(cardId);
     // The cache becomes the only copy after this, so a failed write keeps
     // the transcript in memory for a later reply to resume from.
@@ -480,10 +548,12 @@ const server = net.createServer((socket) => {
       // process while it still has work streaming — see
       // `shouldReplaceDaemon`. Counted live rather than tracked separately:
       // `turnActive` is already the single source of truth for "a turn is
-      // running", maintained by `runTurn`/`stop`.
-      const activeTurns = [...sessions.values()].filter(
+      // running", maintained by `runTurn`/`stop`. Open terminals count too:
+      // evicting this daemon would kill their ptys.
+      const runningTurns = [...sessions.values()].filter(
         (session) => session.turnActive,
       ).length;
+      const activeTurns = runningTurns + terminalHost.openCount();
       frameSender.write(
         socket,
         encodeFrame(
@@ -580,6 +650,7 @@ const server = net.createServer((socket) => {
         session.stopped = true;
         session.turnActive = false;
         updateSnapshot(request.cardId, stopSnapshot);
+        republishLiveTerminal(request.cardId);
       }
       return;
     }
@@ -589,14 +660,46 @@ const server = net.createServer((socket) => {
       // for the card — this is what lets AppShell's reattach effect show
       // the real prior checklist/transcript instead of the empty
       // "Reconnecting…" placeholder it started with.
-      const session = getOrHydrateSession(request.cardId);
-      if (session) {
+      const snapshot = resolveCardSnapshot({
+        liveSession: sessions.get(request.cardId)?.snapshot,
+        liveTerminal: terminalHost.liveSnapshot(request.cardId),
+        session: () => getOrHydrateSession(request.cardId)?.snapshot,
+        lastTerminal: () => terminalHost.snapshot(request.cardId),
+      });
+      if (snapshot) {
         frameSender.write(
           socket,
-          encodeFrame({ event: 'snapshot', snapshot: session.snapshot }),
+          encodeFrame({ event: 'snapshot', snapshot }),
           'control',
         );
       }
+      return;
+    }
+
+    switch (request.op) {
+      case 'terminalStart':
+        terminalHost.start(request);
+        break;
+      case 'terminalInput':
+        terminalHost.input(request.cardId, request.data);
+        break;
+      case 'terminalResize':
+        terminalHost.resize(request.cardId, request.cols, request.rows);
+        break;
+      case 'terminalInterrupt':
+        terminalHost.interrupt(request.cardId);
+        break;
+      case 'terminalClose':
+        terminalHost.close(request.cardId);
+        break;
+      case 'terminalAttach':
+        terminalHost.attach(request.cardId);
+        break;
+      case 'terminalCloseIdle':
+        terminalHost.closeIdle();
+        break;
+      default:
+        break;
     }
   });
 
@@ -609,6 +712,7 @@ server.listen(socketPath, () => {
 });
 
 process.on('SIGTERM', () => {
+  terminalHost.dispose();
   stopQueuedCacheWrites();
   snapshotPublisher.flushAll();
   server.close(() => process.exit(0));

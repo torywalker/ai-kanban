@@ -27,6 +27,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     sessionId: null,
     sessionModel: null,
     useWorktree: null,
+    sessionEngine: null,
     sessionWorktree: null,
     usedWorktree: null,
     archived: false,

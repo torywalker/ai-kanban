@@ -47,6 +47,7 @@ function seededDoc(): KanbanDoc {
     sessionId,
     sessionModel: null,
     useWorktree: null,
+    sessionEngine: null,
     sessionWorktree: null,
     usedWorktree: null,
     archived: false,

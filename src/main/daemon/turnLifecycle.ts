@@ -118,11 +118,15 @@ export function startTurnSnapshot(
   // A new process starts with an empty background set. Carrying the
   // previous turn's tasks forward would show a command that process is
   // not running.
+  // An SDK turn on a card whose last snapshot came from its terminal must
+  // not read as a terminal snapshot.
   const base = {
     ...withoutBackgroundHold(previous),
     status: 'working' as const,
     lastError: null,
     liveUsage: {},
+    engine: undefined,
+    terminal: undefined,
   };
   if (kind === 'run')
     return { ...base, checklist: [], messages: [], pendingApproval: null };
@@ -145,8 +149,11 @@ export function normalizeHydratedSnapshot(
 ): SessionSnapshot {
   // Whatever this snapshot last said was running died with the process
   // that wrote it. A terminal snapshot that never carried the field comes
-  // back as the same object.
-  const stripped = withoutBackgroundHold(cached);
+  // back as the same object. So did a terminal-engine card's pty.
+  const unheld = withoutBackgroundHold(cached);
+  const stripped = cached.terminal
+    ? { ...unheld, terminal: { shellAlive: false, claudeRunning: false } }
+    : unheld;
   if (cached.status !== 'working' && cached.status !== 'waiting')
     return stripped;
   return {
@@ -262,4 +269,46 @@ export function shouldApplyTurnWrite(
 ): boolean {
   if (!flags || !isOwningTurn) return false;
   return !flags.stopped;
+}
+
+/**
+ * Whether an SDK turn is in flight for the card. Ship's conflict turns read
+ * the card's status to learn when theirs finished, so a terminal publish
+ * must not land on top of one.
+ */
+export function sdkTurnInFlight(
+  session: { snapshot: SessionSnapshot } | null | undefined,
+): boolean {
+  const status = session?.snapshot.status;
+  return status === 'working' || status === 'waiting';
+}
+
+/**
+ * The snapshot `getState` reports: an in-flight SDK turn, then a live
+ * terminal, then the SDK session (live or hydrated from cache), then the
+ * last exited terminal. An in-flight turn may be waiting on an approval
+ * only its own snapshot can show.
+ */
+export function resolveCardSnapshot(sources: {
+  /** The daemon's in-memory session only; a hydrated one is never in flight. */
+  liveSession: SessionSnapshot | undefined;
+  liveTerminal: SessionSnapshot | undefined;
+  session: () => SessionSnapshot | undefined;
+  lastTerminal: () => SessionSnapshot | undefined;
+}): SessionSnapshot | undefined {
+  const { liveSession } = sources;
+  if (liveSession && sdkTurnInFlight({ snapshot: liveSession }))
+    return liveSession;
+  return sources.liveTerminal ?? sources.session() ?? sources.lastTerminal();
+}
+
+/**
+ * The live terminal snapshot to re-send once the card's SDK turn has
+ * settled, since terminal publishes are dropped while one is in flight.
+ */
+export function terminalSnapshotToRepublish(
+  session: { snapshot: SessionSnapshot } | null | undefined,
+  liveTerminal: SessionSnapshot | undefined,
+): SessionSnapshot | undefined {
+  return sdkTurnInFlight(session) ? undefined : liveTerminal;
 }

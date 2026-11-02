@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CardColor, Priority } from '@shared/schema';
+import { terminalSupported, type SessionEngine } from '@shared/sessionEngine';
 import type { AttachmentMeta } from '@shared/attachments';
 import type { QuickAddBoardChoice } from '@shared/quickAdd';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ import { useDocStore, type NewCardFields } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { api } from '@/lib/api';
 import { TagPicker } from '@/components/tags/TagPicker';
+import { ChoiceButtons } from '@/components/common/ChoiceButtons';
 import { DisclosureSection } from '@/components/common/DisclosureSection';
 import { ModelPicker } from '@/components/common/ModelPicker';
 import { extractVariables } from '@/domain/variables';
@@ -97,6 +99,7 @@ export function CardComposerDialog({
   const unarchiveCard = useDocStore((s) => s.unarchiveCard);
   const defaultModel = useDocStore((s) => s.defaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
+  const globalSessionEngine = useDocStore((s) => s.sessionEngine);
 
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -109,6 +112,9 @@ export function CardComposerDialog({
   const [sessionRepo, setSessionRepo] = useState<string | null>(null);
   const [sessionModel, setSessionModel] = useState<string | null>(null);
   const [useWorktree, setUseWorktree] = useState<boolean | null>(null);
+  const [sessionEngine, setSessionEngine] = useState<SessionEngine | null>(
+    null,
+  );
   const [draftCardId, setDraftCardId] = useState('');
   const [draftAttachments, setDraftAttachments] = useState<AttachmentMeta[]>(
     [],
@@ -144,6 +150,7 @@ export function CardComposerDialog({
     setSessionRepo(card?.sessionRepo ?? null);
     setSessionModel(card?.sessionModel ?? null);
     setUseWorktree(card?.useWorktree ?? null);
+    setSessionEngine(card?.sessionEngine ?? null);
     const nextDraftAttachments = card?.attachments ?? [];
     draftAttachmentsRef.current = nextDraftAttachments;
     setDraftAttachments(nextDraftAttachments);
@@ -153,9 +160,12 @@ export function CardComposerDialog({
   }, [open]);
 
   // Drives the disclosure's collapsed summary and whether it starts open.
-  const overrideCount = [sessionRepo, sessionModel, useWorktree].filter(
-    (value) => value !== null,
-  ).length;
+  const overrideCount = [
+    sessionRepo,
+    sessionModel,
+    useWorktree,
+    sessionEngine,
+  ].filter((value) => value !== null).length;
 
   const save = () => {
     if (pendingAttachmentOpsRef.current > 0) return;
@@ -176,6 +186,7 @@ export function CardComposerDialog({
         sessionRepo,
         sessionModel,
         useWorktree,
+        sessionEngine,
       });
       onOpenChange(false);
       return;
@@ -194,6 +205,7 @@ export function CardComposerDialog({
       sessionRepo,
       sessionModel,
       useWorktree,
+      sessionEngine,
     };
     if (onCreate) {
       const created = onCreate(fields);
@@ -273,10 +285,11 @@ export function CardComposerDialog({
     void cleanup().catch((error) => {
       toast.error(error instanceof Error ? error.message : String(error));
     });
-    // Otherwise the deleted card's snapshot lingers in the session store
-    // for the rest of the app's lifetime.
-    useSessionStore.getState().clearSession(cardId);
+    // deleteCard reads the snapshot to close a live terminal, so it goes
+    // first. Clearing after keeps the snapshot from lingering for the rest
+    // of the app's lifetime.
     deleteCard(boardId, listId, cardId);
+    useSessionStore.getState().clearSession(cardId);
     onOpenChange(false);
   };
 
@@ -562,36 +575,49 @@ export function CardComposerDialog({
 
             <div className="flex flex-col gap-1.5">
               <Label>Git worktree</Label>
-              <div
-                role="group"
-                aria-label="Git worktree"
-                className="flex flex-wrap gap-2"
-              >
-                {[
+              <ChoiceButtons
+                label="Git worktree"
+                value={useWorktree}
+                onChange={setUseWorktree}
+                options={[
                   {
                     value: null,
                     label: `Default (${useWorktrees ? 'on' : 'off'})`,
                   },
                   { value: true, label: 'Always' },
                   { value: false, label: 'Never' },
-                ].map((option) => (
-                  <Button
-                    key={option.label}
-                    type="button"
-                    size="sm"
-                    variant={
-                      useWorktree === option.value ? 'default' : 'outline'
-                    }
-                    aria-pressed={useWorktree === option.value}
-                    onClick={() => setUseWorktree(option.value)}
-                  >
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Overrides whether this card runs in an isolated worktree.
               </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Engine</Label>
+              <ChoiceButtons
+                label="Engine"
+                value={sessionEngine}
+                onChange={setSessionEngine}
+                options={[
+                  {
+                    value: null,
+                    label: `Default (${
+                      globalSessionEngine === 'terminal'
+                        ? 'Terminal'
+                        : 'Built-in'
+                    })`,
+                  },
+                  { value: 'sdk', label: 'Built-in' },
+                  {
+                    value: 'terminal',
+                    label: 'Terminal',
+                    disabled: !terminalSupported(
+                      window.electron?.platform ?? '',
+                    ),
+                  },
+                ]}
+              />
             </div>
           </DisclosureSection>
         </div>

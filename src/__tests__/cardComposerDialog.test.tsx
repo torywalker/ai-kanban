@@ -206,6 +206,35 @@ describe('CardComposerDialog', () => {
     });
   });
 
+  describe('session engine override', () => {
+    it('saves Terminal as a per-card override when the global engine is built-in', () => {
+      useDocStore.setState({ sessionEngine: 'sdk' });
+      render(
+        <CardComposerDialog
+          open
+          onOpenChange={() => {}}
+          boardId={boardId}
+          listId={listId}
+          cardId={cardId}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Overrides/ }));
+      expect(
+        screen.getByRole('button', { name: 'Default (Built-in)' }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Terminal' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(
+        useDocStore
+          .getState()
+          .doc!.boards[0].lists[0].cards.find((card) => card.id === cardId)!
+          .sessionEngine,
+      ).toBe('terminal');
+    });
+  });
+
   describe('image attachments', () => {
     /**
      * jsdom 20 ships `File` without `Blob.prototype.arrayBuffer`, which the
@@ -708,6 +737,30 @@ describe('CardComposerDialog', () => {
           .getState()
           .doc!.boards[0].lists[0].cards.find((c) => c.id === cardId),
       ).toBeUndefined();
+    });
+
+    it('closes the card’s live terminal on delete', () => {
+      const close = jest.fn().mockResolvedValue(undefined);
+      (window.electron as unknown as { terminal: unknown }).terminal = {
+        close,
+      };
+      useSessionStore.getState().applySnapshot({
+        cardId,
+        sessionId: 'sess_live',
+        status: 'working',
+        checklist: [],
+        messages: [],
+        pendingApproval: null,
+        lastError: null,
+        engine: 'terminal',
+        terminal: { shellAlive: true, claudeRunning: true },
+      });
+
+      renderOpen();
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+      expect(close).toHaveBeenCalledWith(cardId);
+      expect(useSessionStore.getState().sessions[cardId]).toBeUndefined();
     });
 
     it('removes an app-managed worktree before deleting its card', async () => {

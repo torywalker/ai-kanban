@@ -15,6 +15,7 @@ import type {
 import { parseAskUserQuestionInput } from '@shared/askUserQuestion';
 import { AskUserQuestionForm } from './AskUserQuestionForm';
 import { AttachmentThumbnail } from './ImageAttachmentStrip';
+import { SessionLastError } from './SessionLastError';
 
 /**
  * `react-markdown`/`remark-gfm` publish ESM-only ("type": "module"), and
@@ -448,19 +449,10 @@ export function SessionTranscript({ cardId, expanded = false }: Props) {
         describes the current state.
       */}
       {snapshot.lastError ? (
-        <p
-          className={
-            // `interrupted` means "this daemon has no live record of the
-            // card," not that anything failed — styling it in the same
-            // red/destructive box as a real error was actively misleading
-            // now that a reply can resume the underlying conversation.
-            snapshot.status === 'interrupted'
-              ? 'rounded-md border border-border bg-popover p-2 text-xs text-muted-foreground'
-              : 'rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'
-          }
-        >
-          {snapshot.lastError}
-        </p>
+        <SessionLastError
+          status={snapshot.status}
+          message={snapshot.lastError}
+        />
       ) : null}
     </div>
   );

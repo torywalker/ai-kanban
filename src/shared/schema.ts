@@ -80,6 +80,10 @@ export const CardSchema = z.object({
   // Per-card override of the global useWorktrees setting. Null means
   // "inherit from Settings".
   useWorktree: z.boolean().nullable().catch(null),
+  // Per-card override of the global session engine. Null inherits Settings.
+  // `.catch(null)` covers files written before this field and a value this
+  // build does not know.
+  sessionEngine: z.enum(['sdk', 'terminal']).nullable().catch(null),
   // Set when a session has created a git worktree for this card; null
   // until the first such session.
   sessionWorktree: SessionWorktreeSchema.nullable().catch(null),

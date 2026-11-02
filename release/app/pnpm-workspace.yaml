@@ -2,3 +2,7 @@
 # and the packaged node_modules tree match the layout this app was built for.
 nodeLinker: hoisted
 blockExoticSubdeps: false
+
+# node-pty's install script picks its bundled prebuild or compiles from source.
+allowBuilds:
+  node-pty: true

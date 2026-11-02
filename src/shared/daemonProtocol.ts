@@ -131,6 +131,11 @@ export interface LiveTokenUsage {
   cacheCreationInputTokens: number;
 }
 
+export interface TerminalState {
+  shellAlive: boolean;
+  claudeRunning: boolean;
+}
+
 export interface SessionSnapshot {
   cardId: string;
   sessionId: string | null;
@@ -166,6 +171,27 @@ export interface SessionSnapshot {
    * follow-up starts, or once the turn ends.
    */
   backgroundContinuing?: true;
+  /** Set on snapshots the daemon's terminal host publishes. */
+  engine?: 'terminal';
+  terminal?: TerminalState;
+}
+
+/**
+ * Opens a pty running the user's own `claude` CLI. A null `sessionId`
+ * starts a new conversation under a daemon-generated id; otherwise that
+ * conversation is resumed with no prompt.
+ */
+export interface TerminalStartRequest {
+  op: 'terminalStart';
+  cardId: string;
+  cwd: string;
+  prompt: string;
+  model: string | null;
+  approvalMode: ApprovalMode;
+  sessionId: string | null;
+  claudeCliPath: string | null;
+  cols: number;
+  rows: number;
 }
 
 export type DaemonRequest =
@@ -233,7 +259,14 @@ export type DaemonRequest =
     }
   | { op: 'stop'; cardId: string }
   | { op: 'getState'; cardId: string }
-  | { op: 'ping' };
+  | { op: 'ping' }
+  | TerminalStartRequest
+  | { op: 'terminalInput'; cardId: string; data: string }
+  | { op: 'terminalResize'; cardId: string; cols: number; rows: number }
+  | { op: 'terminalInterrupt'; cardId: string }
+  | { op: 'terminalClose'; cardId: string }
+  | { op: 'terminalAttach'; cardId: string }
+  | { op: 'terminalCloseIdle' };
 
 /**
  * A snapshot replaces the client's whole entry for that card. Progress is
@@ -243,6 +276,10 @@ export type DaemonRequest =
  */
 export type DaemonEvent =
   | { event: 'snapshot'; snapshot: SessionSnapshot }
+  /** Live pty output. */
+  | { event: 'terminalData'; cardId: string; data: string }
+  /** The card's whole buffered output, answering `terminalAttach`. */
+  | { event: 'terminalReplay'; cardId: string; data: string }
   /**
    * `buildId` is the content hash of the daemon bundle this process is
    * running (see `daemonIdentity.ts`). It is how the app detects that the

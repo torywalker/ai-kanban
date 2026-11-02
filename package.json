@@ -19,7 +19,7 @@
     "build:dll": "cross-env NODE_ENV=development TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "build:main": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.main.prod.ts",
     "build:renderer": "cross-env NODE_ENV=production TS_NODE_TRANSPILE_ONLY=true NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --config ./.erb/configs/webpack.config.renderer.prod.ts",
-    "postinstall": "ts-node .erb/scripts/check-native-dep.js && pnpm --ignore-workspace --dir release/app install --prod --frozen-lockfile && pnpm run build:dll",
+    "postinstall": "ts-node .erb/scripts/check-native-dep.js && pnpm --dir release/app install --prod --frozen-lockfile && pnpm run build:dll",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "package": "ts-node ./.erb/scripts/clean.js dist && pnpm run build && electron-builder build --publish never && pnpm run build:dll",
@@ -64,6 +64,8 @@
     "moduleNameMapper": {
       "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/.erb/mocks/fileMock.js",
       "\\.(css|less|sass|scss)$": "identity-obj-proxy",
+      "^@xterm/xterm$": "<rootDir>/.erb/mocks/xterm.ts",
+      "^@xterm/addon-fit$": "<rootDir>/.erb/mocks/xterm-addon-fit.ts",
       "^@/(.*)$": "<rootDir>/src/renderer/$1",
       "^@shared/(.*)$": "<rootDir>/src/shared/$1"
     },
@@ -93,6 +95,8 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.301",
     "@electron/notarize": "^3.0.0",
     "@hello-pangea/dnd": "^18.0.1",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -189,11 +193,16 @@
     "productName": "AI Kanban",
     "appId": "com.torywalker.ai-kanban",
     "asar": true,
+    "npmRebuild": false,
     "afterSign": ".erb/scripts/notarize.js",
-    "asarUnpack": "**\\*.{node,dll}",
+    "asarUnpack": [
+      "**\\*.{node,dll}",
+      "**/node_modules/node-pty/**"
+    ],
     "files": [
       "dist",
       "node_modules",
+      "!**/node_modules/node-pty/prebuilds/win32-*",
       "package.json"
     ],
     "mac": {

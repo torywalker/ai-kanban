@@ -5,7 +5,11 @@ import {
   type IpcResult,
   type Settings,
 } from '../shared/ipc';
-import type { SessionSnapshot, ApprovalMode } from '../shared/daemonProtocol';
+import type {
+  SessionSnapshot,
+  ApprovalMode,
+  TerminalStartRequest,
+} from '../shared/daemonProtocol';
 import type { UsageTotals } from '../shared/usage';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import type {
@@ -27,6 +31,7 @@ import type {
 } from '../shared/quickAdd';
 
 const api = {
+  platform: process.platform,
   settings: {
     read: (): Promise<Settings> => ipcRenderer.invoke(CHANNELS.settingsRead),
     write: (patch: Partial<Settings>): Promise<Settings> =>
@@ -165,6 +170,42 @@ const api = {
       ipcRenderer.on(CHANNELS.sessionSnapshot, listener);
       return () =>
         ipcRenderer.removeListener(CHANNELS.sessionSnapshot, listener);
+    },
+  },
+  terminal: {
+    start: (req: Omit<TerminalStartRequest, 'op'>): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.terminalStart, req),
+    input: (cardId: string, data: string): void => {
+      ipcRenderer.send(CHANNELS.terminalInput, cardId, data);
+    },
+    resize: (cardId: string, cols: number, rows: number): void => {
+      ipcRenderer.send(CHANNELS.terminalResize, cardId, cols, rows);
+    },
+    interrupt: (cardId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.terminalInterrupt, cardId),
+    close: (cardId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.terminalClose, cardId),
+    /** Replays the card's buffered output through `onReplay`. */
+    attach: (cardId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.terminalAttach, cardId),
+    closeIdle: (): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.terminalCloseIdle),
+    onData: (
+      callback: (cardId: string, data: string) => void,
+    ): (() => void) => {
+      const listener = (_e: unknown, cardId: string, data: string) =>
+        callback(cardId, data);
+      ipcRenderer.on(CHANNELS.terminalData, listener);
+      return () => ipcRenderer.removeListener(CHANNELS.terminalData, listener);
+    },
+    onReplay: (
+      callback: (cardId: string, data: string) => void,
+    ): (() => void) => {
+      const listener = (_e: unknown, cardId: string, data: string) =>
+        callback(cardId, data);
+      ipcRenderer.on(CHANNELS.terminalReplay, listener);
+      return () =>
+        ipcRenderer.removeListener(CHANNELS.terminalReplay, listener);
     },
   },
   usage: {

@@ -7,10 +7,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { useDocStore } from '@/store/docStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { selectSessionCardIds } from '@/store/selectors';
 import { writeNow } from '@/store/persistence';
 import { TagManager } from '@/components/tags/TagManager';
@@ -20,9 +22,14 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { ModelPicker } from '@/components/common/ModelPicker';
 import { SettingsSection } from '@/components/common/SettingsSection';
 import { SettingsCheckboxRow } from '@/components/common/SettingsCheckboxRow';
+import { OptionButtons } from '@/components/common/OptionButtons';
 import { reattachSessions } from '@/lib/reattachSessions';
 import { cn } from '@/lib/utils';
 import type { ApprovalMode } from '@shared/daemonProtocol';
+import { terminalSupported, type SessionEngine } from '@shared/sessionEngine';
+
+const RESTART_DAEMON_BODY =
+  'This will disconnect all cards from the current session daemon. Any in-progress work will be interrupted, then reconnected once the new daemon starts.';
 
 const APPROVAL_MODE_OPTIONS: {
   value: ApprovalMode;
@@ -40,6 +47,24 @@ const APPROVAL_MODE_OPTIONS: {
     label: 'Smart auto',
     description:
       'Matches the Claude CLI’s own Auto Mode: a hosted model classifier approves or denies almost every action itself, including edits, commands, and network access. The Approve/Deny prompt will rarely appear — you’re trusting the classifier’s judgment, not this app’s.',
+  },
+];
+
+const SESSION_ENGINE_OPTIONS: {
+  value: SessionEngine;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'sdk',
+    label: 'Built-in (Agent SDK)',
+    description:
+      'Runs Claude through the Agent SDK and shows a structured transcript.',
+  },
+  {
+    value: 'terminal',
+    label: 'Terminal (Claude CLI)',
+    description: 'Opens a terminal in the card running your own claude CLI.',
   },
 ];
 
@@ -64,6 +89,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   const setDefaultModel = useDocStore((s) => s.setDefaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
   const setUseWorktrees = useDocStore((s) => s.setUseWorktrees);
+  const sessionEngine = useDocStore((s) => s.sessionEngine);
+  const setSessionEngine = useDocStore((s) => s.setSessionEngine);
+  const claudeCliPath = useDocStore((s) => s.claudeCliPath);
+  const setClaudeCliPath = useDocStore((s) => s.setClaudeCliPath);
   const soundEnabled = useDocStore((s) => s.soundEnabled);
   const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
   const [recents, setRecents] = useState<string[]>([]);
@@ -79,6 +108,30 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   // to be open right now.
   const [restartDaemonConfirmOpen, setRestartDaemonConfirmOpen] =
     useState(false);
+  const openTerminals = useSessionStore(
+    (state) =>
+      Object.values(state.sessions).filter(
+        (session) => session.terminal?.shellAlive,
+      ).length,
+  );
+  const restartDaemonBody =
+    openTerminals > 0
+      ? `${RESTART_DAEMON_BODY} Open terminals will be closed.`
+      : RESTART_DAEMON_BODY;
+  // The path is saved on blur, so the field holds a draft. Resync when the
+  // dialog opens or the stored path changes; the dialog stays mounted while
+  // closed, and a post-paint effect would race the blur that just wrote.
+  const storedCliPath = claudeCliPath ?? '';
+  const [cliPath, setCliPath] = useState(storedCliPath);
+  const [cliDraftFor, setCliDraftFor] = useState<string | null>(
+    open ? storedCliPath : null,
+  );
+  const cliDraftKey = open ? storedCliPath : null;
+  if (cliDraftKey !== cliDraftFor) {
+    setCliDraftFor(cliDraftKey);
+    if (open) setCliPath(storedCliPath);
+  }
+  const terminalOk = terminalSupported(window.electron?.platform ?? '');
 
   useEffect(() => {
     if (!open) return;
@@ -245,32 +298,45 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
 
               <div className="flex flex-col gap-1.5">
                 <Label>Tool approval</Label>
-                <div className="flex flex-col gap-1.5">
-                  {APPROVAL_MODE_OPTIONS.map((option) => {
-                    const active = approvalMode === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setApprovalMode(option.value)}
-                        className={cn(
-                          'flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left',
-                          active
-                            ? 'border-primary bg-accent'
-                            : 'border-border hover:bg-accent/50',
-                        )}
-                      >
-                        <span className="text-sm font-medium">
-                          {option.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <OptionButtons
+                  options={APPROVAL_MODE_OPTIONS}
+                  value={approvalMode}
+                  onChange={setApprovalMode}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>Session engine</Label>
+                <OptionButtons
+                  options={SESSION_ENGINE_OPTIONS.map((option) => ({
+                    ...option,
+                    disabled: option.value === 'terminal' && !terminalOk,
+                  }))}
+                  value={sessionEngine}
+                  onChange={setSessionEngine}
+                />
+                {terminalOk ? null : (
+                  <p className="text-xs text-muted-foreground">
+                    Terminal sessions aren&apos;t available on Windows yet.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="claude-cli-path">Claude CLI path</Label>
+                <Input
+                  id="claude-cli-path"
+                  value={cliPath}
+                  placeholder="claude (found through your login shell)"
+                  onChange={(event) => setCliPath(event.target.value)}
+                  onBlur={() => {
+                    const trimmed = cliPath.trim();
+                    setClaudeCliPath(trimmed === '' ? null : trimmed);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to use the claude on your login shell&apos;s PATH.
+                </p>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -301,7 +367,24 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
               description="Restarts the background process every card’s agent session runs through. Use this if a card’s session seems stuck."
               indent={false}
             >
-              <div>
+              <div className="flex flex-col items-start gap-3">
+                {openTerminals > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {openTerminals === 1
+                      ? '1 terminal open'
+                      : `${openTerminals} terminals open`}
+                  </p>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const closing = window.electron?.terminal?.closeIdle();
+                    if (closing) closing.catch(() => undefined);
+                  }}
+                >
+                  Close idle terminals
+                </Button>
                 <Button
                   size="sm"
                   variant="destructive"
@@ -346,7 +429,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
         open={restartDaemonConfirmOpen}
         onOpenChange={setRestartDaemonConfirmOpen}
         title="Restart Daemon?"
-        body="This will disconnect all cards from the current session daemon. Any in-progress work will be interrupted, then reconnected once the new daemon starts."
+        body={restartDaemonBody}
         confirmLabel="Restart the daemon"
         onConfirm={() => {
           setRestartDaemonConfirmOpen(false);

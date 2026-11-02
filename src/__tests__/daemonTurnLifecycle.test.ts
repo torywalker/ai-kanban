@@ -25,11 +25,14 @@ import {
   canStartTurn,
   normalizeHydratedSnapshot,
   rejectTurnSnapshot,
+  resolveCardSnapshot,
   resolveResumeSessionId,
+  sdkTurnInFlight,
   settleTurnSnapshot,
   shouldApplyTurnWrite,
   startTurnSnapshot,
   stopSnapshot,
+  terminalSnapshotToRepublish,
   turnOutcomeFromMessage,
 } from '../main/daemon/turnLifecycle';
 
@@ -164,6 +167,19 @@ describe('M2: a fresh run does not inherit stale state', () => {
   it('carries the session id forward on both kinds (resume needs it)', () => {
     expect(startTurnSnapshot(finished, 'run').sessionId).toBe('sess_1');
     expect(startTurnSnapshot(finished, 'reply').sessionId).toBe('sess_1');
+  });
+
+  it('drops the terminal fields from an SDK turn on a terminal card', () => {
+    const fromTerminal = snapshot({
+      status: 'done',
+      engine: 'terminal',
+      terminal: { shellAlive: false, claudeRunning: false },
+    });
+    (['run', 'reply'] as const).forEach((kind) => {
+      const next = startTurnSnapshot(fromTerminal, kind);
+      expect(next.engine).toBeUndefined();
+      expect(next.terminal).toBeUndefined();
+    });
   });
 
   it('never mutates the previous snapshot', () => {
@@ -381,6 +397,21 @@ describe('normalizeHydratedSnapshot', () => {
     expect(normalized.backgroundTasks).toBeUndefined();
   });
 
+  it('marks a hydrated terminal as closed, since its pty died with the old daemon', () => {
+    const cached = snapshot({
+      status: 'done',
+      engine: 'terminal',
+      terminal: { shellAlive: true, claudeRunning: true },
+    });
+    const normalized = normalizeHydratedSnapshot(cached);
+    expect(normalized.terminal).toEqual({
+      shellAlive: false,
+      claudeRunning: false,
+    });
+    expect(normalized.engine).toBe('terminal');
+    expect(normalized.status).toBe('done');
+  });
+
   it('preserves the checklist/messages built up before the interruption', () => {
     const cached = snapshot({ status: 'working' });
     const normalized = normalizeHydratedSnapshot(cached);
@@ -501,5 +532,112 @@ describe('settling a turn when the SDK stream closes', () => {
       expect(working.status).toBe('working');
       expect(working.lastError).toBeNull();
     });
+  });
+});
+
+describe('terminal and SDK snapshots on one card', () => {
+  const live = snapshot({
+    status: 'working',
+    engine: 'terminal',
+    terminal: { shellAlive: true, claudeRunning: true },
+  });
+  const sdk = snapshot({ status: 'done', sessionId: 'sess_sdk' });
+  const exited = snapshot({
+    status: 'done',
+    engine: 'terminal',
+    terminal: { shellAlive: false, claudeRunning: false },
+  });
+
+  it('getState prefers a live terminal over the SDK session', () => {
+    const session = jest.fn(() => sdk);
+    expect(
+      resolveCardSnapshot({
+        liveSession: undefined,
+        liveTerminal: live,
+        session,
+        lastTerminal: () => exited,
+      }),
+    ).toBe(live);
+    expect(session).not.toHaveBeenCalled();
+  });
+
+  it.each(['working', 'waiting'] as const)(
+    'getState prefers an SDK turn that is %s over a live terminal',
+    (status) => {
+      const conflictTurn = snapshot({
+        status,
+        pendingApproval:
+          status === 'waiting'
+            ? { requestId: 'r1', toolName: 'Bash', input: {} }
+            : null,
+      });
+      expect(
+        resolveCardSnapshot({
+          liveSession: conflictTurn,
+          liveTerminal: live,
+          session: () => conflictTurn,
+          lastTerminal: () => exited,
+        }),
+      ).toBe(conflictTurn);
+    },
+  );
+
+  it('getState prefers a live terminal over a settled SDK session', () => {
+    expect(
+      resolveCardSnapshot({
+        liveSession: sdk,
+        liveTerminal: live,
+        session: () => sdk,
+        lastTerminal: () => exited,
+      }),
+    ).toBe(live);
+  });
+
+  it('re-sends the live terminal only once no SDK turn is in flight', () => {
+    const working = { snapshot: snapshot({ status: 'working' }) };
+    const waiting = { snapshot: snapshot({ status: 'waiting' }) };
+    expect(terminalSnapshotToRepublish(working, live)).toBeUndefined();
+    expect(terminalSnapshotToRepublish(waiting, live)).toBeUndefined();
+    (['done', 'failed', 'interrupted'] as const).forEach((status) => {
+      expect(
+        terminalSnapshotToRepublish({ snapshot: snapshot({ status }) }, live),
+      ).toBe(live);
+    });
+    expect(terminalSnapshotToRepublish(undefined, live)).toBe(live);
+    expect(
+      terminalSnapshotToRepublish({ snapshot: sdk }, undefined),
+    ).toBeUndefined();
+  });
+
+  it('getState prefers the SDK session over an exited terminal', () => {
+    expect(
+      resolveCardSnapshot({
+        liveSession: undefined,
+        liveTerminal: undefined,
+        session: () => sdk,
+        lastTerminal: () => exited,
+      }),
+    ).toBe(sdk);
+  });
+
+  it('getState falls back to the exited terminal', () => {
+    expect(
+      resolveCardSnapshot({
+        liveSession: undefined,
+        liveTerminal: undefined,
+        session: () => undefined,
+        lastTerminal: () => exited,
+      }),
+    ).toBe(exited);
+  });
+
+  it('an SDK turn is in flight only while working or waiting', () => {
+    const inFlight = (status: SessionSnapshot['status']) =>
+      sdkTurnInFlight({ snapshot: snapshot({ status }) });
+    expect(sdkTurnInFlight(undefined)).toBe(false);
+    expect(inFlight('working')).toBe(true);
+    expect(inFlight('waiting')).toBe(true);
+    expect(inFlight('done')).toBe(false);
+    expect(inFlight('interrupted')).toBe(false);
   });
 });

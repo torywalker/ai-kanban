@@ -145,6 +145,7 @@ async function contextFromDisk(): Promise<
         activeBoardId: settings.activeBoardId,
         defaultModel: settings.defaultModel,
         useWorktrees: settings.useWorktrees,
+        sessionEngine: settings.sessionEngine,
         slashSnippets: settings.slashSnippets,
       },
     };

@@ -270,6 +270,7 @@ export function AppShell() {
               activeBoardId: state.activeBoardId,
               defaultModel: state.defaultModel,
               useWorktrees: state.useWorktrees,
+              sessionEngine: state.sessionEngine,
               slashSnippets: state.slashSnippets,
             },
           },
