@@ -155,7 +155,32 @@ export function parseDoc(raw: unknown): ParseResult {
     return { ok: false, error: `${path}: ${first.message}` };
   }
 
-  return { ok: true, doc: result.data };
+  return { ok: true, doc: dropDuplicateCards(result.data) };
+}
+
+/**
+ * Card IDs must be unique across the document: drag-and-drop and React both
+ * key cards by ID, so a repeated ID breaks the board mid-drag. When a file
+ * already carries duplicates, one copy per ID survives — the first live
+ * copy, or the first copy if every copy is archived.
+ */
+function dropDuplicateCards(doc: KanbanDoc): KanbanDoc {
+  const allCards = doc.boards.flatMap((board) =>
+    board.lists.flatMap((list) => list.cards),
+  );
+  const keep = new Map<string, Card>();
+  allCards.forEach((card) => {
+    const kept = keep.get(card.id);
+    if (!kept || (kept.archived && !card.archived)) keep.set(card.id, card);
+  });
+  if (keep.size === allCards.length) return doc;
+
+  doc.boards.forEach((board) => {
+    board.lists.forEach((list) => {
+      list.cards = list.cards.filter((card) => keep.get(card.id) === card);
+    });
+  });
+  return doc;
 }
 
 export function serializeDoc(doc: KanbanDoc): string {

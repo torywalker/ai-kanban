@@ -114,6 +114,12 @@ export function insertNewCard(
     return { ok: false, error: 'That board no longer has a column.' };
   }
   const id = fields.id ?? `crd_${now}`;
+  const idTaken = next.boards.some((board) =>
+    board.lists.some((candidate) => candidate.cards.some((c) => c.id === id)),
+  );
+  if (idTaken) {
+    return { ok: false, error: 'A card with that ID already exists.' };
+  }
   const normalizedTags = Array.from(
     new Set((fields.tags ?? []).map(normalizeTagName).filter(Boolean)),
   );

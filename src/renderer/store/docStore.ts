@@ -99,6 +99,14 @@ function firstVisibleBoardId(
   return boards.find((board) => !board.archived)?.id ?? null;
 }
 
+function docHasCard(doc: KanbanDoc | null, cardId: string): boolean {
+  return (
+    doc?.boards.some((board) =>
+      board.lists.some((list) => list.cards.some((card) => card.id === cardId)),
+    ) ?? false
+  );
+}
+
 interface DocStore {
   status: LoadStatus;
   doc: KanbanDoc | null;
@@ -527,6 +535,9 @@ export const useDocStore = create<DocStore>((set, get) => ({
     // ID up front, so the metadata and files already agree on their owner.
     // Every other caller keeps the original store-generated ID behavior.
     const id = fields.id ?? newId('crd');
+    // A second card with an existing ID breaks drag-and-drop for the whole
+    // board, so a reused ID is refused rather than added.
+    if (docHasCard(get().doc, id)) return id;
     const now = new Date().toISOString();
     const normalizedTags = Array.from(
       new Set((fields.tags ?? []).map(normalizeTagName).filter(Boolean)),
