@@ -130,6 +130,31 @@ export async function ensureWorktree(opts: {
   );
   await fs.mkdir(path.dirname(destination), { recursive: true });
 
+  // The destination can already exist without a usable card record (e.g. the
+  // record was lost or an earlier add was interrupted). Adopt it if it is a
+  // valid managed worktree for this card; otherwise clear the stale leftover so
+  // `git worktree add` cannot fail with "already exists".
+  if (await isDirectory(destination)) {
+    const leftover: SessionWorktree = {
+      path: destination,
+      branch,
+      recordedTargetBranch: head.name,
+    };
+    try {
+      await assertManagedWorktree({
+        userDataRoot: opts.userDataRoot,
+        primary: opts.primary,
+        cardId: opts.cardId,
+        worktree: leftover,
+      });
+      return leftover;
+    } catch {
+      await git(primaryRoot, ['worktree', 'remove', '--force', destination]);
+      await fs.rm(destination, { recursive: true, force: true });
+    }
+  }
+  await git(primaryRoot, ['worktree', 'prune']);
+
   const create = await git(primaryRoot, [
     'worktree',
     'add',
