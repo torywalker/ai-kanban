@@ -337,7 +337,63 @@ describe('CardViewDialog session controls', () => {
           .getState()
           .doc!.boards[0].lists[0].cards.find((card) => card.id === cardId)!
           .sessionWorktree,
-      ).toBeNull();
+      ).toEqual({ ...worktree, shipped: true });
+      expect(window.electron.git.removeWorktree).not.toHaveBeenCalled();
+      expect(
+        await screen.findByRole('button', { name: 'Delete worktree' }),
+      ).toBeInTheDocument();
+    });
+
+    it('deletes the worktree only when Delete worktree is clicked after Ship', async () => {
+      useDocStore.setState({ useWorktrees: true });
+      const worktree = attachWorktree();
+      act(() => {
+        useDocStore.getState().updateCard(boardId, listId, cardId, {
+          sessionWorktree: { ...worktree, shipped: true },
+        });
+        seedSnapshot('done');
+      });
+      renderDialog();
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Delete worktree' }),
+      );
+
+      await waitFor(() => {
+        expect(window.electron.git.removeWorktree).toHaveBeenCalledWith(
+          cardId,
+          REPO,
+          { ...worktree, shipped: true },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          useDocStore
+            .getState()
+            .doc!.boards[0].lists[0].cards.find((card) => card.id === cardId)!
+            .sessionWorktree,
+        ).toBeNull(),
+      );
+    });
+
+    it('goes back to Ship when a new turn starts after a Ship', async () => {
+      useDocStore.setState({ useWorktrees: true });
+      const worktree = attachWorktree();
+      act(() => {
+        useDocStore.getState().updateCard(boardId, listId, cardId, {
+          sessionWorktree: { ...worktree, shipped: true },
+        });
+        seedSnapshot('done');
+      });
+      renderDialog();
+      await screen.findByRole('button', { name: 'Delete worktree' });
+
+      act(() => seedSnapshot('working'));
+      act(() => seedSnapshot('done'));
+
+      expect(
+        await screen.findByRole('button', { name: 'Ship' }),
+      ).toBeInTheDocument();
     });
 
     it('cancels the branch chooser without starting Ship', async () => {

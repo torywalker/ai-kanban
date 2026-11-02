@@ -4,6 +4,8 @@ export interface SessionWorktree {
   path: string;
   branch: string;
   recordedTargetBranch: string;
+  /** Set once Ship has merged this worktree in; only deletion remains. */
+  shipped?: boolean;
 }
 
 export interface ShipQueueEntry {
@@ -21,6 +23,7 @@ export const SessionWorktreeSchema = z.object({
   path: z.string(),
   branch: z.string(),
   recordedTargetBranch: z.string(),
+  shipped: z.boolean().optional().catch(undefined),
 });
 
 export function resolveUseWorktree(
