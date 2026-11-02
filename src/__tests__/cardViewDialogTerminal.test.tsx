@@ -426,7 +426,7 @@ describe('CardViewDialog terminal controls', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows the transcript instead of a live terminal while Ship is busy', async () => {
+  it('keeps a live terminal while Ship is busy, and shows approvals for an SDK turn', async () => {
     useSessionStore
       .getState()
       .applySnapshot(
@@ -444,14 +444,38 @@ describe('CardViewDialog terminal controls', () => {
     await renderDialog();
 
     expect(
+      screen.getByText(
+        'Cost is estimated from token counts for terminal sessions.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Approve' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+
+    await act(async () => {
+      useSessionStore.getState().applySnapshot({
+        cardId,
+        sessionId: 'sess_sdk',
+        status: 'waiting',
+        checklist: [],
+        messages: [],
+        pendingApproval: {
+          requestId: 'req_1',
+          toolName: 'Bash',
+          input: { command: 'git merge main' },
+        },
+        lastError: null,
+      });
+    });
+
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(
       screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText('Ship is in progress — stop it before replying.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
   });
 
   describe('Escape', () => {

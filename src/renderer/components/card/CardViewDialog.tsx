@@ -196,12 +196,12 @@ export function CardViewDialog({
     sessionEngine,
     window.electron?.platform ?? '',
   );
-  // Ship's conflict turns run on the SDK even for a terminal card, and their
-  // Approve/Deny lives only in the transcript.
+  // A Ship conflict turn is an SDK snapshot on a terminal card, and its
+  // Approve/Deny lives only in the transcript. Ship being busy is not
+  // itself a turn: a plain merge leaves the terminal on screen.
   const sdkTurnActive =
-    (snapshotEngine !== 'terminal' &&
-      (sessionStatus === 'working' || sessionStatus === 'waiting')) ||
-    shipBusy;
+    snapshotEngine !== 'terminal' &&
+    (sessionStatus === 'working' || sessionStatus === 'waiting');
   const terminalMode =
     !sdkTurnActive && (shellAlive || resolvedEngine === 'terminal');
   const layoutExpanded = expanded || terminalMode;
@@ -915,7 +915,7 @@ export function CardViewDialog({
           <Button variant="ghost" onClick={() => setEditing(true)}>
             Edit
           </Button>
-          {terminalMode && claudeRunning ? (
+          {terminalMode && (claudeRunning || shipBusy) ? (
             <Button variant="destructive" onClick={stop}>
               Stop
             </Button>
