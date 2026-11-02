@@ -119,7 +119,7 @@ export function CardViewDialog({
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
   const snapshotEngine = useSessionStore((s) => s.sessions[cardId]?.engine);
-  const expanded = useUiStore((s) => s.cardDialogExpanded[cardId] ?? false);
+  const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
   // still reports everything it has ever cost.
@@ -204,7 +204,9 @@ export function CardViewDialog({
     (sessionStatus === 'working' || sessionStatus === 'waiting');
   const terminalMode =
     !sdkTurnActive && (shellAlive || resolvedEngine === 'terminal');
-  const layoutExpanded = expanded || terminalMode;
+  // A terminal opens large until the user chooses otherwise. Forcing it
+  // large made Collapse a no-op, because the choice was never consulted.
+  const layoutExpanded = expansionPref ?? terminalMode;
   const bodyRef = useStickToBottom<HTMLDivElement>(
     hasSession && !layoutExpanded,
   );
@@ -334,6 +336,16 @@ export function CardViewDialog({
    * with no inner scroller to replace it.
    */
   const chatExpanded = layoutExpanded && (hasSession || terminalMode);
+  // A collapsed terminal still needs a fixed height. Max-height alone lets
+  // the dialog shrink to its content, and this content is a flex child with
+  // no height of its own, so the pty would have nothing to fill.
+  const dialogSize = layoutExpanded
+    ? 'h-[92vh] max-h-[92vh] sm:max-w-[92vw]'
+    : 'max-h-[85vh] sm:max-w-2xl';
+  const sizedDialog =
+    terminalMode && !layoutExpanded
+      ? 'h-[85vh] max-h-[85vh] sm:max-w-2xl'
+      : dialogSize;
 
   /**
    * Every session IPC call can reject before any daemon event exists: if
@@ -655,9 +667,7 @@ export function CardViewDialog({
           // short transcript would keep the chat cramped in a dialog the
           // user just asked to be big. A fixed height guarantees the room
           // is there for the feed to flex into as the agent talks.
-          layoutExpanded
-            ? 'h-[92vh] max-h-[92vh] sm:max-w-[92vw]'
-            : 'max-h-[85vh] sm:max-w-2xl',
+          sizedDialog,
         )}
       >
         {/*

@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { CardViewDialog } from '@/components/card/CardViewDialog';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
+import { useUiStore } from '@/store/uiStore';
 import type { SessionSnapshot } from '@shared/daemonProtocol';
 import { installElectronMock } from '../testUtils/electronMock';
 
@@ -93,6 +94,7 @@ describe('CardViewDialog terminal controls', () => {
       onReplay: jest.fn().mockReturnValue(() => {}),
     };
     useSessionStore.setState({ sessions: {} });
+    useUiStore.setState({ cardDialogExpanded: {} });
     useDocStore.setState({
       approvalMode: 'ask',
       defaultModel: null,
@@ -551,5 +553,27 @@ describe('CardViewDialog terminal controls', () => {
         'Cost is estimated from token counts for terminal sessions.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('opens large and collapses to the narrow dialog', async () => {
+    await renderDialog();
+    const content = document.querySelector('[data-slot="dialog-content"]')!;
+
+    expect(
+      screen.getByRole('button', { name: 'Collapse' }),
+    ).toBeInTheDocument();
+    expect(content.className).toContain('sm:max-w-[92vw]');
+    expect(content.className).toContain('h-[92vh]');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+
+    expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument();
+    expect(content.className).toContain('sm:max-w-2xl');
+    expect(content.className).toContain('h-[85vh]');
+    expect(content.className).not.toContain('sm:max-w-[92vw]');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
+
+    expect(content.className).toContain('sm:max-w-[92vw]');
   });
 });

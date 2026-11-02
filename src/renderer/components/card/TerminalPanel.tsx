@@ -55,17 +55,46 @@ export function TerminalPanel({ cardId }: { cardId: string }) {
       bridge.input(cardId, data);
     });
 
+    // FitAddon reads the parent's computed CSS height, and it no-ops until
+    // the renderer has measured a cell. The first call often lands before
+    // either is ready and leaves the default 24 rows, which is the short
+    // terminal on first open. Retry until the canvas fills the host.
+    let lastCols = -1;
+    let lastRows = -1;
+    let frames = 0;
+    let rafId = 0;
+    let cancelled = false;
     const fitToHost = () => {
       fit.fit();
+      if (term.cols === lastCols && term.rows === lastRows) return;
+      lastCols = term.cols;
+      lastRows = term.rows;
       bridge.resize(cardId, term.cols, term.rows);
     };
+    const fillsHost = () => {
+      if (host.clientHeight === 0) return true;
+      const termEl = host.querySelector('.xterm');
+      if (!termEl) return false;
+      return host.clientHeight - termEl.clientHeight < 8;
+    };
+    const refitUntilFilled = () => {
+      if (cancelled || frames >= 8 || fillsHost()) return;
+      frames += 1;
+      rafId = requestAnimationFrame(() => {
+        fitToHost();
+        refitUntilFilled();
+      });
+    };
     fitToHost();
+    refitUntilFilled();
     const observer = new ResizeObserver(fitToHost);
     observer.observe(host);
 
     bridge.attach(cardId).catch(() => undefined);
 
     return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
       observer.disconnect();
       keyInput.dispose();
       unsubscribeData();
@@ -75,10 +104,15 @@ export function TerminalPanel({ cardId }: { cardId: string }) {
   }, [cardId]);
 
   return (
-    <div
-      ref={hostRef}
-      data-terminal-host=""
-      className="min-h-0 w-full flex-1 overflow-hidden"
-    />
+    // The inner box is absolutely positioned so it has a definite height.
+    // A flex child with no height of its own reports `auto`, and FitAddon
+    // then can't size the pty to the space the dialog actually gave it.
+    <div className="relative min-h-0 w-full flex-1">
+      <div
+        ref={hostRef}
+        data-terminal-host=""
+        className="absolute inset-0 overflow-hidden"
+      />
+    </div>
   );
 }

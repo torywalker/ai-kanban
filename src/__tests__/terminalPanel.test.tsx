@@ -4,7 +4,7 @@
  * and sends keystrokes and the fitted size back.
  */
 import '@testing-library/jest-dom';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { TerminalPanel } from '@/components/card/TerminalPanel';
 import { FitAddon } from '../../.erb/mocks/xterm-addon-fit';
 import { Terminal } from '../../.erb/mocks/xterm';
@@ -119,6 +119,49 @@ describe('TerminalPanel', () => {
     onData('x');
 
     expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
+  });
+
+  it('refits once the host has a height the first fit missed', () => {
+    const queued: Array<(time: number) => void> = [];
+    const raf = jest
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((cb) => {
+        queued.push(cb);
+        return queued.length;
+      });
+    const height = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'clientHeight',
+    );
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get() {
+        return 400;
+      },
+    });
+    try {
+      const { terminal } = installTerminalBridge();
+      render(<TerminalPanel cardId="crd_1" />);
+      const term = Terminal.instances[0];
+      const fit = FitAddon.instances[0];
+      fit.fit.mockImplementation(() => {
+        term.rows = 42;
+        term.cols = 130;
+      });
+
+      act(() => {
+        for (let i = 0; i < 10 && queued.length > 0; i += 1) {
+          queued.splice(0).forEach((cb) => cb(0));
+        }
+      });
+
+      expect(terminal.resize).toHaveBeenLastCalledWith('crd_1', 130, 42);
+    } finally {
+      raf.mockRestore();
+      if (height) {
+        Object.defineProperty(HTMLElement.prototype, 'clientHeight', height);
+      }
+    }
   });
 
   it('resizes the pty to the fitted terminal', () => {
