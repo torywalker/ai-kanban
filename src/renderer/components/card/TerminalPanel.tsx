@@ -41,7 +41,7 @@ export function TerminalPanel({
     if (!host || !bridge) return undefined;
 
     const term = new Terminal({
-      fontSize: 13,
+      fontSize: 15,
       fontFamily: FONT_FAMILY,
       theme: themeForDocument(),
     });

@@ -849,7 +849,7 @@ export function CardViewDialog({
 
           <PromptBody
             prompt={card.prompt}
-            className="max-h-40 rounded-md bg-muted p-3"
+            className="max-h-48 rounded-md bg-muted p-3 text-base"
           />
 
           <ImageAttachmentStrip
