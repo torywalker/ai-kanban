@@ -124,10 +124,11 @@ export function PromptCard({
               card.paused &&
                 'border-dashed border-violet-500 ring-1 ring-violet-500/40',
               // Cards Claude has updated since they were last opened get a
-              // solid green edge. Paused (above) and overdue (below) win.
+              // dashed green edge, mirroring paused. Paused (above) and
+              // overdue (below) win.
               unread &&
                 !card.paused &&
-                'border-emerald-500 ring-2 ring-emerald-500/50',
+                'border-dashed border-emerald-500 ring-1 ring-emerald-500/40',
               // Overdue wins over any card color's edge tint — a passed
               // due date is a more urgent signal than a triage color.
               overdue && 'border-destructive ring-2 ring-destructive',
