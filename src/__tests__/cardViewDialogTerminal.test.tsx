@@ -162,6 +162,50 @@ describe('CardViewDialog terminal controls', () => {
     });
   });
 
+  it('reconnects an idle Claude in the open terminal', async () => {
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: true, claudeRunning: false },
+          'done',
+        ),
+      );
+    await renderDialog();
+
+    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
+
+    await waitFor(() => {
+      expect(window.electron.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ cardId, sessionId: 'sess_term' }),
+      );
+    });
+  });
+
+  it('reconnects a closed terminal onto the same session', async () => {
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: false, claudeRunning: false },
+          'done',
+        ),
+      );
+    await renderDialog();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
+
+    await waitFor(() => {
+      expect(window.electron.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ cardId, sessionId: 'sess_term' }),
+      );
+    });
+    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+  });
+
   it('replaces Run and the reply box while a terminal is open', async () => {
     useSessionStore
       .getState()

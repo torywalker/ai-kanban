@@ -386,6 +386,16 @@ export function CardViewDialog({
    * with no inner scroller to replace it.
    */
   const chatExpanded = layoutExpanded && (hasSession || terminalMode);
+  const resumeSessionId = sessionId ?? card.sessionId;
+  // Claude has exited, but its session is still on the card. Re-connect
+  // resumes that session instead of submitting the prompt again.
+  const canReconnect =
+    terminalMode &&
+    !claudeRunning &&
+    !claudeTurnActive &&
+    !shipBusy &&
+    !!resumeSessionId &&
+    (shellAlive || canRun);
   // A collapsed terminal still needs a fixed height. Max-height alone lets
   // the dialog shrink to its content, and this content is a flex child with
   // no height of its own, so the pty would have nothing to fill.
@@ -451,7 +461,7 @@ export function CardViewDialog({
           prompt: substitute(card.prompt, card.variables),
           model,
           approvalMode,
-          sessionId: card.sessionId,
+          sessionId: sessionId ?? card.sessionId,
           claudeCliPath,
           cols: 120,
           rows: 32,
@@ -669,7 +679,10 @@ export function CardViewDialog({
   shortcutsRef.current = {
     e: () => setEditing(true),
     r: () => {
-      if (canRun && !shellAlive && primary && card.prompt.trim()) void run();
+      if (!primary || !card.prompt.trim()) return;
+      // Re-connect takes the place of Run once a terminal session exists,
+      // including while the shell is still open.
+      if (canReconnect || (canRun && !shellAlive)) void run();
     },
     c: () => void copy(),
     a: archive,
@@ -1034,7 +1047,16 @@ export function CardViewDialog({
               ) : null}
             </div>
           ) : null}
-          {canRun && !shellAlive ? (
+          {canReconnect ? (
+            <Button
+              onClick={run}
+              disabled={!primary || !card.prompt.trim()}
+              title="Re-connect (⌘R)"
+            >
+              Re-connect
+            </Button>
+          ) : null}
+          {canRun && !shellAlive && !canReconnect ? (
             <Button
               onClick={run}
               disabled={!primary || !card.prompt.trim()}

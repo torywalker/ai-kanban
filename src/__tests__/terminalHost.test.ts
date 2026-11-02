@@ -160,6 +160,32 @@ describe('start', () => {
     expect(spawnCalls).toHaveLength(1);
   });
 
+  it('types a resume command into the open shell after Claude has exited', () => {
+    host.start(request());
+    host.start(request());
+    expect(ptys[0].written).toEqual([
+      expect.stringContaining("--resume 'sess-1'"),
+    ]);
+    expect(ptys[0].written[0].endsWith('\r')).toBe(true);
+    expect(ptys[0].written[0]).not.toContain('do it');
+
+    host.start(request());
+    expect(ptys[0].written).toHaveLength(1);
+
+    appendHook(
+      record({ hook_event_name: 'SessionStart', session_id: 'sess-1' }),
+    );
+    jest.advanceTimersByTime(250);
+    host.start(request());
+    expect(ptys[0].written).toHaveLength(1);
+
+    appendHook(record({ hook_event_name: 'SessionEnd', session_id: 'sess-1' }));
+    jest.advanceTimersByTime(250);
+    host.start(request());
+    expect(ptys[0].written).toHaveLength(2);
+    expect(ptys[0].written[1]).toContain("--resume 'sess-1'");
+  });
+
   it('republishes the live snapshot when started again', () => {
     host.start(request());
     appendHook(record({ hook_event_name: 'Notification' }));

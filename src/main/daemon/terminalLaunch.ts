@@ -97,6 +97,11 @@ function claudeCommand(input: TerminalLaunchInput): string {
   return parts.join(' ');
 }
 
+/** Typed into an already-open shell to bring the same Claude session back. */
+export function claudeResumeLine(input: TerminalLaunchInput): string {
+  return `${claudeCommand({ ...input, resume: true })}\r`;
+}
+
 export function buildTerminalLaunch(
   input: TerminalLaunchInput,
 ): TerminalLaunch {
