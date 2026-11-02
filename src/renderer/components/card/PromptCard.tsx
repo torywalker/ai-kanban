@@ -241,22 +241,13 @@ export function PromptCard({
                 </Button>
               </div>
 
-              <div className="flex flex-nowrap items-center gap-1 px-2 pb-1.5">
-                {card.tags.length > 0 ? (
-                  <div
-                    // Fixed width via `flex-1` (not shrink-to-fit) is what
-                    // makes the fade only appear when tags actually overflow:
-                    // the mask's transparent tail sits over this box's last
-                    // ~20px, which is empty space unless the tags fill it.
-                    // `flex-nowrap` + `overflow-hidden` clip anything past
-                    // that instead of wrapping to a second line.
-                    className="flex min-w-0 flex-1 flex-nowrap gap-1 overflow-hidden [mask-image:linear-gradient(to_right,black_calc(100%-20px),transparent)]"
-                  >
-                    {card.tags.map((name) => (
-                      <TagBadge key={name} name={name} />
-                    ))}
-                  </div>
-                ) : null}
+              {/* Badges never compress (`shrink-0 whitespace-nowrap` on
+                  TagBadge); when the row runs out of room the overflow
+                  wraps onto a new line instead, and only then. */}
+              <div className="flex flex-wrap items-center gap-1 px-2 pb-1.5">
+                {card.tags.map((name) => (
+                  <TagBadge key={name} name={name} />
+                ))}
                 <TagPickerButton
                   selected={card.tags}
                   onChange={(next) =>
@@ -267,8 +258,8 @@ export function PromptCard({
                   card hasn't cost anything yet" indistinguishable from "this
                   card doesn't track cost" — same rationale as UsageSummary.
                   `ml-auto` pins it to the row's right edge whether or not a
-                  tag cluster is present to otherwise push it there; `shrink-0`
-                  keeps a long tag list from ever compressing or wrapping it. */}
+                  tag is present to otherwise push it there; `shrink-0`
+                  keeps it from compressing. */}
                 <span
                   className="ml-auto shrink-0 text-xs font-medium text-muted-foreground tabular-nums"
                   title={formatUsageBreakdown(usage)}

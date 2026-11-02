@@ -43,6 +43,7 @@ export function TagPicker({ selected, onChange }: Props) {
     normalizedQuery.length > 0 && !allTags.includes(normalizedQuery);
 
   const toggle = (name: string) => {
+    setQuery('');
     onChange(
       selected.includes(name)
         ? selected.filter((t) => t !== name)
