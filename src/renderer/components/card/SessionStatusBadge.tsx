@@ -1,4 +1,4 @@
-import { Loader2, CircleAlert, CircleCheck, Unplug } from 'lucide-react';
+import { Loader2, CircleAlert, CircleCheck, CirclePause, Unplug } from 'lucide-react';
 import { useSessionStore } from '@/store/sessionStore';
 import type { SessionStatus } from '@shared/daemonProtocol';
 
@@ -31,9 +31,11 @@ function statusLabel(status: SessionStatus, backgroundLabel: string): string {
 
 interface Props {
   cardId: string;
+  /** User-paused card: overrides the "done" check mark with a pause icon. */
+  paused?: boolean;
 }
 
-export function SessionStatusBadge({ cardId }: Props) {
+export function SessionStatusBadge({ cardId, paused }: Props) {
   const status = useSessionStore((s) => s.sessions[cardId]?.status);
   const backgroundLabel = useSessionStore((s) => {
     const session = s.sessions[cardId];
@@ -43,6 +45,18 @@ export function SessionStatusBadge({ cardId }: Props) {
     return session.backgroundTasks.map((task) => task.description).join(', ');
   });
   if (!status) return null;
+
+  if (paused) {
+    return (
+      <span title="Paused" className="inline-flex shrink-0">
+        <CirclePause
+          role="img"
+          aria-label="Paused"
+          className="size-3.5 text-violet-500"
+        />
+      </span>
+    );
+  }
 
   const label = statusLabel(status, backgroundLabel);
   const Icon =

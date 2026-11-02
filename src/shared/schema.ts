@@ -76,6 +76,10 @@ export const CardSchema = z.object({
   // board unless the user asks to see archived cards. `.catch(false)` covers
   // files written before this field existed.
   archived: z.boolean().catch(false),
+  // User-set "parked for now" flag on a card that has been run. Purely a
+  // visual/UX marker (pause icon on the board, controls disabled); it does
+  // not touch the underlying session. `.catch(false)` covers older files.
+  paused: z.boolean().optional().catch(undefined),
   attachments: z.array(AttachmentMetaSchema).catch([]),
   // Per-card override of the global useWorktrees setting. Null means
   // "inherit from Settings".

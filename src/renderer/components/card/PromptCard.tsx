@@ -110,6 +110,10 @@ export function PromptCard({
               'rounded-md border bg-[var(--card-tint,var(--card))] border-[var(--card-edge,var(--border))]',
               snapshot.isDragging ? 'shadow-lg ring-2 ring-ring' : 'shadow-sm',
               card.archived && 'opacity-70',
+              // Paused cards get a dashed violet edge so they stand out on
+              // the board at a glance. Overdue (below) still wins.
+              card.paused &&
+                'border-dashed border-violet-500 ring-1 ring-violet-500/40',
               // Overdue wins over any card color's edge tint — a passed
               // due date is a more urgent signal than a triage color.
               overdue && 'border-destructive ring-2 ring-destructive',
@@ -154,7 +158,7 @@ export function PromptCard({
                     }
                   />
 
-                  <SessionStatusBadge cardId={cardId} />
+                  <SessionStatusBadge cardId={cardId} paused={card.paused} />
                 </div>
 
                 {/*
@@ -178,6 +182,11 @@ export function PromptCard({
                   className="min-w-0 flex-1 cursor-pointer pt-1 text-left text-sm font-medium text-card-foreground"
                 >
                   <span className="line-clamp-2">{card.title}</span>
+                  {card.paused ? (
+                    <span className="mt-0.5 block text-[11px] font-normal text-violet-500">
+                      Paused
+                    </span>
+                  ) : null}
                   {card.archived ? (
                     <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
                       Archived
