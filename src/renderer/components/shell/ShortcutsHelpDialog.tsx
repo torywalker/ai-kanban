@@ -5,7 +5,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { SHORTCUTS } from '@/lib/shortcuts';
+import { SHORTCUTS, type ShortcutEntry } from '@/lib/shortcuts';
+
+// Groups entries by `section`, preserving first-seen order.
+function groupBySection(entries: ShortcutEntry[]) {
+  const groups = new Map<string, ShortcutEntry[]>();
+  entries.forEach((entry) => {
+    groups.set(entry.section, [...(groups.get(entry.section) ?? []), entry]);
+  });
+  return Array.from(groups.entries());
+}
 
 interface ShortcutsHelpDialogProps {
   open: boolean;
@@ -28,26 +37,35 @@ export function ShortcutsHelpDialog({
             Everything you can do without leaving the keyboard.
           </DialogDescription>
         </DialogHeader>
-        <ul className="flex flex-col gap-2">
-          {SHORTCUTS.map((shortcut) => (
-            <li
-              key={shortcut.description}
-              className="flex items-center justify-between gap-4 text-sm"
-            >
-              <span>{shortcut.description}</span>
-              <span className="flex shrink-0 gap-1">
-                {shortcut.keys.map((key) => (
-                  <kbd
-                    key={key}
-                    className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+        <div className="flex flex-col gap-4">
+          {groupBySection(SHORTCUTS).map(([section, entries]) => (
+            <section key={section} className="flex flex-col gap-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {section}
+              </h3>
+              <ul className="flex flex-col gap-2">
+                {entries.map((shortcut) => (
+                  <li
+                    key={shortcut.description}
+                    className="flex items-center justify-between gap-4 text-sm"
                   >
-                    {key}
-                  </kbd>
+                    <span>{shortcut.description}</span>
+                    <span className="flex shrink-0 gap-1">
+                      {shortcut.keys.map((key) => (
+                        <kbd
+                          key={key}
+                          className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+                        >
+                          {key}
+                        </kbd>
+                      ))}
+                    </span>
+                  </li>
                 ))}
-              </span>
-            </li>
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </DialogContent>
     </Dialog>
   );

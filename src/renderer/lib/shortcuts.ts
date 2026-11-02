@@ -10,18 +10,55 @@ export interface ShortcutEntry {
   /** Individual keys rendered as separate <kbd> chips, e.g. ['⌘', 'Z']. */
   keys: string[];
   description: string;
+  /** Heading the entry is grouped under in the help dialog. */
+  section: string;
 }
 
+export const GENERAL_SECTION = 'General';
+export const CARD_VIEW_SECTION = 'While viewing a card';
+
 export const SHORTCUTS: ShortcutEntry[] = [
-  { keys: ['⌘', 'Z'], description: 'Undo' },
-  { keys: ['⌘', '⇧', 'Z'], description: 'Redo' },
-  { keys: ['⌘', 'N'], description: 'New card' },
-  { keys: ['⌘', '⌥', 'N'], description: 'New prompt from anywhere' },
-  { keys: ['⌘', 'B'], description: 'Toggle sidebar' },
-  { keys: ['⌘', '⌥', '↑ / ↓'], description: 'Switch board' },
-  { keys: ['⌘', 'K'], description: 'Search cards' },
-  { keys: ['⌘', '⇧', 'P'], description: 'Open the board scratchpad' },
-  { keys: ['⌘', '⇧', 'S'], description: 'Open settings' },
-  { keys: ['⌘', '?'], description: 'Show keyboard shortcuts' },
-  { keys: ['⌘', '⏎'], description: 'Save card' },
+  { keys: ['⌘', 'Z'], description: 'Undo', section: GENERAL_SECTION },
+  { keys: ['⌘', '⇧', 'Z'], description: 'Redo', section: GENERAL_SECTION },
+  { keys: ['⌘', 'N'], description: 'New card', section: GENERAL_SECTION },
+  {
+    keys: ['⌘', '⌥', 'N'],
+    description: 'New prompt from anywhere',
+    section: GENERAL_SECTION,
+  },
+  { keys: ['⌘', 'B'], description: 'Toggle sidebar', section: GENERAL_SECTION },
+  {
+    keys: ['⌘', '⌥', '↑ / ↓'],
+    description: 'Switch board',
+    section: GENERAL_SECTION,
+  },
+  { keys: ['⌘', 'K'], description: 'Search cards', section: GENERAL_SECTION },
+  {
+    keys: ['⌘', '⇧', 'P'],
+    description: 'Open the board scratchpad',
+    section: GENERAL_SECTION,
+  },
+  {
+    keys: ['⌘', '⇧', 'S'],
+    description: 'Open settings',
+    section: GENERAL_SECTION,
+  },
+  {
+    keys: ['⌘', '?'],
+    description: 'Show keyboard shortcuts',
+    section: GENERAL_SECTION,
+  },
+  { keys: ['⌘', '⏎'], description: 'Save card', section: GENERAL_SECTION },
+  { keys: ['⌘', 'E'], description: 'Edit card', section: CARD_VIEW_SECTION },
+  {
+    keys: ['⌘', 'R'],
+    description: 'Run, or re-connect the terminal',
+    section: CARD_VIEW_SECTION,
+  },
+  { keys: ['⌘', 'C'], description: 'Copy prompt', section: CARD_VIEW_SECTION },
+  {
+    keys: ['⌘', 'A'],
+    description: 'Archive or restore card',
+    section: CARD_VIEW_SECTION,
+  },
 ];
