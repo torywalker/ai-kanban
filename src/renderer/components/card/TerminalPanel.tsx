@@ -61,6 +61,10 @@ export function TerminalPanel({
       term.reset();
       term.write(data);
     });
+    // Escape closes the dialog; the Stop button is the interrupt. Returning
+    // false keeps xterm from sending it to the pty while the event still
+    // bubbles up to the dialog's Escape handler.
+    term.attachCustomKeyEventHandler((event) => event.key !== 'Escape');
     const keyInput = term.onData((data) => {
       if (!acceptInputRef.current) return;
       bridge.input(cardId, data);
