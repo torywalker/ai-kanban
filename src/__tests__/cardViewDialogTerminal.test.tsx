@@ -426,6 +426,34 @@ describe('CardViewDialog terminal controls', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows the transcript instead of a live terminal while Ship is busy', async () => {
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: true, claudeRunning: false },
+          'done',
+        ),
+      );
+    (window.electron.git.shipStatusGet as jest.Mock).mockResolvedValue({
+      repoKey: REPO,
+      active: { cardId, title: 'Runnable card' },
+      waiters: [],
+    });
+    await renderDialog();
+
+    expect(
+      screen.queryByText(
+        'Cost is estimated from token counts for terminal sessions.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Ship is in progress — stop it before replying.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+  });
+
   describe('Escape', () => {
     const renderWithClose = async () => {
       const onOpenChange = jest.fn();

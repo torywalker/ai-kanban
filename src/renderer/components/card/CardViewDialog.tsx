@@ -203,7 +203,7 @@ export function CardViewDialog({
       (sessionStatus === 'working' || sessionStatus === 'waiting')) ||
     shipBusy;
   const terminalMode =
-    shellAlive || (resolvedEngine === 'terminal' && !sdkTurnActive);
+    !sdkTurnActive && (shellAlive || resolvedEngine === 'terminal');
   const layoutExpanded = expanded || terminalMode;
   const bodyRef = useStickToBottom<HTMLDivElement>(
     hasSession && !layoutExpanded,
@@ -915,7 +915,7 @@ export function CardViewDialog({
           <Button variant="ghost" onClick={() => setEditing(true)}>
             Edit
           </Button>
-          {terminalMode && (claudeRunning || shipBusy) ? (
+          {terminalMode && claudeRunning ? (
             <Button variant="destructive" onClick={stop}>
               Stop
             </Button>

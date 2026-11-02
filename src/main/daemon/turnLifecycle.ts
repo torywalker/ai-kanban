@@ -284,13 +284,31 @@ export function sdkTurnInFlight(
 }
 
 /**
- * The snapshot `getState` reports: a live terminal, then the SDK session
- * (live or hydrated from cache), then the last exited terminal.
+ * The snapshot `getState` reports: an in-flight SDK turn, then a live
+ * terminal, then the SDK session (live or hydrated from cache), then the
+ * last exited terminal. An in-flight turn may be waiting on an approval
+ * only its own snapshot can show.
  */
 export function resolveCardSnapshot(sources: {
+  /** The daemon's in-memory session only; a hydrated one is never in flight. */
+  liveSession: SessionSnapshot | undefined;
   liveTerminal: SessionSnapshot | undefined;
   session: () => SessionSnapshot | undefined;
   lastTerminal: () => SessionSnapshot | undefined;
 }): SessionSnapshot | undefined {
+  const { liveSession } = sources;
+  if (liveSession && sdkTurnInFlight({ snapshot: liveSession }))
+    return liveSession;
   return sources.liveTerminal ?? sources.session() ?? sources.lastTerminal();
+}
+
+/**
+ * The live terminal snapshot to re-send once the card's SDK turn has
+ * settled, since terminal publishes are dropped while one is in flight.
+ */
+export function terminalSnapshotToRepublish(
+  session: { snapshot: SessionSnapshot } | null | undefined,
+  liveTerminal: SessionSnapshot | undefined,
+): SessionSnapshot | undefined {
+  return sdkTurnInFlight(session) ? undefined : liveTerminal;
 }

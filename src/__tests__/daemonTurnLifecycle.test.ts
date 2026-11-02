@@ -32,6 +32,7 @@ import {
   shouldApplyTurnWrite,
   startTurnSnapshot,
   stopSnapshot,
+  terminalSnapshotToRepublish,
   turnOutcomeFromMessage,
 } from '../main/daemon/turnLifecycle';
 
@@ -551,6 +552,7 @@ describe('terminal and SDK snapshots on one card', () => {
     const session = jest.fn(() => sdk);
     expect(
       resolveCardSnapshot({
+        liveSession: undefined,
         liveTerminal: live,
         session,
         lastTerminal: () => exited,
@@ -559,9 +561,58 @@ describe('terminal and SDK snapshots on one card', () => {
     expect(session).not.toHaveBeenCalled();
   });
 
+  it.each(['working', 'waiting'] as const)(
+    'getState prefers an SDK turn that is %s over a live terminal',
+    (status) => {
+      const conflictTurn = snapshot({
+        status,
+        pendingApproval:
+          status === 'waiting'
+            ? { requestId: 'r1', toolName: 'Bash', input: {} }
+            : null,
+      });
+      expect(
+        resolveCardSnapshot({
+          liveSession: conflictTurn,
+          liveTerminal: live,
+          session: () => conflictTurn,
+          lastTerminal: () => exited,
+        }),
+      ).toBe(conflictTurn);
+    },
+  );
+
+  it('getState prefers a live terminal over a settled SDK session', () => {
+    expect(
+      resolveCardSnapshot({
+        liveSession: sdk,
+        liveTerminal: live,
+        session: () => sdk,
+        lastTerminal: () => exited,
+      }),
+    ).toBe(live);
+  });
+
+  it('re-sends the live terminal only once no SDK turn is in flight', () => {
+    const working = { snapshot: snapshot({ status: 'working' }) };
+    const waiting = { snapshot: snapshot({ status: 'waiting' }) };
+    expect(terminalSnapshotToRepublish(working, live)).toBeUndefined();
+    expect(terminalSnapshotToRepublish(waiting, live)).toBeUndefined();
+    (['done', 'failed', 'interrupted'] as const).forEach((status) => {
+      expect(
+        terminalSnapshotToRepublish({ snapshot: snapshot({ status }) }, live),
+      ).toBe(live);
+    });
+    expect(terminalSnapshotToRepublish(undefined, live)).toBe(live);
+    expect(
+      terminalSnapshotToRepublish({ snapshot: sdk }, undefined),
+    ).toBeUndefined();
+  });
+
   it('getState prefers the SDK session over an exited terminal', () => {
     expect(
       resolveCardSnapshot({
+        liveSession: undefined,
         liveTerminal: undefined,
         session: () => sdk,
         lastTerminal: () => exited,
@@ -572,6 +623,7 @@ describe('terminal and SDK snapshots on one card', () => {
   it('getState falls back to the exited terminal', () => {
     expect(
       resolveCardSnapshot({
+        liveSession: undefined,
         liveTerminal: undefined,
         session: () => undefined,
         lastTerminal: () => exited,

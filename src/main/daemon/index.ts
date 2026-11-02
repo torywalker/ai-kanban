@@ -73,6 +73,7 @@ import {
   shouldApplyTurnWrite,
   startTurnSnapshot,
   stopSnapshot,
+  terminalSnapshotToRepublish,
   turnOutcomeFromMessage,
   type TurnOutcome,
 } from './turnLifecycle';
@@ -225,6 +226,14 @@ function updateSnapshot(
   snapshotPublisher.publish(session.snapshot);
 }
 
+function republishLiveTerminal(cardId: string): void {
+  const snapshot = terminalSnapshotToRepublish(
+    sessions.get(cardId),
+    terminalHost.liveSnapshot(cardId),
+  );
+  if (snapshot) snapshotPublisher.publish(snapshot);
+}
+
 /**
  * Looks up a card's in-memory session, falling back to disk-cached state
  * for a card this daemon has no live record of at all — a fresh daemon
@@ -346,6 +355,7 @@ async function runTurn(
       lastError: `Working directory does not exist: ${options.cwd}`,
     }));
     finishTurn();
+    republishLiveTerminal(cardId);
     return;
   }
 
@@ -493,6 +503,10 @@ async function runTurn(
       settleTurnSnapshot(noteUnresumedBackgroundWork(s, hold), outcome),
     );
     finishTurn();
+    // Before the cache write below, so the cache keeps the SDK transcript.
+    if (sessions.get(cardId)?.abortController === abortController) {
+      republishLiveTerminal(cardId);
+    }
     const finished = sessions.get(cardId);
     // The cache becomes the only copy after this, so a failed write keeps
     // the transcript in memory for a later reply to resume from.
@@ -636,6 +650,7 @@ const server = net.createServer((socket) => {
         session.stopped = true;
         session.turnActive = false;
         updateSnapshot(request.cardId, stopSnapshot);
+        republishLiveTerminal(request.cardId);
       }
       return;
     }
@@ -646,6 +661,7 @@ const server = net.createServer((socket) => {
       // the real prior checklist/transcript instead of the empty
       // "Reconnecting…" placeholder it started with.
       const snapshot = resolveCardSnapshot({
+        liveSession: sessions.get(request.cardId)?.snapshot,
         liveTerminal: terminalHost.liveSnapshot(request.cardId),
         session: () => getOrHydrateSession(request.cardId)?.snapshot,
         lastTerminal: () => terminalHost.snapshot(request.cardId),
