@@ -26,6 +26,8 @@ const HOOK_EVENTS = [
   'UserPromptSubmit',
   'Notification',
   'Stop',
+  'SubagentStart',
+  'SubagentStop',
   'SessionEnd',
 ] as const;
 

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { SUBAGENT_SETTLE_MS } from '../main/daemon/terminalHooks';
 import type {
   DaemonEvent,
   DaemonRequest,
@@ -184,6 +185,43 @@ describe('start', () => {
     host.start(request());
     expect(ptys[0].written).toHaveLength(2);
     expect(ptys[0].written[1]).toContain("--resume 'sess-1'");
+  });
+
+  describe('background subagent', () => {
+    const feed = (...bodies: object[]) => {
+      appendHook(bodies.map(record).join(''));
+      jest.advanceTimersByTime(250);
+    };
+    const subagent = (name: string) => ({
+      hook_event_name: name,
+      agent_id: 'a1',
+    });
+
+    it('holds working through the recorded Stop-before-SubagentStop order', () => {
+      host.start(request());
+      feed({ hook_event_name: 'UserPromptSubmit' }, subagent('SubagentStart'));
+      feed({ hook_event_name: 'Stop' });
+      expect(lastSnapshot().status).toBe('working');
+      feed(subagent('SubagentStop'));
+      expect(lastSnapshot().status).toBe('working');
+      feed(
+        { hook_event_name: 'UserPromptSubmit' },
+        { hook_event_name: 'Stop' },
+      );
+      expect(lastSnapshot().status).toBe('done');
+    });
+
+    it('settles to done when no completion turn follows', () => {
+      host.start(request());
+      feed(subagent('SubagentStart'), { hook_event_name: 'Stop' });
+      feed(subagent('SubagentStop'));
+      clock += SUBAGENT_SETTLE_MS - 1;
+      jest.advanceTimersByTime(250);
+      expect(lastSnapshot().status).toBe('working');
+      clock += 1;
+      jest.advanceTimersByTime(250);
+      expect(lastSnapshot().status).toBe('done');
+    });
   });
 
   it('republishes the live snapshot when started again', () => {

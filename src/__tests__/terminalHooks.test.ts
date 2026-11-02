@@ -4,6 +4,8 @@ import {
   applyHookEvent,
   applyInterrupt,
   applyPtyExit,
+  applySettle,
+  isAwaitingCompletion,
   isIdleTerminal,
   splitHookRecords,
   type HookEvent,
@@ -35,6 +37,7 @@ function hook(
     transcriptPath: null,
     notificationType: null,
     source: null,
+    agentId: null,
     ...extra,
   };
 }
@@ -232,5 +235,81 @@ describe('isIdleTerminal', () => {
 
   it('is busy while claude is working', () => {
     expect(isIdleTerminal(snapshot({ status: 'working' }))).toBe(false);
+  });
+});
+
+describe('background subagents', () => {
+  const start = hook('SubagentStart', null, { agentId: 'a1' });
+  const stop = hook('SubagentStop', null, { agentId: 'a1' });
+
+  it('keeps the card working when Stop arrives with a subagent running', () => {
+    const running = applyHookEvent(snapshot(), start);
+    const next = applyHookEvent(running, hook('Stop'));
+    expect(next.status).toBe('working');
+    expect(next.terminal?.stopPending).toBe(true);
+  });
+
+  it('stays working after the last subagent stops until it settles', () => {
+    const held = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('Stop'),
+    );
+    const stopped = applyHookEvent(held, stop);
+    expect(stopped.status).toBe('working');
+    expect(isAwaitingCompletion(stopped)).toBe(true);
+    expect(applySettle(stopped).status).toBe('done');
+    expect(applySettle(stopped).terminal?.stopPending).toBeFalsy();
+  });
+
+  it('finishes normally when the completion turn follows', () => {
+    const held = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('Stop'),
+    );
+    const next = [stop, hook('UserPromptSubmit'), hook('Stop')].reduce(
+      applyHookEvent,
+      held,
+    );
+    expect(next.status).toBe('done');
+    expect(isAwaitingCompletion(next)).toBe(false);
+  });
+
+  it('ignores a SubagentStop for an agent it never saw start', () => {
+    const held = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('Stop'),
+    );
+    const next = applyHookEvent(
+      held,
+      hook('SubagentStop', null, { agentId: 'internal' }),
+    );
+    expect(next).toBe(held);
+  });
+
+  it('does not settle a card that is not awaiting completion', () => {
+    expect(applySettle(snapshot())).toEqual(snapshot());
+  });
+
+  it('stays working while another subagent is still running', () => {
+    const two = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('SubagentStart', null, { agentId: 'a2' }),
+    );
+    const held = applyHookEvent(two, hook('Stop'));
+    expect(applyHookEvent(held, stop).status).toBe('working');
+  });
+
+  it('does not change status when a subagent stops before Stop', () => {
+    const next = applyHookEvent(applyHookEvent(snapshot(), start), stop);
+    expect(next.status).toBe('working');
+    expect(applyHookEvent(next, hook('Stop')).status).toBe('done');
+  });
+
+  it('clears subagents on interrupt and session end', () => {
+    const running = applyHookEvent(snapshot(), start);
+    expect(applyInterrupt(running).terminal?.subagents).toBeUndefined();
+    expect(
+      applyHookEvent(running, hook('SessionEnd')).terminal?.subagents,
+    ).toBeUndefined();
   });
 });
