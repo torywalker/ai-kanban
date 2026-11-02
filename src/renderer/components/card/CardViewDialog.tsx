@@ -119,6 +119,12 @@ export function CardViewDialog({
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
   const snapshotEngine = useSessionStore((s) => s.sessions[cardId]?.engine);
+  // An open Claude that is sitting at its prompt is not editing the
+  // worktree, so Ship can run. A turn still in progress, including one
+  // paused on a permission prompt, is.
+  const claudeTurnActive =
+    snapshotEngine === 'terminal' &&
+    (sessionStatus === 'working' || sessionStatus === 'waiting');
   const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -296,7 +302,7 @@ export function CardViewDialog({
     if (
       !open ||
       !canShowShip ||
-      claudeRunning ||
+      claudeTurnActive ||
       !primary ||
       !card?.sessionWorktree
     ) {
@@ -318,7 +324,7 @@ export function CardViewDialog({
   }, [
     open,
     canShowShip,
-    claudeRunning,
+    claudeTurnActive,
     primary,
     card?.sessionWorktree?.recordedTargetBranch,
   ]);
@@ -529,8 +535,8 @@ export function CardViewDialog({
   };
 
   const requestShip = async () => {
-    if (claudeRunning) {
-      toast.error('Exit Claude in the terminal before shipping.');
+    if (claudeTurnActive) {
+      toast.error('Wait until Claude finishes this turn before shipping.');
       return;
     }
     if (!primary || !card.sessionWorktree || shipBusy) return;
@@ -819,7 +825,7 @@ export function CardViewDialog({
 
           {terminalMode ? (
             <>
-              <TerminalPanel cardId={cardId} />
+              <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
               {sessionStatus === 'failed' && lastError ? (
                 <div className="shrink-0">
                   <SessionLastError status="failed" message={lastError} />

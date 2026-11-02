@@ -111,7 +111,7 @@ Changing a card's engine does not touch a terminal that is already open. The dia
 
 ### 4.5 Ship
 
-Ship conflict turns always use the built-in engine with the card's `sessionId`, unchanged. Ship is refused while the card's terminal has `claudeRunning`, with the toast: "Exit Claude in the terminal before shipping."
+Ship conflict turns always use the built-in engine with the card's `sessionId`, unchanged. Ship is refused only while that terminal's Claude is mid-turn (`working` or `waiting`), with the toast: "Wait until Claude finishes this turn before shipping." An idle Claude, still open at its prompt, does not block Ship. Keystrokes to the terminal are dropped while a ship is in progress.
 
 ## 5. Cost estimate
 
