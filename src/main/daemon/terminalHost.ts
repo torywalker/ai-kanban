@@ -7,7 +7,11 @@ import type {
   SessionSnapshot,
   TerminalStartRequest,
 } from '@shared/daemonProtocol';
-import { buildTerminalLaunch, defaultShell } from './terminalLaunch';
+import {
+  buildTerminalLaunch,
+  claudeResumeLine,
+  defaultShell,
+} from './terminalLaunch';
 import {
   appendCapped,
   applyHookEvent,
@@ -89,6 +93,8 @@ interface Terminal {
   transcriptPath: string | null;
   pollTimer: ReturnType<typeof setInterval>;
   lastActivity: number;
+  /** A resume command was already typed and Claude has not exited since. */
+  resumeSent: boolean;
 }
 
 function killQuietly(pty: PtyLike): void {
@@ -144,7 +150,10 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     const usageBatches: string[] = [];
     let billedSessionEnd = false;
     events.forEach((event) => {
+      const wasRunning = terminal.snapshot.terminal?.claudeRunning === true;
       terminal.snapshot = applyHookEvent(terminal.snapshot, event);
+      const isRunning = terminal.snapshot.terminal?.claudeRunning === true;
+      if (wasRunning && !isRunning) terminal.resumeSent = false;
       if (event.transcriptPath) terminal.transcriptPath = event.transcriptPath;
       // A compacted session keeps its transcript, so its tokens are unbilled.
       if (
@@ -194,6 +203,25 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     start(req) {
       const running = terminals.get(req.cardId);
       if (running) {
+        const claudeUp = running.snapshot.terminal?.claudeRunning === true;
+        // The shell is still open after Claude exited. Typing the resume
+        // command brings that session back without a new pty or a new prompt.
+        if (!claudeUp && req.sessionId && !running.resumeSent) {
+          running.resumeSent = true;
+          running.pty.write(
+            claudeResumeLine({
+              shell: defaultShell(deps.platform, deps.envShell),
+              claudeCliPath: req.claudeCliPath,
+              prompt: req.prompt,
+              model: req.model,
+              approvalMode: req.approvalMode,
+              sessionId: req.sessionId,
+              resume: true,
+              hookFile: running.hookFile,
+              baseEnv: deps.baseEnv,
+            }),
+          );
+        }
         deps.publishSnapshot(running.snapshot);
         return;
       }
@@ -261,6 +289,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         transcriptPath: null,
         pollTimer: setInterval(() => tick(terminal), HOOK_POLL_MS),
         lastActivity: deps.now(),
+        resumeSent: false,
       };
       terminals.set(req.cardId, terminal);
       // The panel drops live output until the first replay. An empty one

@@ -342,6 +342,16 @@ export function CardViewDialog({
    * with no inner scroller to replace it.
    */
   const chatExpanded = layoutExpanded && (hasSession || terminalMode);
+  const resumeSessionId = sessionId ?? card.sessionId;
+  // Claude has exited, but its session is still on the card. Re-connect
+  // resumes that session instead of submitting the prompt again.
+  const canReconnect =
+    terminalMode &&
+    !claudeRunning &&
+    !claudeTurnActive &&
+    !shipBusy &&
+    !!resumeSessionId &&
+    (shellAlive || canRun);
   // A collapsed terminal still needs a fixed height. Max-height alone lets
   // the dialog shrink to its content, and this content is a flex child with
   // no height of its own, so the pty would have nothing to fill.
@@ -407,7 +417,7 @@ export function CardViewDialog({
           prompt: substitute(card.prompt, card.variables),
           model,
           approvalMode,
-          sessionId: card.sessionId,
+          sessionId: sessionId ?? card.sessionId,
           claudeCliPath,
           cols: 120,
           rows: 32,
@@ -960,7 +970,12 @@ export function CardViewDialog({
               ) : null}
             </div>
           ) : null}
-          {canRun && !shellAlive ? (
+          {canReconnect ? (
+            <Button onClick={run} disabled={!primary || !card.prompt.trim()}>
+              Re-connect
+            </Button>
+          ) : null}
+          {canRun && !shellAlive && !canReconnect ? (
             <Button onClick={run} disabled={!primary || !card.prompt.trim()}>
               {hasSession ? 'Run again' : 'Run'}
             </Button>
