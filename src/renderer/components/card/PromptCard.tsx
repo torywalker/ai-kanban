@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useDocStore } from '@/store/docStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
@@ -56,6 +57,14 @@ export function PromptCard({
   const setFocusCardId = useUiStore((s) => s.setFocusCardId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const usage = useCardUsage(cardId);
+  const unread = useSessionStore((s) => s.unread[cardId] === true);
+  const markRead = useSessionStore((s) => s.markRead);
+
+  // Opening the card counts as reading it, and so does an update landing
+  // while its dialog is already open.
+  useEffect(() => {
+    if (viewOpen && unread) markRead(cardId);
+  }, [viewOpen, unread, cardId, markRead]);
 
   useEffect(() => {
     if (focusCardId !== cardId) return;
@@ -114,6 +123,11 @@ export function PromptCard({
               // the board at a glance. Overdue (below) still wins.
               card.paused &&
                 'border-dashed border-violet-500 ring-1 ring-violet-500/40',
+              // Cards Claude has updated since they were last opened get a
+              // solid green edge. Paused (above) and overdue (below) win.
+              unread &&
+                !card.paused &&
+                'border-emerald-500 ring-2 ring-emerald-500/50',
               // Overdue wins over any card color's edge tint — a passed
               // due date is a more urgent signal than a triage color.
               overdue && 'border-destructive ring-2 ring-destructive',

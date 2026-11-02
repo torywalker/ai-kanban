@@ -9,6 +9,13 @@ import showTaskFinishedNotification from '@/lib/nativeNotification';
 
 interface SessionStore {
   sessions: Record<string, SessionSnapshot>;
+  /**
+   * Cards Claude has finished or asked a question on since the user last
+   * opened them. Transient (not persisted): after a restart nothing is
+   * flagged, same as the chimes.
+   */
+  unread: Record<string, boolean>;
+  markRead: (cardId: string) => void;
   applySnapshot: (snapshot: SessionSnapshot) => void;
   clearSession: (cardId: string) => void;
   markReattaching: (cardId: string) => void;
@@ -28,6 +35,15 @@ const pendingReattachCardIds = new Set<string>();
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: {},
+  unread: {},
+
+  markRead: (cardId) =>
+    set((state) => {
+      if (!state.unread[cardId]) return state;
+      const next = { ...state.unread };
+      delete next[cardId];
+      return { unread: next };
+    }),
 
   applySnapshot: (snapshot) => {
     const previousStatus = get().sessions[snapshot.cardId]?.status;
@@ -46,6 +62,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // was already true", not "what just happened" -- consume the flag and
     // apply the status silently, with no chime.
     if (pendingReattachCardIds.delete(snapshot.cardId)) return;
+    if (snapshot.status === 'done' || snapshot.status === 'waiting') {
+      set((state) => ({ unread: { ...state.unread, [snapshot.cardId]: true } }));
+    }
     if (snapshot.status === 'done') {
       // `done` is emitted only after the SDK iterator has closed, so any
       // foreground/background Claude work for this card has drained.
@@ -60,7 +79,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => {
       const next = { ...state.sessions };
       delete next[cardId];
-      return { sessions: next };
+      const unread = { ...state.unread };
+      delete unread[cardId];
+      return { sessions: next, unread };
     }),
 
   markReattaching: (cardId) => {
