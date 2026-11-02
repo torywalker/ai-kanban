@@ -13,6 +13,8 @@ export interface HookEvent {
   notificationType: string | null;
   /** SessionStart's `source`: `startup`, `resume`, `clear` or `compact`. */
   source: string | null;
+  /** SubagentStart/SubagentStop's `agent_id`. */
+  agentId: string | null;
 }
 
 const stringOrNull = (value: unknown): string | null =>
@@ -38,6 +40,7 @@ function parseRecord(text: string): HookEvent | null {
     transcriptPath: stringOrNull(record.transcript_path),
     notificationType: stringOrNull(record.notification_type),
     source: stringOrNull(record.source),
+    agentId: stringOrNull(record.agent_id),
   };
 }
 
@@ -66,6 +69,22 @@ function terminalOf(snapshot: SessionSnapshot): TerminalState {
   return snapshot.terminal ?? { shellAlive: true, claudeRunning: false };
 }
 
+function running(terminal: TerminalState): number {
+  return terminal.subagents?.length ?? 0;
+}
+
+/** Drops the background-subagent fields so idle state keeps its plain shape. */
+function clearSubagents(terminal: TerminalState): TerminalState {
+  return {
+    shellAlive: terminal.shellAlive,
+    claudeRunning: terminal.claudeRunning,
+  };
+}
+
+function clearPending(terminal: TerminalState): TerminalState {
+  return { ...terminal, stopPending: undefined };
+}
+
 function settled(status: SessionStatus): SessionStatus {
   return status === 'working' || status === 'waiting' ? 'done' : status;
 }
@@ -85,28 +104,86 @@ export function applyHookEvent(
         terminal: { ...terminal, claudeRunning: true },
       };
     case 'UserPromptSubmit':
-      return { ...snapshot, status: 'working' };
+      return {
+        ...snapshot,
+        status: 'working',
+        terminal: clearPending(terminal),
+      };
     case 'Notification':
       // Claude sends this a minute after finishing; it is not a question.
       if (event.notificationType === 'idle_prompt') return snapshot;
       return { ...snapshot, status: 'waiting' };
     case 'Stop':
+      // Background subagents keep the card working past the main turn's Stop.
+      if (running(terminal) > 0) {
+        return {
+          ...snapshot,
+          status: 'working',
+          terminal: { ...terminal, stopPending: true },
+        };
+      }
       return { ...snapshot, status: 'done' };
+    case 'SubagentStart': {
+      if (!event.agentId) return snapshot;
+      const subagents = [...(terminal.subagents ?? [])];
+      if (!subagents.includes(event.agentId)) subagents.push(event.agentId);
+      return { ...snapshot, terminal: { ...terminal, subagents } };
+    }
+    case 'SubagentStop': {
+      // Claude's internal agents fire a Stop with no matching Start.
+      if (!event.agentId || !terminal.subagents?.includes(event.agentId)) {
+        return snapshot;
+      }
+      const subagents = terminal.subagents.filter((id) => id !== event.agentId);
+      // The completion arrives as a new turn about a second later. Stay
+      // working until then; `applySettle` covers a turn that never comes.
+      return { ...snapshot, terminal: { ...terminal, subagents } };
+    }
     case 'SessionEnd':
       return {
         ...snapshot,
         status: settled(snapshot.status),
-        terminal: { ...terminal, claudeRunning: false },
+        terminal: { ...clearSubagents(terminal), claudeRunning: false },
       };
     default:
       return snapshot;
   }
 }
 
+/**
+ * How long a held card waits, after its last subagent stops, for the
+ * completion turn that reports it. Observed at about 1s.
+ */
+export const SUBAGENT_SETTLE_MS = 5000;
+
+/** True while a card is only waiting for the completion turn of a subagent. */
+export function isAwaitingCompletion(snapshot: SessionSnapshot): boolean {
+  const { terminal } = snapshot;
+  return (
+    snapshot.status === 'working' &&
+    terminal?.stopPending === true &&
+    running(terminal) === 0
+  );
+}
+
+/** Ends the hold when no completion turn followed the last subagent. */
+export function applySettle(snapshot: SessionSnapshot): SessionSnapshot {
+  if (!isAwaitingCompletion(snapshot)) return snapshot;
+  return {
+    ...snapshot,
+    status: 'done',
+    terminal: clearSubagents(terminalOf(snapshot)),
+  };
+}
+
 /** Claude fires no hook when Escape interrupts it mid-turn. */
 export function applyInterrupt(snapshot: SessionSnapshot): SessionSnapshot {
   return snapshot.status === 'working'
-    ? { ...snapshot, status: 'interrupted' }
+    ? {
+        ...snapshot,
+        status: 'interrupted',
+        terminal: clearSubagents(terminalOf(snapshot)),
+      }
     : snapshot;
 }
 

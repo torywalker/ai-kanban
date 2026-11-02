@@ -17,8 +17,11 @@ import {
   applyHookEvent,
   applyInterrupt,
   applyPtyExit,
+  applySettle,
+  isAwaitingCompletion,
   isIdleTerminal,
   splitHookRecords,
+  SUBAGENT_SETTLE_MS,
 } from './terminalHooks';
 
 /** The slice of node-pty's `IPty` the host uses, so tests can fake it. */
@@ -93,6 +96,8 @@ interface Terminal {
   transcriptPath: string | null;
   pollTimer: ReturnType<typeof setInterval>;
   lastActivity: number;
+  /** When a card held only for a subagent's completion turn gives up. */
+  settleAt: number | null;
   /** A resume command was already typed and Claude has not exited since. */
   resumeSent: boolean;
 }
@@ -171,6 +176,9 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         billedSessionEnd = event.name === 'SessionEnd';
       }
     });
+    terminal.settleAt = isAwaitingCompletion(terminal.snapshot)
+      ? deps.now() + SUBAGENT_SETTLE_MS
+      : null;
     deps.publishSnapshot(terminal.snapshot);
     // Prime every SessionStart in this poll before any Stop bills it.
     // A resume appends to a transcript that already holds billed turns.
@@ -185,6 +193,11 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
 
   const tick = (terminal: Terminal): void => {
     pollHooks(terminal);
+    if (terminal.settleAt !== null && deps.now() >= terminal.settleAt) {
+      terminal.settleAt = null;
+      terminal.snapshot = applySettle(terminal.snapshot);
+      deps.publishSnapshot(terminal.snapshot);
+    }
     if (deps.now() - terminal.lastActivity < IDLE_TIMEOUT_MS) return;
     // Restarting the clock means a shell that survives the kill is retried
     // a day later rather than on every poll.
@@ -289,6 +302,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         transcriptPath: null,
         pollTimer: setInterval(() => tick(terminal), HOOK_POLL_MS),
         lastActivity: deps.now(),
+        settleAt: null,
         resumeSent: false,
       };
       terminals.set(req.cardId, terminal);

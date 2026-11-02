@@ -225,6 +225,8 @@ describe('buildHookSettings', () => {
       'UserPromptSubmit',
       'Notification',
       'Stop',
+      'SubagentStart',
+      'SubagentStop',
       'SessionEnd',
     ]);
     Object.values(hooks).forEach((entries) => {

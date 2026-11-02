@@ -134,6 +134,10 @@ export interface LiveTokenUsage {
 export interface TerminalState {
   shellAlive: boolean;
   claudeRunning: boolean;
+  /** Ids of background subagents that have started and not yet stopped. */
+  subagents?: string[];
+  /** The main turn's `Stop` arrived while subagents were still running. */
+  stopPending?: boolean;
 }
 
 export interface SessionSnapshot {
