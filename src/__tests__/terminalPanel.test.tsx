@@ -121,6 +121,22 @@ describe('TerminalPanel', () => {
     expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
   });
 
+  it('drops keystrokes while input is suspended', () => {
+    const { terminal } = installTerminalBridge();
+    const { rerender } = render(
+      <TerminalPanel cardId="crd_1" acceptInput={false} />,
+    );
+    const term = Terminal.instances[0];
+    const onData = term.onData.mock.calls[0][0] as (data: string) => void;
+
+    onData('x');
+    expect(terminal.input).not.toHaveBeenCalled();
+
+    rerender(<TerminalPanel cardId="crd_1" acceptInput />);
+    onData('y');
+    expect(terminal.input).toHaveBeenCalledWith('crd_1', 'y');
+  });
+
   it('refits once the host has a height the first fit missed', () => {
     const queued: Array<(time: number) => void> = [];
     const raf = jest

@@ -22,8 +22,18 @@ function themeForDocument(): ITheme {
   };
 }
 
-export function TerminalPanel({ cardId }: { cardId: string }) {
+export function TerminalPanel({
+  cardId,
+  acceptInput = true,
+}: {
+  cardId: string;
+  /** False while Ship is running, so a keystroke can't edit the worktree. */
+  // eslint-disable-next-line react/require-default-props
+  acceptInput?: boolean;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const acceptInputRef = useRef(acceptInput);
+  acceptInputRef.current = acceptInput;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -52,6 +62,7 @@ export function TerminalPanel({ cardId }: { cardId: string }) {
       term.write(data);
     });
     const keyInput = term.onData((data) => {
+      if (!acceptInputRef.current) return;
       bridge.input(cardId, data);
     });
 

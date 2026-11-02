@@ -269,9 +269,41 @@ describe('CardViewDialog terminal controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ship' }));
 
     expect(toast.error).toHaveBeenCalledWith(
-      'Exit Claude in the terminal before shipping.',
+      'Wait until Claude finishes this turn before shipping.',
     );
     expect(window.electron.git.shipPlan).not.toHaveBeenCalled();
+  });
+
+  it('ships while Claude is open and idle', async () => {
+    useDocStore.setState({ useWorktrees: true });
+    act(() => {
+      useDocStore.getState().updateCard(boardId, listId, cardId, {
+        sessionWorktree: {
+          path: '/tmp/worktrees/card',
+          branch: 'kanban/card',
+          recordedTargetBranch: 'main',
+        },
+      });
+    });
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: true, claudeRunning: true },
+          'done',
+        ),
+      );
+    await renderDialog();
+    (toast.error as jest.Mock).mockClear();
+    (window.electron.git.shipPlan as jest.Mock).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ship' }));
+
+    await waitFor(() => {
+      expect(window.electron.git.shipPlan).toHaveBeenCalled();
+    });
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('keeps the transcript and reply box for a built-in session', async () => {
