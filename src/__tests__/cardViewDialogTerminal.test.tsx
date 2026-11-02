@@ -584,7 +584,7 @@ describe('CardViewDialog terminal controls', () => {
         );
     });
 
-    it('stays open when Escape is pressed inside the terminal', async () => {
+    it('closes when Escape is pressed inside the terminal', async () => {
       const onOpenChange = await renderWithClose();
       const input = document.createElement('textarea');
       document.querySelector('[data-terminal-host]')!.appendChild(input);
@@ -592,7 +592,7 @@ describe('CardViewDialog terminal controls', () => {
 
       fireEvent.keyDown(input, { key: 'Escape' });
 
-      expect(onOpenChange).not.toHaveBeenCalled();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
     it('still closes when Escape is pressed outside the terminal', async () => {

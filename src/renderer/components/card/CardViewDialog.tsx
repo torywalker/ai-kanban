@@ -780,15 +780,6 @@ export function CardViewDialog({
         onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          // Escape is Claude's interrupt key, not a request to close.
-          if (
-            terminalMode &&
-            document.activeElement?.closest('[data-terminal-host]')
-          ) {
-            event.preventDefault();
-          }
-        }}
         className={cn(
           'flex flex-col',
           // Expanded uses a fixed `h-` and not merely a taller `max-h-`: a
