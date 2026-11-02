@@ -64,7 +64,30 @@ export function TerminalPanel({
     // Escape closes the dialog; the Stop button is the interrupt. Returning
     // false keeps xterm from sending it to the pty while the event still
     // bubbles up to the dialog's Escape handler.
-    term.attachCustomKeyEventHandler((event) => event.key !== 'Escape');
+    // Cmd+Left/Right jump to line start/end (Ctrl+A / Ctrl+E), and
+    // Shift+Enter inserts a newline like Option+Enter (ESC + CR) instead of
+    // submitting.
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.key === 'Escape') return false;
+      if (event.type !== 'keydown') return true;
+      let seq: string | null = null;
+      if (event.metaKey && !event.altKey && !event.ctrlKey) {
+        if (event.key === 'ArrowLeft') seq = '\x01';
+        else if (event.key === 'ArrowRight') seq = '\x05';
+      } else if (
+        event.key === 'Enter' &&
+        event.shiftKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.ctrlKey
+      ) {
+        seq = '\x1b\r';
+      }
+      if (seq === null) return true;
+      event.preventDefault();
+      if (acceptInputRef.current) bridge.input(cardId, seq);
+      return false;
+    });
     const keyInput = term.onData((data) => {
       if (!acceptInputRef.current) return;
       bridge.input(cardId, data);
