@@ -51,7 +51,7 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['⌘', '⏎'], description: 'Save card', section: GENERAL_SECTION },
   { keys: ['⌘', 'E'], description: 'Edit card', section: CARD_VIEW_SECTION },
   {
-    keys: ['⌘', 'R'],
+    keys: ['⌘', 'X'],
     description: 'Run, or re-connect the terminal',
     section: CARD_VIEW_SECTION,
   },

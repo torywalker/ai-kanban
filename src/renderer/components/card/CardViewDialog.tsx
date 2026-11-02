@@ -683,7 +683,7 @@ export function CardViewDialog({
 
   shortcutsRef.current = {
     e: () => setEditing(true),
-    r: () => {
+    x: () => {
       if (!primary || !card.prompt.trim()) return;
       // Re-connect takes the place of Run once a terminal session exists,
       // including while the shell is still open.
@@ -1071,7 +1071,7 @@ export function CardViewDialog({
             <Button
               onClick={run}
               disabled={!primary || !card.prompt.trim()}
-              title="Re-connect (⌘R)"
+              title="Re-connect (⌘X)"
             >
               Re-connect
             </Button>
@@ -1080,7 +1080,7 @@ export function CardViewDialog({
             <Button
               onClick={run}
               disabled={!primary || !card.prompt.trim()}
-              title={`${hasSession ? 'Run again' : 'Run'} (⌘R)`}
+              title={`${hasSession ? 'Run again' : 'Run'} (⌘X)`}
             >
               {hasSession ? 'Run again' : 'Run'}
             </Button>
