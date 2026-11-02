@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { StickyNote } from 'lucide-react';
-import { useDocStore } from '@/store/docStore';
+import { closeLiveTerminals, useDocStore } from '@/store/docStore';
 import { useUiStore } from '@/store/uiStore';
 import { selectActiveBoard } from '@/store/selectors';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
@@ -123,6 +123,8 @@ export function BoardView() {
           const destList = cardDropDestinationList(board, result);
           if (destList && isCelebrationListName(destList.name)) {
             fireConfettiOnCard(result.draggableId);
+            // Work is over, so shut its terminal too (no-op if none is live).
+            closeLiveTerminals([result.draggableId]);
           }
         }}
       >
