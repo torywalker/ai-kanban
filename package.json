@@ -193,6 +193,7 @@
     "productName": "AI Kanban",
     "appId": "com.torywalker.ai-kanban",
     "asar": true,
+    "npmRebuild": false,
     "afterSign": ".erb/scripts/notarize.js",
     "asarUnpack": [
       "**\\*.{node,dll}",
