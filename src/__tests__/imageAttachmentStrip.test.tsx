@@ -129,6 +129,12 @@ it('unlinks the file before dropping it from the list', async () => {
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove att_a.png' }));
 
+  fireEvent.click(
+    within(screen.getByRole('alertdialog')).getByRole('button', {
+      name: 'Remove image',
+    }),
+  );
+
   expect(attachments().remove).toHaveBeenCalledWith('crd_1', 'att_a');
   await waitFor(() => expect(onChange).toHaveBeenCalledWith([meta('att_b')]));
 });
@@ -149,7 +155,18 @@ it('does not bring back an attachment removed while another was in flight', asyn
   const onChange = renderStrip([meta('att_a'), meta('att_b')]);
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove att_a.png' }));
+
+  fireEvent.click(
+    within(screen.getByRole('alertdialog')).getByRole('button', {
+      name: 'Remove image',
+    }),
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Remove att_b.png' }));
+  fireEvent.click(
+    within(screen.getByRole('alertdialog')).getByRole('button', {
+      name: 'Remove image',
+    }),
+  );
   expect(attachments().remove).toHaveBeenCalledTimes(2);
 
   // Oldest first: the order in which the stale-prop version wrote `[att_a]`
@@ -174,6 +191,12 @@ it('keeps the thumbnail when the unlink fails', async () => {
   const onChange = renderStrip([meta('att_a')]);
 
   fireEvent.click(screen.getByRole('button', { name: 'Remove att_a.png' }));
+
+  fireEvent.click(
+    within(screen.getByRole('alertdialog')).getByRole('button', {
+      name: 'Remove image',
+    }),
+  );
 
   await waitFor(() => expect(errorToast).toHaveBeenCalledWith('EPERM'));
   expect(onChange).not.toHaveBeenCalled();

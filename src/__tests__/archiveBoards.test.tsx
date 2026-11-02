@@ -4,7 +4,7 @@
  * Settings → Boards lists every board and is where Unarchive lives.
  */
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { SettingsDialog } from '@/components/shell/SettingsDialog';
 import { useDocStore } from '@/store/docStore';
@@ -83,6 +83,11 @@ describe('archiving boards', () => {
 
     fireEvent.contextMenu(screen.getByText('Other'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive board' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive board',
+      }),
+    );
 
     expect(screen.queryByText('Other')).not.toBeInTheDocument();
     expect(screen.getByText('Prompts')).toBeInTheDocument();
@@ -103,6 +108,11 @@ describe('archiving boards', () => {
       screen.getByRole('button', { name: 'Switch to board: Other' }),
     );
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive board' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive board',
+      }),
+    );
 
     expect(
       screen.queryByRole('button', { name: 'Switch to board: Other' }),
@@ -119,6 +129,11 @@ describe('archiving boards', () => {
     trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive board' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive board',
+      }),
+    );
 
     expect(boardNamed('Other')!.archived).toBe(true);
     expect(screen.queryByText('Other')).not.toBeInTheDocument();

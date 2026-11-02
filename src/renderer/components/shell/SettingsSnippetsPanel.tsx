@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 
 interface DraftProps {
@@ -77,6 +78,7 @@ export function SettingsSnippetsPanel() {
   const addSlashSnippet = useDocStore((s) => s.addSlashSnippet);
   const updateSlashSnippet = useDocStore((s) => s.updateSlashSnippet);
   const deleteSlashSnippet = useDocStore((s) => s.deleteSlashSnippet);
+  const { confirm, dialog } = useConfirm();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addKey, setAddKey] = useState(0);
 
@@ -86,6 +88,7 @@ export function SettingsSnippetsPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      {dialog}
       <p className="text-xs text-muted-foreground">
         Type /command in a card&apos;s prompt. It expands as soon as the name is
         complete.
@@ -149,7 +152,14 @@ export function SettingsSnippetsPanel() {
                     size="sm"
                     variant="ghost"
                     aria-label={`Delete /${snippet.trigger}`}
-                    onClick={() => deleteSlashSnippet(snippet.id)}
+                    onClick={() =>
+                      confirm({
+                        title: `Delete /${snippet.trigger}?`,
+                        body: 'This command will no longer expand in prompts.',
+                        confirmLabel: 'Delete command',
+                        onConfirm: () => deleteSlashSnippet(snippet.id),
+                      })
+                    }
                   >
                     Delete
                   </Button>

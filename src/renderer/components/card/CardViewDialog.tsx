@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
@@ -586,13 +587,22 @@ export function CardViewDialog({
     if (closing) closing.catch(() => undefined);
   };
 
+  const { confirm, dialog: archiveDialog } = useConfirm();
   const archive = () => {
     if (card.archived) {
       unarchiveCard(boardId, listId, cardId);
-    } else {
-      archiveCard(boardId, listId, cardId);
+      onOpenChange(false);
+      return;
     }
-    onOpenChange(false);
+    confirm({
+      title: 'Archive this card?',
+      body: 'The card is hidden from the board. You can restore it from the archived view.',
+      confirmLabel: 'Archive',
+      onConfirm: () => {
+        archiveCard(boardId, listId, cardId);
+        onOpenChange(false);
+      },
+    });
   };
 
   // Resolved against the store as each ingest lands rather than against this
@@ -965,6 +975,7 @@ export function CardViewDialog({
         plan={choicePlan}
         onSelect={(branch) => void shipInto(branch)}
       />
+      {archiveDialog}
       <ConfirmDialog
         open={closeTerminalOpen}
         onOpenChange={setCloseTerminalOpen}

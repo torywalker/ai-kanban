@@ -1,12 +1,14 @@
 import { X } from 'lucide-react';
 import { useDocStore } from '@/store/docStore';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
+import { useConfirm } from '@/components/common/useConfirm';
 import { TagColorPicker } from './TagColorPicker';
 
 export function TagManager() {
   const doc = useDocStore((s) => s.doc);
   const setTagLabel = useDocStore((s) => s.setTagLabel);
   const setTagColor = useDocStore((s) => s.setTagColor);
+  const { confirm, dialog } = useConfirm();
   const deleteTag = useDocStore((s) => s.deleteTag);
 
   const entries = doc
@@ -25,6 +27,7 @@ export function TagManager() {
 
   return (
     <div className="flex flex-col gap-0.5">
+      {dialog}
       {entries.map(([key, tag]) => {
         const label = tag.label || key;
         return (
@@ -49,7 +52,14 @@ export function TagManager() {
             <button
               type="button"
               aria-label={`Delete tag ${label}`}
-              onClick={() => deleteTag(key)}
+              onClick={() =>
+                confirm({
+                  title: `Delete tag "${label}"?`,
+                  body: 'The tag will be removed from every card that uses it.',
+                  confirmLabel: 'Delete tag',
+                  onConfirm: () => deleteTag(key),
+                })
+              }
               className="shrink-0 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
             >
               <X className="size-3.5" />

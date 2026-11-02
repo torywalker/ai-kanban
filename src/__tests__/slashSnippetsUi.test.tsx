@@ -59,6 +59,12 @@ describe('slash snippets', () => {
     expect(screen.getByText('/grill')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete /grill' }));
+
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Delete command',
+      }),
+    );
     expect(screen.getByText('No commands yet.')).toBeInTheDocument();
     expect(useDocStore.getState().slashSnippets).toEqual([]);
   });

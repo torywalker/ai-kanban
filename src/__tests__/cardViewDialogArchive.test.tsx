@@ -6,7 +6,7 @@
  * composer, so an archived card disappears from the board immediately.
  */
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { CardViewDialog } from '@/components/card/CardViewDialog';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
@@ -60,6 +60,12 @@ describe('CardViewDialog archive', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive',
+      }),
+    );
+
     const card = useDocStore
       .getState()
       .doc!.boards[0].lists[0].cards.find((c) => c.id === cardId);
@@ -72,7 +78,9 @@ describe('CardViewDialog archive', () => {
     useDocStore.getState().archiveCard(boardId, listId, cardId);
     renderDialog();
 
-    expect(screen.getByRole('button', { name: 'Unarchive' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Unarchive' }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Archive' }),
     ).not.toBeInTheDocument();

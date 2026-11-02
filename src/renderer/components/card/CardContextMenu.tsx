@@ -5,6 +5,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 import { MoveCardToBoardDialog } from './MoveCardToBoardDialog';
 
@@ -67,6 +68,7 @@ export function CardContextMenu({
   children,
 }: Props) {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const { confirm, dialog: archiveDialog } = useConfirm();
   const archived = useDocStore(
     (s) =>
       s.doc?.boards
@@ -80,10 +82,18 @@ export function CardContextMenu({
   const actions: CardMenuActions = {
     archived,
     openMoveDialog: () => setMoveDialogOpen(true),
-    toggleArchived: () =>
-      archived
-        ? unarchiveCard(boardId, listId, cardId)
-        : archiveCard(boardId, listId, cardId),
+    toggleArchived: () => {
+      if (archived) {
+        unarchiveCard(boardId, listId, cardId);
+        return;
+      }
+      confirm({
+        title: `Archive "${cardTitle}"?`,
+        body: 'The card is hidden from the board. You can restore it from the archived view.',
+        confirmLabel: 'Archive',
+        onConfirm: () => archiveCard(boardId, listId, cardId),
+      });
+    },
   };
 
   return (
@@ -102,6 +112,7 @@ export function CardContextMenu({
         </ContextMenuContent>
       </ContextMenu>
 
+      {archiveDialog}
       <MoveCardToBoardDialog
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}

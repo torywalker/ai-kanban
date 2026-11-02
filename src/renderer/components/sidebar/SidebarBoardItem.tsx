@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 import { cn } from '@/lib/utils';
 import { BoardContextMenu } from './BoardContextMenu';
@@ -20,6 +21,7 @@ interface Props {
 
 export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const { confirm, dialog: archiveDialog } = useConfirm();
   const board = useDocStore(
     (s) => s.doc?.boards.find((b) => b.id === boardId) ?? null,
   );
@@ -64,7 +66,16 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
             <MoreHorizontal className="size-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => archiveBoard(boardId)}>
+            <DropdownMenuItem
+              onSelect={() =>
+                confirm({
+                  title: `Archive "${board.name}"?`,
+                  body: 'The board is hidden from the sidebar. You can unarchive it from Settings.',
+                  confirmLabel: 'Archive board',
+                  onConfirm: () => archiveBoard(boardId),
+                })
+              }
+            >
               Archive board
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -76,6 +87,7 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {archiveDialog}
         <ConfirmDialog
           open={confirming}
           onOpenChange={setConfirming}
@@ -86,6 +98,7 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
               : `${cardCount} prompt${cardCount === 1 ? '' : 's'} will be deleted. This cannot be undone after you quit.`
           }
           confirmLabel="Delete board"
+          destructive
           onConfirm={() => deleteBoard(boardId)}
         />
       </div>

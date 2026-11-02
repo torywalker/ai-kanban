@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { BoardView } from '@/components/board/BoardView';
 import { ListColumn } from '@/components/board/ListColumn';
@@ -68,11 +74,7 @@ function renderListColumn(boardId: string, listId: string) {
 
 function renderListMenu(boardId: string, listId: string, listName: string) {
   return render(
-    <ListOptionsMenu
-      boardId={boardId}
-      listId={listId}
-      listName={listName}
-    />,
+    <ListOptionsMenu boardId={boardId} listId={listId} listName={listName} />,
   );
 }
 
@@ -199,6 +201,12 @@ describe('archiving cards', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive',
+      }),
+    );
+
     const card = useDocStore
       .getState()
       .doc!.boards[0].lists[0].cards.find((c) => c.id === waitingCard);
@@ -219,7 +227,14 @@ describe('archiving cards', () => {
     });
     trigger.focus();
     fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive all cards' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Archive all cards' }),
+    );
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive all',
+      }),
+    );
 
     const waiting = useDocStore.getState().doc!.boards[0].lists[0].cards;
     const done = useDocStore.getState().doc!.boards[0].lists[2].cards;
@@ -233,6 +248,11 @@ describe('archiving cards', () => {
 
     fireEvent.contextMenu(screen.getByText('Keep me visible'));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Archive',
+      }),
+    );
 
     const card = useDocStore
       .getState()

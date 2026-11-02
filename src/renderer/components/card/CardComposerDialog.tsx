@@ -28,6 +28,7 @@ import { api } from '@/lib/api';
 import { TagPicker } from '@/components/tags/TagPicker';
 import { ChoiceButtons } from '@/components/common/ChoiceButtons';
 import { DisclosureSection } from '@/components/common/DisclosureSection';
+import { useConfirm } from '@/components/common/useConfirm';
 import { ModelPicker } from '@/components/common/ModelPicker';
 import { extractVariables } from '@/domain/variables';
 import { modelDisplayLabel } from '@/domain/models';
@@ -249,8 +250,8 @@ export function CardComposerDialog({
     onOpenChange(false);
   };
 
-  // No confirm dialog, matching every other delete in this app except
-  // board deletion — Cmd+Z is the recovery path.
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
   const remove = () => {
     if (!cardId) return;
     // Unconditional, not gated on `existing?.sessionId`: that field is the
@@ -297,10 +298,18 @@ export function CardComposerDialog({
     if (!cardId) return;
     if (existing?.archived) {
       unarchiveCard(boardId, listId, cardId);
-    } else {
-      archiveCard(boardId, listId, cardId);
+      onOpenChange(false);
+      return;
     }
-    onOpenChange(false);
+    confirm({
+      title: 'Archive this card?',
+      body: 'The card is hidden from the board. You can restore it from the archived view.',
+      confirmLabel: 'Archive',
+      onConfirm: () => {
+        archiveCard(boardId, listId, cardId);
+        onOpenChange(false);
+      },
+    });
   };
 
   // Reads the card's attachments out of the store as each ingest lands, so
@@ -628,7 +637,17 @@ export function CardComposerDialog({
               <Button variant="outline" onClick={archive}>
                 {existing?.archived ? 'Unarchive' : 'Archive'}
               </Button>
-              <Button variant="destructive" onClick={remove}>
+              <Button
+                variant="destructive"
+                onClick={() =>
+                  confirm({
+                    title: 'Delete this card?',
+                    body: 'The card and its attachments will be deleted, and any running session and worktree will be stopped and removed.',
+                    confirmLabel: 'Delete card',
+                    onConfirm: remove,
+                  })
+                }
+              >
                 Delete
               </Button>
             </div>
@@ -645,6 +664,7 @@ export function CardComposerDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      {confirmDialog}
     </Dialog>
   );
 }

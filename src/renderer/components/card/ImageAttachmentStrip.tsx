@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useConfirm } from '@/components/common/useConfirm';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ingestPick, removeStoredAttachment } from '@/lib/ingestImages';
@@ -148,6 +149,7 @@ export function ImageAttachmentStrip({
    * Re-synced on render because the parent is the owner: once it has applied
    * an update, its prop is the truth again.
    */
+  const { confirm, dialog } = useConfirm();
   const itemsRef = useRef(items);
   itemsRef.current = items;
   const pendingPicksRef = useRef(0);
@@ -184,6 +186,7 @@ export function ImageAttachmentStrip({
       data-slot="image-attachment-strip"
       className="flex flex-wrap items-center gap-2"
     >
+      {dialog}
       {items.map((item) => (
         <div key={item.id} className="relative">
           <AttachmentThumbnail cardId={cardId} attachment={item} />
@@ -194,7 +197,14 @@ export function ImageAttachmentStrip({
             aria-label={`Remove ${item.filename}`}
             disabled={disabled}
             className="absolute -top-1.5 -right-1.5 rounded-full border shadow-sm"
-            onClick={() => void remove(item.id)}
+            onClick={() =>
+              confirm({
+                title: 'Remove this image?',
+                body: `${item.filename} will be deleted from the card.`,
+                confirmLabel: 'Remove image',
+                onConfirm: () => void remove(item.id),
+              })
+            }
           >
             <X />
           </Button>

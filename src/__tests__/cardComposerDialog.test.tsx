@@ -20,6 +20,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { CardComposerDialog } from '@/components/card/CardComposerDialog';
 import { useDocStore } from '@/store/docStore';
@@ -700,6 +701,11 @@ describe('CardComposerDialog', () => {
 
       renderOpen();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Delete card',
+        }),
+      );
 
       expect(window.electron.session.stop).toHaveBeenCalledWith(cardId);
     });
@@ -712,6 +718,11 @@ describe('CardComposerDialog', () => {
       });
       renderOpen();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Delete card',
+        }),
+      );
       expect(window.electron.session.stop).toHaveBeenCalledWith(cardId);
     });
 
@@ -729,6 +740,11 @@ describe('CardComposerDialog', () => {
 
       renderOpen();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Delete card',
+        }),
+      );
 
       expect(useSessionStore.getState().sessions[cardId]).toBeUndefined();
       // Sanity: the card really is gone from the document too.
@@ -758,6 +774,11 @@ describe('CardComposerDialog', () => {
 
       renderOpen();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Delete card',
+        }),
+      );
 
       expect(close).toHaveBeenCalledWith(cardId);
       expect(useSessionStore.getState().sessions[cardId]).toBeUndefined();
@@ -780,6 +801,11 @@ describe('CardComposerDialog', () => {
 
       renderOpen();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Delete card',
+        }),
+      );
 
       await waitFor(() => {
         expect(window.electron.git.removeWorktree).toHaveBeenCalledWith(

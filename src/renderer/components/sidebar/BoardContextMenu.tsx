@@ -6,6 +6,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 
 interface Props {
@@ -26,6 +27,7 @@ function deleteBody(cardCount: number): string {
  */
 export function BoardContextMenu({ boardId, children }: Props) {
   const [confirming, setConfirming] = useState(false);
+  const { confirm, dialog: archiveDialog } = useConfirm();
   const board = useDocStore(
     (s) => s.doc?.boards.find((b) => b.id === boardId) ?? null,
   );
@@ -44,7 +46,16 @@ export function BoardContextMenu({ boardId, children }: Props) {
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem onSelect={() => archiveBoard(boardId)}>
+          <ContextMenuItem
+            onSelect={() =>
+              confirm({
+                title: `Archive "${board.name}"?`,
+                body: 'The board is hidden from the sidebar. You can unarchive it from Settings.',
+                confirmLabel: 'Archive board',
+                onConfirm: () => archiveBoard(boardId),
+              })
+            }
+          >
             Archive board
           </ContextMenuItem>
           <ContextMenuItem
@@ -56,12 +67,14 @@ export function BoardContextMenu({ boardId, children }: Props) {
         </ContextMenuContent>
       </ContextMenu>
 
+      {archiveDialog}
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title={`Delete "${board.name}"?`}
         body={deleteBody(cardCount)}
         confirmLabel="Delete board"
+        destructive
         onConfirm={() => deleteBoard(boardId)}
       />
     </>
