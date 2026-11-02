@@ -170,7 +170,7 @@ describe('ship orchestrator', () => {
     expect(fs.readFileSync(path.join(primary, 'result.txt'), 'utf8')).toBe(
       'feature\n',
     );
-    expect(fs.existsSync(worktree.path)).toBe(false);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('commits a dirty worktree itself, including new files, with no agent turn', async () => {
@@ -193,7 +193,7 @@ describe('ship orchestrator', () => {
     expect(gitExec(primary, ['log', '-1', '--pretty=%s']).trim()).toBe(
       'Card crd_dirty',
     );
-    expect(fs.existsSync(worktree.path)).toBe(false);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('refuses to ship a worktree that has no commits of its own', async () => {
@@ -229,7 +229,7 @@ describe('ship orchestrator', () => {
     expect(fs.readFileSync(path.join(primary, 'result.txt'), 'utf8')).toBe(
       'feature\n',
     );
-    expect(fs.existsSync(worktree.path)).toBe(false);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('keeps the worktree when committing does not clean it', async () => {
@@ -279,7 +279,7 @@ describe('ship orchestrator', () => {
 
     expect(runAgentTurn).not.toHaveBeenCalled();
     expect(gitExec(primary, ['rev-parse', 'main']).trim()).toBe(feature);
-    expect(fs.existsSync(worktree.path)).toBe(false);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('gives up after two conflict turns and aborts the merge', async () => {
@@ -334,7 +334,7 @@ describe('ship orchestrator', () => {
     expect(
       gitExec(primary, ['log', '-1', '--pretty=%p']).trim().split(' '),
     ).toHaveLength(2);
-    expect(fs.existsSync(worktree.path)).toBe(false);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('will not conclude a merge whose files still carry conflict markers', async () => {
@@ -373,7 +373,6 @@ describe('ship orchestrator', () => {
       concludeMergeInWorktree: jest.fn().mockResolvedValue(undefined),
       mergeDestinationIntoWorktree: jest.fn().mockResolvedValue('conflict'),
       fastForwardDestination: jest.fn().mockResolvedValue(undefined),
-      removeWorktree: jest.fn().mockResolvedValue(undefined),
     };
     const runAgentTurn = turnMock();
 
@@ -387,7 +386,7 @@ describe('ship orchestrator', () => {
       destinationBranch: 'main',
       featureBranch: worktree.branch,
     });
-    expect(git.removeWorktree).toHaveBeenCalledWith(primary, worktree);
+    expect(fs.existsSync(worktree.path)).toBe(true);
   });
 
   it('refuses a dirty checked-out destination without touching it', async () => {
@@ -458,42 +457,8 @@ describe('ship orchestrator', () => {
       'second\n',
     );
     expect(fs.existsSync(stuck.path)).toBe(true);
-    expect(fs.existsSync(next.path)).toBe(false);
+    expect(fs.existsSync(next.path)).toBe(true);
     expect(statuses.some((snap) => snap.active === null)).toBe(true);
-  });
-
-  it('does not report cancellation after the destination has landed', async () => {
-    const worktree = await worktreeFor('crd_landed');
-    let finishRemoval!: () => void;
-    const removal = new Promise<void>((resolve) => {
-      finishRemoval = resolve;
-    });
-    const git: ShipGit = {
-      topLevel: jest.fn().mockResolvedValue(fs.realpathSync(primary)),
-      isDirty: jest.fn().mockResolvedValue(false),
-      mergeInProgress: jest.fn().mockResolvedValue(false),
-      commitAllInWorktree: jest.fn().mockResolvedValue(undefined),
-      countCommitsAhead: jest.fn().mockResolvedValue(1),
-      abortMergeIfNeeded: jest.fn().mockResolvedValue(undefined),
-      conflictsResolved: jest.fn().mockResolvedValue(true),
-      concludeMergeInWorktree: jest.fn().mockResolvedValue(undefined),
-      mergeDestinationIntoWorktree: jest.fn().mockResolvedValue('clean'),
-      fastForwardDestination: jest.fn().mockResolvedValue(undefined),
-      removeWorktree: jest.fn().mockReturnValue(removal),
-    };
-    const service = serviceWith(turnMock(), git);
-    const shipping = service.ship(shipOptions('crd_landed', worktree));
-
-    await waitFor(
-      () => (git.removeWorktree as jest.Mock).mock.calls.length === 1,
-      'worktree cleanup to start',
-    );
-    const cancelling = service.cancel('crd_landed');
-    finishRemoval();
-
-    await cancelling;
-    await expect(shipping).resolves.toBeUndefined();
-    expect(stopSession).toHaveBeenCalledWith('crd_landed');
   });
 
   it('reports no queue status for a card that is not shipping', async () => {

@@ -307,6 +307,27 @@ export function CardViewDialog({
     hasSession &&
     (!turnInFlight || claudeRunning);
 
+  // A new agent turn may add commits the earlier Ship did not carry, so the
+  // card goes back to offering Ship rather than only Delete worktree.
+  const worktreeShipped = card?.sessionWorktree?.shipped === true;
+  useEffect(() => {
+    if (!worktreeShipped || !turnInFlight || shipBusy) return;
+    const current = card?.sessionWorktree;
+    if (!current) return;
+    updateCard(boardId, listId, cardId, {
+      sessionWorktree: { ...current, shipped: false },
+    });
+  }, [
+    worktreeShipped,
+    turnInFlight,
+    shipBusy,
+    card?.sessionWorktree,
+    updateCard,
+    boardId,
+    listId,
+    cardId,
+  ]);
+
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
     if (
@@ -578,7 +599,9 @@ export function CardViewDialog({
         }
         return;
       }
-      updateCard(boardId, listId, cardId, { sessionWorktree: null });
+      updateCard(boardId, listId, cardId, {
+        sessionWorktree: { ...card.sessionWorktree, shipped: true },
+      });
       setShipQueue(null);
       toast.success('Shipped');
     } catch (error) {
@@ -588,6 +611,28 @@ export function CardViewDialog({
       if (!shipCancelledByUser.current) {
         toast.error(error instanceof Error ? error.message : String(error));
       }
+    } finally {
+      setShipPending(false);
+    }
+  };
+
+  const deleteWorktree = async () => {
+    if (!primary || !card.sessionWorktree || shipBusy) return;
+    setShipPending(true);
+    try {
+      const result = await api.git.removeWorktree(
+        cardId,
+        primary,
+        card.sessionWorktree,
+      );
+      if (!result.ok && result.error !== WORKTREE_MISSING_ERROR) {
+        toast.error(result.error);
+        return;
+      }
+      updateCard(boardId, listId, cardId, { sessionWorktree: null });
+      toast.success('Worktree deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     } finally {
       setShipPending(false);
     }
@@ -735,15 +780,6 @@ export function CardViewDialog({
         onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => {
-          // Escape is Claude's interrupt key, not a request to close.
-          if (
-            terminalMode &&
-            document.activeElement?.closest('[data-terminal-host]')
-          ) {
-            event.preventDefault();
-          }
-        }}
         className={cn(
           'flex flex-col',
           // Expanded uses a fixed `h-` and not merely a taller `max-h-`: a
@@ -1048,17 +1084,26 @@ export function CardViewDialog({
           ) : null}
           {canShowShip ? (
             <div className="flex min-w-0 flex-col items-end gap-0.5">
-              <Button onClick={requestShip} disabled={shipBusy || paused}>
+              <Button
+                onClick={
+                  card.sessionWorktree?.shipped ? deleteWorktree : requestShip
+                }
+                disabled={shipBusy || paused}
+              >
                 {shipBusy ? (
                   <Loader2
-                    aria-label="Shipping"
+                    aria-label={
+                      card.sessionWorktree?.shipped ? 'Deleting' : 'Shipping'
+                    }
                     className="size-4 animate-spin"
                   />
+                ) : card.sessionWorktree?.shipped ? (
+                  'Delete worktree'
                 ) : (
                   'Ship'
                 )}
               </Button>
-              {shipHelper ? (
+              {shipHelper && !card.sessionWorktree?.shipped ? (
                 <span
                   className="max-w-56 text-right text-[11px] text-muted-foreground"
                   title={

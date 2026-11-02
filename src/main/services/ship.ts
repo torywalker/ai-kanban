@@ -19,7 +19,6 @@ import {
   fastForwardDestination,
   mergeDestinationIntoWorktree,
 } from './shipMerge';
-import { removeWorktree } from './worktree';
 import { createShipQueue, type ShipQueueSnapshot } from './shipQueue';
 
 export const COMMIT_FAILED_ERROR =
@@ -95,7 +94,6 @@ export interface ShipGit {
     destinationBranch: string;
     featureBranch: string;
   }) => Promise<void>;
-  removeWorktree: (primary: string, worktree: SessionWorktree) => Promise<void>;
 }
 
 export const defaultShipGit: ShipGit = {
@@ -109,7 +107,6 @@ export const defaultShipGit: ShipGit = {
   concludeMergeInWorktree,
   mergeDestinationIntoWorktree,
   fastForwardDestination,
-  removeWorktree,
 };
 
 export interface ShipService {
@@ -125,7 +122,8 @@ function throwIfCancelled(signal: AbortSignal): void {
 /**
  * Drives one card's Ship: commit whatever the agent left in the worktree,
  * merge the destination in, let the agent finish the merge if it conflicts,
- * then fast-forward the destination and drop the worktree.
+ * then fast-forward the destination. The worktree is left in place; the
+ * user deletes it as a separate step.
  *
  * Only the conflict step involves the model, and even then only to edit
  * files. Both commits a Ship needs — the pre-merge snapshot and the merge
@@ -133,9 +131,7 @@ function throwIfCancelled(signal: AbortSignal): void {
  * the worktree or fails saying why. It can never depend on the agent having
  * been permitted to stage or commit, which many are not.
  *
- * Only the success path removes a worktree. Every failure leaves it — and
- * whatever the user's agent did inside it — exactly where it is, because
- * the alternative is deleting work that only exists there.
+ * Ship never removes a worktree, so nothing the agent did inside it is lost.
  */
 export function createShipService(deps: {
   runAgentTurn: AgentTurnRunner;
@@ -268,14 +264,6 @@ export function createShipService(deps: {
         destinationBranch: opts.destinationBranch,
         featureBranch: opts.worktree.branch,
       });
-      throwIfCancelled(signal);
-
-      // Landing is now complete. A cancellation during worktree removal
-      // must not turn a successful Ship into a reported cancellation and
-      // leave the renderer persisting stale worktree metadata.
-      const active = activeWorktrees.get(opts.cardId);
-      if (active) active.cancellable = false;
-      await git.removeWorktree(opts.primary, opts.worktree);
     } catch (error) {
       // The queue slot is about to be handed to another card in this same
       // repository; releasing it with a merge still in flight would leave
