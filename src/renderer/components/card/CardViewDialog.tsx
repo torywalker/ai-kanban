@@ -638,11 +638,9 @@ export function CardViewDialog({
       : null;
   const shipHelper = waitingBehind
     ? `Waiting to ship (behind “${waitingBehind.title}”)`
-    : shipBusy
-      ? 'Shipping…'
-      : shipPlan && shipPlan.kind !== 'direct' && shipPlan.kind !== 'blocked'
-        ? 'You’ll pick which branch to merge into.'
-        : null;
+    : shipPlan && shipPlan.kind !== 'direct' && shipPlan.kind !== 'blocked'
+      ? 'You’ll pick which branch to merge into.'
+      : null;
   const choicePlan =
     shipPlan && shipPlan.kind !== 'direct' && shipPlan.kind !== 'blocked'
       ? shipPlan
@@ -1051,7 +1049,14 @@ export function CardViewDialog({
           {canShowShip ? (
             <div className="flex min-w-0 flex-col items-end gap-0.5">
               <Button onClick={requestShip} disabled={shipBusy || paused}>
-                Ship
+                {shipBusy ? (
+                  <Loader2
+                    aria-label="Shipping"
+                    className="size-4 animate-spin"
+                  />
+                ) : (
+                  'Ship'
+                )}
               </Button>
               {shipHelper ? (
                 <span
