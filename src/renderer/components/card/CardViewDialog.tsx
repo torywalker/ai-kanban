@@ -8,6 +8,8 @@ import {
 } from 'react';
 import {
   Archive,
+  Pause,
+  Play,
   ArchiveRestore,
   Copy,
   ExternalLink,
@@ -289,7 +291,10 @@ export function CardViewDialog({
    */
   const turnInFlight =
     sessionStatus === 'working' || sessionStatus === 'waiting';
-  const controlsBusy = turnInFlight || shipBusy;
+  // Paused is a user-set parking flag: it locks the same controls a running
+  // turn does (reply, Run, Re-connect, Ship) without touching the session.
+  const paused = card?.paused === true;
+  const controlsBusy = turnInFlight || shipBusy || paused;
   // Only the agent's own turn gets the inline reply-box spinner — ship and
   // waiting-on-approval have their own explanatory text below instead.
   const isAgentWorking = !shipBusy && sessionStatus === 'working';
@@ -1023,6 +1028,21 @@ export function CardViewDialog({
               Stop
             </Button>
           ) : null}
+          {hasSession ? (
+            <Button
+              variant="outline"
+              onClick={() =>
+                updateCard(boardId, listId, cardId, { paused: !paused })
+              }
+            >
+              {paused ? (
+                <Play className="size-3.5" />
+              ) : (
+                <Pause className="size-3.5" />
+              )}
+              {paused ? 'Resume' : 'Pause'}
+            </Button>
+          ) : null}
           {shellAlive ? (
             <Button variant="outline" onClick={requestCloseTerminal}>
               Close terminal
@@ -1030,7 +1050,7 @@ export function CardViewDialog({
           ) : null}
           {canShowShip ? (
             <div className="flex min-w-0 flex-col items-end gap-0.5">
-              <Button onClick={requestShip} disabled={shipBusy}>
+              <Button onClick={requestShip} disabled={shipBusy || paused}>
                 Ship
               </Button>
               {shipHelper ? (
