@@ -102,6 +102,9 @@ export function claudeResumeLine(input: TerminalLaunchInput): string {
   return `${claudeCommand({ ...input, resume: true })}\r`;
 }
 
+/** App-internal env vars that must not leak into user sessions. */
+const SESSION_ENV_BLOCKLIST = new Set(['ELECTRON_RUN_AS_NODE', 'NODE_OPTIONS']);
+
 export function buildTerminalLaunch(
   input: TerminalLaunchInput,
 ): TerminalLaunch {
@@ -117,7 +120,11 @@ export function buildTerminalLaunch(
   Object.entries(input.baseEnv).forEach(([key, value]) => {
     // The daemon itself runs as Electron-as-Node; inherited, this would
     // turn any Electron app launched from the user's shell into plain Node.
-    if (value !== undefined && key !== 'ELECTRON_RUN_AS_NODE') env[key] = value;
+    // NODE_OPTIONS is set by the app's dev scripts (-r ts-node/register),
+    // and ts-node isn't installed in session worktrees, so Node would crash.
+    if (value !== undefined && !SESSION_ENV_BLOCKLIST.has(key)) {
+      env[key] = value;
+    }
   });
   env.AI_KANBAN_HOOK_FILE = input.hookFile;
   env.TERM = 'xterm-256color';

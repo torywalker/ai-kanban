@@ -24,7 +24,12 @@ function launchInput(
     sessionId: 'u-1',
     resume: false,
     hookFile: '/h/c.log',
-    baseEnv: { PATH: '/usr/bin', ELECTRON_RUN_AS_NODE: '1', UNSET: undefined },
+    baseEnv: {
+      PATH: '/usr/bin',
+      ELECTRON_RUN_AS_NODE: '1',
+      NODE_OPTIONS: '-r ts-node/register',
+      UNSET: undefined,
+    },
     ...overrides,
   };
 }
@@ -91,6 +96,7 @@ describe('buildTerminalLaunch', () => {
 
     it("keeps the daemon's own Electron-as-Node flag out of the user's shell", () => {
       expect(launch.env).not.toHaveProperty('ELECTRON_RUN_AS_NODE');
+      expect(launch.env).not.toHaveProperty('NODE_OPTIONS');
       expect(launch.env).not.toHaveProperty('UNSET');
     });
   });
