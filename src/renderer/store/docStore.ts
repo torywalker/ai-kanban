@@ -230,7 +230,7 @@ function cardIds(
   return lists.flatMap((list) => list.cards.map((card) => card.id));
 }
 
-function closeLiveTerminals(ids: readonly string[]): void {
+export function closeLiveTerminals(ids: readonly string[]): void {
   // sessionStore imports this module through nativeNotification.
   /* eslint-disable global-require, @typescript-eslint/no-var-requires */
   const { useSessionStore } =
