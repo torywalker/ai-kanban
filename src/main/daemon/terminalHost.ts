@@ -183,6 +183,13 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     killQuietly(terminal.pty);
   };
 
+  const markInterrupted = (terminal: Terminal): void => {
+    const next = applyInterrupt(terminal.snapshot);
+    if (next === terminal.snapshot) return;
+    terminal.snapshot = next;
+    deps.publishSnapshot(next);
+  };
+
   return {
     start(req) {
       const running = terminals.get(req.cardId);
@@ -292,6 +299,9 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
       if (!terminal) return;
       terminal.pty.write(data);
       terminal.lastActivity = deps.now();
+      // Only a lone Escape: arrow and function keys arrive as sequences
+      // that start with one.
+      if (data === '\x1b') markInterrupted(terminal);
     },
 
     resize(cardId, cols, rows) {
@@ -308,10 +318,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
       const terminal = terminals.get(cardId);
       if (!terminal) return;
       terminal.pty.write('\x1b');
-      const next = applyInterrupt(terminal.snapshot);
-      if (next === terminal.snapshot) return;
-      terminal.snapshot = next;
-      deps.publishSnapshot(next);
+      markInterrupted(terminal);
     },
 
     close(cardId) {

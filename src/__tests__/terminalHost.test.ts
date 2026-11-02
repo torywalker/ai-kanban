@@ -414,6 +414,38 @@ describe('controls', () => {
     expect(lastSnapshot().status).toBe('working');
   });
 
+  it('marks a working turn interrupted when Escape is typed', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
+    jest.advanceTimersByTime(250);
+    host.input('crd_1', '\x1b');
+    expect(ptys[0].written).toEqual(['\x1b']);
+    expect(lastSnapshot().status).toBe('interrupted');
+    expect(host.liveSnapshot('crd_1')?.status).toBe('interrupted');
+  });
+
+  it('leaves the status alone for escape sequences and other input', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
+    jest.advanceTimersByTime(250);
+    snapshots = [];
+    host.input('crd_1', '\x1b[A');
+    host.input('crd_1', 'x\x1b');
+    expect(ptys[0].written).toEqual(['\x1b[A', 'x\x1b']);
+    expect(snapshots).toEqual([]);
+    expect(host.liveSnapshot('crd_1')?.status).toBe('working');
+  });
+
+  it('does not republish a typed Escape while claude is waiting', () => {
+    host.start(request());
+    appendHook(record({ hook_event_name: 'Notification' }));
+    jest.advanceTimersByTime(250);
+    snapshots = [];
+    host.input('crd_1', '\x1b');
+    expect(snapshots).toEqual([]);
+    expect(host.liveSnapshot('crd_1')?.status).toBe('waiting');
+  });
+
   it('does not republish an interrupt while claude is waiting', () => {
     host.start(request());
     appendHook(record({ hook_event_name: 'Notification' }));
