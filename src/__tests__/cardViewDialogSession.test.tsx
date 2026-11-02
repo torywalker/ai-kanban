@@ -376,6 +376,24 @@ describe('CardViewDialog session controls', () => {
       );
     });
 
+    it('keeps Delete worktree after a shipped card loses its live session', async () => {
+      useDocStore.setState({ useWorktrees: true });
+      const worktree = attachWorktree();
+      act(() => {
+        useDocStore.getState().updateCard(boardId, listId, cardId, {
+          sessionWorktree: { ...worktree, shipped: true },
+        });
+      });
+      renderDialog();
+
+      expect(
+        await screen.findByRole('button', { name: 'Delete worktree' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Re-connect' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('goes back to Ship when a new turn starts after a Ship', async () => {
       useDocStore.setState({ useWorktrees: true });
       const worktree = attachWorktree();

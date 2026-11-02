@@ -301,15 +301,17 @@ export function CardViewDialog({
   const canRun = !controlsBusy;
   const canSendReply =
     hasSession && !controlsBusy && !!cwd && reply.trim().length > 0;
+  // Shipping into the branch this app itself runs from can reload the
+  // renderer and drop the in-memory session. The record on the card says the
+  // merge landed, so Delete worktree must not depend on a live session.
+  const worktreeShipped = card?.sessionWorktree?.shipped === true;
   const canShowShip =
     useWorktree &&
     !!card?.sessionWorktree &&
-    hasSession &&
-    (!turnInFlight || claudeRunning);
+    (worktreeShipped || (hasSession && (!turnInFlight || claudeRunning)));
 
   // A new agent turn may add commits the earlier Ship did not carry, so the
   // card goes back to offering Ship rather than only Delete worktree.
-  const worktreeShipped = card?.sessionWorktree?.shipped === true;
   useEffect(() => {
     if (!worktreeShipped || !turnInFlight || shipBusy) return;
     const current = card?.sessionWorktree;
@@ -417,6 +419,7 @@ export function CardViewDialog({
   // resumes that session instead of submitting the prompt again.
   const canReconnect =
     terminalMode &&
+    !worktreeShipped &&
     !claudeRunning &&
     !claudeTurnActive &&
     !shipBusy &&
