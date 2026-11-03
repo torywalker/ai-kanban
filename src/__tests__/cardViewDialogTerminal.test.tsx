@@ -586,7 +586,7 @@ describe('CardViewDialog terminal controls', () => {
         );
     });
 
-    it('closes when Escape is pressed inside the terminal', async () => {
+    it('does not close when Escape is pressed inside the terminal', async () => {
       const onOpenChange = await renderWithClose();
       const input = document.createElement('textarea');
       document.querySelector('[data-terminal-host]')!.appendChild(input);
@@ -594,7 +594,27 @@ describe('CardViewDialog terminal controls', () => {
 
       fireEvent.keyDown(input, { key: 'Escape' });
 
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it('closes on Cmd+W, including from inside the terminal', async () => {
+      const onOpenChange = await renderWithClose();
+      const input = document.createElement('textarea');
+      document.querySelector('[data-terminal-host]')!.appendChild(input);
+      input.focus();
+
+      fireEvent.keyDown(input, { key: 'w', metaKey: true });
+
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('ignores Ctrl+W and Cmd+Shift+W', async () => {
+      const onOpenChange = await renderWithClose();
+
+      fireEvent.keyDown(window, { key: 'w', ctrlKey: true });
+      fireEvent.keyDown(window, { key: 'w', metaKey: true, shiftKey: true });
+
+      expect(onOpenChange).not.toHaveBeenCalled();
     });
 
     it('still closes when Escape is pressed outside the terminal', async () => {

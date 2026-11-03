@@ -180,7 +180,6 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
             <TerminalPanel
               key={active.id}
               cardId={active.id}
-              captureEscape={false}
               autoFocus
             />
           )}

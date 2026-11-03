@@ -362,6 +362,36 @@ export function CardViewDialog({
     card?.sessionWorktree?.recordedTargetBranch,
   ]);
 
+  // Cmd+W closes a terminal card's dialog, even from inside the terminal.
+  // Capture phase, so xterm never sees it. The window menu no longer binds
+  // Cmd+W, which is what lets the page receive it.
+  const terminalModeRef = useRef(false);
+  terminalModeRef.current = terminalMode;
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'w') return;
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      if (!terminalModeRef.current) return;
+      // A nested dialog (composer, confirm, ship target) owns the keyboard.
+      if (
+        document.querySelectorAll('[role="dialog"][data-state="open"]').length >
+        1
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenChangeRef.current(false);
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [open]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -780,6 +810,14 @@ export function CardViewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // Escape typed in the terminal belongs to the terminal (Claude's
+        // interrupt). Anywhere else in the dialog it still closes it.
+        onEscapeKeyDown={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (terminalMode && target?.closest?.('[data-terminal-host]')) {
+            event.preventDefault();
+          }
+        }}
         onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}

@@ -28,16 +28,12 @@ function themeForDocument(): ITheme {
 export function TerminalPanel({
   cardId,
   acceptInput = true,
-  captureEscape = true,
   autoFocus = false,
 }: {
   cardId: string;
   /** False while Ship is running, so a keystroke can't edit the worktree. */
   // eslint-disable-next-line react/require-default-props
   acceptInput?: boolean;
-  /** True (the card dialog) keeps Escape from the pty. False lets it through. */
-  // eslint-disable-next-line react/require-default-props
-  captureEscape?: boolean;
   /** Focuses the terminal once it has mounted. */
   // eslint-disable-next-line react/require-default-props
   autoFocus?: boolean;
@@ -45,8 +41,6 @@ export function TerminalPanel({
   const hostRef = useRef<HTMLDivElement>(null);
   const acceptInputRef = useRef(acceptInput);
   acceptInputRef.current = acceptInput;
-  const captureEscapeRef = useRef(captureEscape);
-  captureEscapeRef.current = captureEscape;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -109,14 +103,12 @@ export function TerminalPanel({
       }
       paintReplay(data);
     });
-    // Escape closes the dialog; the Stop button is the interrupt. Returning
-    // false keeps xterm from sending it to the pty while the event still
-    // bubbles up to the dialog's Escape handler.
+    // Escape goes to the pty (Claude's interrupt, vim, fzf). The dialogs
+    // that host this panel ignore an Escape that starts inside it.
     // Cmd+Left/Right jump to line start/end (Ctrl+A / Ctrl+E), and
     // Shift+Enter inserts a newline like Option+Enter (ESC + CR) instead of
     // submitting.
     term.attachCustomKeyEventHandler((event) => {
-      if (event.key === 'Escape') return !captureEscapeRef.current;
       if (event.type !== 'keydown') return true;
       let seq: string | null = null;
       if (event.metaKey && !event.altKey && !event.ctrlKey) {

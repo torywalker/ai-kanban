@@ -239,20 +239,11 @@ describe('TerminalPanel', () => {
     expect(Terminal.instances[0].options.theme?.background).not.toBe(light);
   });
 
-  it('with captureEscape false, Escape is not swallowed', () => {
-    installTerminalBridge();
-    render(<TerminalPanel cardId="crd_1" captureEscape={false} />);
-    const handler = Terminal.instances[0].keyHandler!;
-    expect(handler(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(true);
-  });
-
-  it('swallows Escape by default', () => {
+  it('lets Escape through to the pty', () => {
     installTerminalBridge();
     render(<TerminalPanel cardId="crd_1" />);
     const handler = Terminal.instances[0].keyHandler!;
-    expect(handler(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(
-      false,
-    );
+    expect(handler(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(true);
   });
 
   it('autoFocus focuses the terminal', () => {

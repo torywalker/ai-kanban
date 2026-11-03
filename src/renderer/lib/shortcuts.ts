@@ -58,6 +58,11 @@ export const SHORTCUTS: ShortcutEntry[] = [
   },
   { keys: ['⌘', 'C'], description: 'Copy prompt', section: CARD_VIEW_SECTION },
   {
+    keys: ['⌘', 'W'],
+    description: 'Close a terminal card',
+    section: CARD_VIEW_SECTION,
+  },
+  {
     keys: ['⌘', 'A'],
     description: 'Archive or restore card',
     section: CARD_VIEW_SECTION,
