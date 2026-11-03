@@ -208,22 +208,13 @@ describe('TerminalsDialog', () => {
     expect(terminal.close).toHaveBeenCalledWith('trm_2');
   });
 
-  it('⌘W closes the active tab', () => {
-    render(<TerminalsDialog open onOpenChange={() => {}} />);
+  it('⌘W hides the dialog and keeps the tabs and shells', () => {
+    const onOpenChange = jest.fn();
+    render(<TerminalsDialog open onOpenChange={onOpenChange} />);
 
     const event = key({ key: 'w', metaKey: true });
 
     expect(event.defaultPrevented).toBe(true);
-    expect(tabNames()).toEqual(['Terminal 2']);
-    expect(terminal.close).toHaveBeenCalledWith('trm_1');
-  });
-
-  it('⌘⇧W calls onOpenChange(false)', () => {
-    const onOpenChange = jest.fn();
-    render(<TerminalsDialog open onOpenChange={onOpenChange} />);
-
-    key({ key: 'w', metaKey: true, shiftKey: true });
-
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(terminal.close).not.toHaveBeenCalled();
   });
@@ -237,15 +228,17 @@ describe('TerminalsDialog', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  it('clicking the overlay does not close it', () => {
+  it('clicking the overlay hides it', async () => {
     const onOpenChange = jest.fn();
     render(<TerminalsDialog open onOpenChange={onOpenChange} />);
+    // Radix arms its outside-click listener on the next tick.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
 
     const overlay = document.querySelector('[data-slot="dialog-overlay"]')!;
     fireEvent.pointerDown(overlay);
     fireEvent.click(overlay);
 
-    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('shellState alive:false respawns an existing tab, but not a closed one', () => {

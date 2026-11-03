@@ -119,8 +119,8 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
 
   // AppShell's shortcuts skip while a dialog is open, so this one listens
   // itself, in the capture phase so xterm never sees the keys.
-  const latest = useRef({ tabs, active, closeTab, addTab, onOpenChange });
-  latest.current = { tabs, active, closeTab, addTab, onOpenChange };
+  const latest = useRef({ tabs, addTab, onOpenChange });
+  latest.current = { tabs, addTab, onOpenChange };
   useEffect(() => {
     if (!open) return undefined;
     // Meta only: Ctrl+T and Ctrl+W are real keys in a shell.
@@ -129,14 +129,11 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
       if (document.querySelector('[role="alertdialog"]')) return;
       const k = event.key.toLowerCase();
       const state = latest.current;
-      if (k === 'w' && event.shiftKey) {
+      if (event.shiftKey) return;
+      if (k === 'w') {
         state.onOpenChange(false);
-      } else if (event.shiftKey) {
-        return;
       } else if (k === 't') {
         state.addTab();
-      } else if (k === 'w') {
-        if (state.active) state.closeTab(state.active.id);
       } else if (/^[1-9]$/.test(k)) {
         const target = state.tabs[Number(k) - 1];
         if (target) setActiveId(target.id);
@@ -156,7 +153,6 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
         aria-describedby={undefined}
         className="flex h-[90vh] w-[90vw] max-w-[90vw] flex-col gap-0 p-0 sm:max-w-[90vw]"
         onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <DialogTitle className="sr-only">Terminals</DialogTitle>

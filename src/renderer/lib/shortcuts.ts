@@ -74,11 +74,6 @@ export const SHORTCUTS: ShortcutEntry[] = [
   },
   {
     keys: ['⌘', 'W'],
-    description: 'Close the active terminal tab',
-    section: TERMINALS_SECTION,
-  },
-  {
-    keys: ['⌘', '⇧', 'W'],
     description: 'Hide terminals',
     section: TERMINALS_SECTION,
   },
