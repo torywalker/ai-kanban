@@ -177,11 +177,7 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
         </div>
         <div className="flex min-h-0 flex-1 flex-col p-2">
           {active && (
-            <TerminalPanel
-              key={active.id}
-              cardId={active.id}
-              autoFocus
-            />
+            <TerminalPanel key={active.id} cardId={active.id} autoFocus />
           )}
         </div>
         {confirmDialog}
