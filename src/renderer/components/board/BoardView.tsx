@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { StickyNote } from 'lucide-react';
+import { SquareTerminal, StickyNote } from 'lucide-react';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';
 import { useUiStore } from '@/store/uiStore';
 import { selectActiveBoard } from '@/store/selectors';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { Button } from '@/components/ui/button';
+import { TerminalsDialog } from '@/components/terminals/TerminalsDialog';
 import { cardDropDestinationList, DND_TYPES } from '@/domain/dragEnd';
 import { boardUsageCardIds } from '@/domain/archive';
 import { api } from '@/lib/api';
@@ -26,6 +27,8 @@ export function BoardView() {
   const setShowArchived = useUiStore((s) => s.setShowArchived);
   const scratchpadOpen = useUiStore((s) => s.scratchpadOpen);
   const setScratchpadOpen = useUiStore((s) => s.setScratchpadOpen);
+  const terminalsOpen = useUiStore((s) => s.terminalsOpen);
+  const setTerminalsOpen = useUiStore((s) => s.setTerminalsOpen);
   // True only between a CARD lift and its drop, so every column can offer a
   // droppable-sized target for exactly as long as one is needed.
   const [cardDragActive, setCardDragActive] = useState(false);
@@ -89,6 +92,16 @@ export function BoardView() {
           <StickyNote />
           Scratchpad
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-2"
+          onClick={() => setTerminalsOpen(true)}
+        >
+          <SquareTerminal />
+          Terminals
+        </Button>
         {/* `ml-auto` right-aligns it on the name's line, the same trick
             `UsageSummary` uses for a card's badge row. Always rendered,
             zero included — see that component for why hiding a zero total
@@ -107,6 +120,7 @@ export function BoardView() {
         open={scratchpadOpen}
         onOpenChange={setScratchpadOpen}
       />
+      <TerminalsDialog open={terminalsOpen} onOpenChange={setTerminalsOpen} />
 
       {/* The indices a drop reports are positions among the cards on
           screen, so which view is active decides how they are read. */}

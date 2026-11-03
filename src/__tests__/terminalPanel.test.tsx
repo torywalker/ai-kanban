@@ -63,7 +63,7 @@ describe('TerminalPanel', () => {
 
     expect(terminal.attach).toHaveBeenCalledWith('crd_1');
     const term = Terminal.instances[0];
-    expect(term.options.fontSize).toBe(13);
+    expect(term.options.fontSize).toBe(15);
     expect(term.options.fontFamily).toEqual(
       expect.stringContaining('monospace'),
     );
@@ -233,5 +233,33 @@ describe('TerminalPanel', () => {
     render(<TerminalPanel cardId="crd_1" />);
 
     expect(Terminal.instances[0].options.theme?.background).not.toBe(light);
+  });
+
+  it('with captureEscape false, Escape is not swallowed', () => {
+    installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" captureEscape={false} />);
+    const handler = Terminal.instances[0].keyHandler!;
+    expect(handler(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(true);
+  });
+
+  it('swallows Escape by default', () => {
+    installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const handler = Terminal.instances[0].keyHandler!;
+    expect(handler(new KeyboardEvent('keydown', { key: 'Escape' }))).toBe(
+      false,
+    );
+  });
+
+  it('autoFocus focuses the terminal', () => {
+    installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" autoFocus />);
+    expect(Terminal.instances[0].focus).toHaveBeenCalled();
+  });
+
+  it('does not focus the terminal by default', () => {
+    installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    expect(Terminal.instances[0].focus).not.toHaveBeenCalled();
   });
 });

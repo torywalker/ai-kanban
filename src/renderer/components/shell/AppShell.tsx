@@ -32,6 +32,7 @@ export function AppShell() {
   const setShortcutsHelpOpen = useUiStore((s) => s.setShortcutsHelpOpen);
   const setScratchpadOpen = useUiStore((s) => s.setScratchpadOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const setTerminalsOpen = useUiStore((s) => s.setTerminalsOpen);
 
   useEffect(() => {
     void bootstrap();
@@ -187,6 +188,30 @@ export function AppShell() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setScratchpadOpen]);
+
+  // Cmd/Ctrl+T: open the active board's terminals. Same guards as the
+  // scratchpad shortcut; while the dialog itself is open it handles the key.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 't') return;
+      if (event.shiftKey || event.altKey) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+      if (document.querySelector('[role="dialog"]')) return;
+
+      const { doc: currentDoc, activeBoardId: currentBoardId } =
+        useDocStore.getState();
+      const board = currentDoc?.boards.find((b) => b.id === currentBoardId);
+      if (!board || board.archived) return;
+
+      event.preventDefault();
+      setTerminalsOpen(true);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [setTerminalsOpen]);
 
   // Cmd/Ctrl+Shift+S: open Settings. macOS reports this as key 's' with
   // shiftKey still set, the same Command-drops-Shift-transform quirk as the

@@ -28,15 +28,25 @@ function themeForDocument(): ITheme {
 export function TerminalPanel({
   cardId,
   acceptInput = true,
+  captureEscape = true,
+  autoFocus = false,
 }: {
   cardId: string;
   /** False while Ship is running, so a keystroke can't edit the worktree. */
   // eslint-disable-next-line react/require-default-props
   acceptInput?: boolean;
+  /** True (the card dialog) keeps Escape from the pty. False lets it through. */
+  // eslint-disable-next-line react/require-default-props
+  captureEscape?: boolean;
+  /** Focuses the terminal once it has mounted. */
+  // eslint-disable-next-line react/require-default-props
+  autoFocus?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const acceptInputRef = useRef(acceptInput);
   acceptInputRef.current = acceptInput;
+  const captureEscapeRef = useRef(captureEscape);
+  captureEscapeRef.current = captureEscape;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -51,6 +61,7 @@ export function TerminalPanel({
     const fit = new FitAddon();
     term.open(host);
     term.loadAddon(fit);
+    if (autoFocus) term.focus();
 
     // Chunks that arrive before the replay would paint, then get wiped.
     // The replay itself waits for the fit to settle: Claude's bottom area
@@ -99,7 +110,7 @@ export function TerminalPanel({
     // Shift+Enter inserts a newline like Option+Enter (ESC + CR) instead of
     // submitting.
     term.attachCustomKeyEventHandler((event) => {
-      if (event.key === 'Escape') return false;
+      if (event.key === 'Escape') return !captureEscapeRef.current;
       if (event.type !== 'keydown') return true;
       let seq: string | null = null;
       if (event.metaKey && !event.altKey && !event.ctrlKey) {
@@ -182,6 +193,8 @@ export function TerminalPanel({
       unsubscribeReplay();
       term.dispose();
     };
+    // autoFocus only matters at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId]);
 
   return (

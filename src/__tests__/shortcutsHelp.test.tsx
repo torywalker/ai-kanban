@@ -119,6 +119,12 @@ describe('ShortcutsHelpDialog', () => {
     });
   });
 
+  it('lists the Terminals section', () => {
+    render(<ShortcutsHelpDialog open onOpenChange={() => {}} />);
+
+    expect(screen.getByText('Terminals')).toBeInTheDocument();
+  });
+
   it('renders no dialog when closed', () => {
     render(<ShortcutsHelpDialog open={false} onOpenChange={() => {}} />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

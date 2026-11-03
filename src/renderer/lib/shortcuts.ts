@@ -15,6 +15,7 @@ export interface ShortcutEntry {
 }
 
 export const GENERAL_SECTION = 'General';
+export const TERMINALS_SECTION = 'Terminals';
 export const CARD_VIEW_SECTION = 'While viewing a card';
 
 export const SHORTCUTS: ShortcutEntry[] = [
@@ -60,5 +61,25 @@ export const SHORTCUTS: ShortcutEntry[] = [
     keys: ['⌘', 'A'],
     description: 'Archive or restore card',
     section: CARD_VIEW_SECTION,
+  },
+  {
+    keys: ['⌘', 'T'],
+    description: 'Open terminals, or add a terminal tab',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', 'W'],
+    description: 'Close the active terminal tab',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', '⇧', 'W'],
+    description: 'Hide terminals',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', '1–9'],
+    description: 'Jump to a terminal tab',
+    section: TERMINALS_SECTION,
   },
 ];
