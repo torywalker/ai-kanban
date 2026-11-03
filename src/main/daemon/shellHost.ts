@@ -155,11 +155,19 @@ export function createShellHost(deps: ShellHostDeps): ShellHost {
     has: (id) => shells.has(id),
 
     input(id, data) {
-      shells.get(id)?.pty.write(data);
+      try {
+        shells.get(id)?.pty.write(data);
+      } catch {
+        // The pty just exited; onExit follows.
+      }
     },
 
     resize(id, cols, rows) {
-      shells.get(id)?.pty.resize(cols, rows);
+      try {
+        shells.get(id)?.pty.resize(cols, rows);
+      } catch {
+        // The pty just exited; onExit follows.
+      }
     },
 
     close(id) {

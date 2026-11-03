@@ -163,4 +163,17 @@ describe('shellHost', () => {
     ptys[0].emitExit();
     expect(host.openCount()).toBe(1);
   });
+
+  it('does not throw when the pty rejects a resize or write', () => {
+    const { host, ptys } = setup();
+    host.start(req('s1', ''));
+    ptys[0].resize = () => {
+      throw new Error('ioctl(2) failed, EBADF');
+    };
+    ptys[0].write = () => {
+      throw new Error('EBADF');
+    };
+    expect(() => host.resize('s1', 10, 10)).not.toThrow();
+    expect(() => host.input('s1', 'x')).not.toThrow();
+  });
 });
