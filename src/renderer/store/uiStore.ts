@@ -8,6 +8,8 @@ interface UiStore {
   shortcutsHelpOpen: boolean;
   /** Whether the active board's scratchpad dialog is open. */
   scratchpadOpen: boolean;
+  /** Whether the active board's general terminals dialog is open. */
+  terminalsOpen: boolean;
   /** Whether the settings dialog is open. */
   settingsOpen: boolean;
   focusCardId: string | null;
@@ -39,6 +41,7 @@ interface UiStore {
   setPaletteOpen: (open: boolean) => void;
   setShortcutsHelpOpen: (open: boolean) => void;
   setScratchpadOpen: (open: boolean) => void;
+  setTerminalsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFocusCardId: (cardId: string | null) => void;
   setExternalChange: (value: boolean) => void;
@@ -51,6 +54,7 @@ export const useUiStore = create<UiStore>((set) => ({
   paletteOpen: false,
   shortcutsHelpOpen: false,
   scratchpadOpen: false,
+  terminalsOpen: false,
   settingsOpen: false,
   focusCardId: null,
   externalChange: false,
@@ -74,6 +78,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   setShortcutsHelpOpen: (shortcutsHelpOpen) => set({ shortcutsHelpOpen }),
   setScratchpadOpen: (scratchpadOpen) => set({ scratchpadOpen }),
+  setTerminalsOpen: (terminalsOpen) => set({ terminalsOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFocusCardId: (focusCardId) => set({ focusCardId }),
   setExternalChange: (externalChange) => set({ externalChange }),

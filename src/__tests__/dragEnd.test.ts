@@ -46,6 +46,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_a',
@@ -61,6 +62,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
     ],
@@ -161,6 +163,7 @@ describe('applyDragEnd', () => {
       defaultRepo: null,
       archived: true,
       scratchpad: '',
+      terminals: [],
       lists: [],
     });
     const next = applyDragEnd(
@@ -234,6 +237,7 @@ describe('applyDragEnd with archived cards hidden', () => {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_a',

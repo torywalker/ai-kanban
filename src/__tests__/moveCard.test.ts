@@ -41,6 +41,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_a',
@@ -56,6 +57,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_c', name: 'C', cards: [card('c4')] }],
       },
     ],

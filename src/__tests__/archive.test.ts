@@ -39,6 +39,7 @@ function boardOf(lists: Board['lists']): Board {
     defaultRepo: null,
     archived: false,
     scratchpad: '',
+    terminals: [],
     lists,
   };
 }

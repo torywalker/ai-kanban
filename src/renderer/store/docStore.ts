@@ -79,6 +79,14 @@ function newSnippetId(): string {
  * Restoring an older snapshot would otherwise throw away notes typed after
  * that snapshot was taken.
  */
+/** Lowest positive N such that no tab is already named `Terminal N`. */
+function nextTerminalName(tabs: { name: string }[]): string {
+  const used = new Set(tabs.map((t) => t.name));
+  let n = 1;
+  while (used.has(`Terminal ${n}`)) n += 1;
+  return `Terminal ${n}`;
+}
+
 function withLiveScratchpads(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
   const pads = new Map(
     live.boards.map((board) => [board.id, board.scratchpad]),
@@ -187,6 +195,9 @@ interface DocStore {
   ) => void;
   setBoardDefaultRepo: (boardId: string, repo: string | null) => void;
   setBoardScratchpad: (boardId: string, text: string) => void;
+  addBoardTerminal: (boardId: string) => string;
+  renameBoardTerminal: (boardId: string, id: string, name: string) => void;
+  removeBoardTerminal: (boardId: string, id: string) => void;
   setApprovalMode: (mode: ApprovalMode) => void;
   setDefaultModel: (model: string | null) => void;
   setUseWorktrees: (enabled: boolean) => void;
@@ -468,6 +479,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: newId('lst'), name: 'Waiting', cards: [] },
           { id: newId('lst'), name: 'In Flight', cards: [] },
@@ -803,6 +815,39 @@ export const useDocStore = create<DocStore>((set, get) => ({
     });
     if (next === current) return;
     set({ doc: next });
+  },
+
+  addBoardTerminal: (boardId) => {
+    let id = newId('trm');
+    get().mutate((draft) => {
+      const board = draft.boards.find((b) => b.id === boardId);
+      if (!board) return;
+      while (board.terminals.some((t) => t.id === id)) id = newId('trm');
+      board.terminals.push({ id, name: nextTerminalName(board.terminals) });
+    });
+    return id;
+  },
+
+  renameBoardTerminal: (boardId, id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    get().mutate((draft) => {
+      const tab = draft.boards
+        .find((b) => b.id === boardId)
+        ?.terminals.find((t) => t.id === id);
+      if (tab) tab.name = trimmed;
+    });
+  },
+
+  removeBoardTerminal: (boardId, id) => {
+    get().mutate((draft) => {
+      const board = draft.boards.find((b) => b.id === boardId);
+      if (!board || !board.terminals.some((t) => t.id === id)) return;
+      board.terminals = board.terminals.filter((t) => t.id !== id);
+      if (board.terminals.length === 0) {
+        board.terminals.push({ id: newId('trm'), name: 'Terminal 1' });
+      }
+    });
   },
 
   // These three are app Settings (settings.json, main-process), not document

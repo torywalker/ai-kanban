@@ -24,6 +24,7 @@ function docWith(scratchpads: string[]): KanbanDoc {
       defaultRepo: null,
       archived: false,
       scratchpad,
+      terminals: [],
       lists: [{ id: `lst_${index}`, name: 'Waiting', cards: [] }],
     })),
   };

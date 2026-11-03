@@ -41,6 +41,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_left', name: 'Backlog', cards: [] }],
       },
     ],

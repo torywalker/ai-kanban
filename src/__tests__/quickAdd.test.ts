@@ -18,6 +18,7 @@ function doc(): KanbanDoc {
         archived: true,
         defaultRepo: null,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_old', name: 'Backlog', cards: [] }],
       },
       {
@@ -26,6 +27,7 @@ function doc(): KanbanDoc {
         archived: false,
         defaultRepo: null,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
       {
@@ -34,6 +36,7 @@ function doc(): KanbanDoc {
         archived: false,
         defaultRepo: null,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: 'lst_backlog', name: 'Backlog', cards: [] },
           { id: 'lst_doing', name: 'Doing', cards: [] },
@@ -45,6 +48,7 @@ function doc(): KanbanDoc {
         archived: false,
         defaultRepo: null,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_bugs', name: 'Inbox', cards: [] }],
       },
     ],

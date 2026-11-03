@@ -201,6 +201,7 @@ describe('persistence', () => {
           defaultRepo: null,
           archived: false,
           scratchpad: '',
+          terminals: [],
           lists: [{ id: 'lst_1', name: 'Waiting', cards: [] }],
         },
       ],

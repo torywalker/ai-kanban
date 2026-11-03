@@ -131,6 +131,7 @@ function threeBoardDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
       {
@@ -139,6 +140,7 @@ function threeBoardDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
       {
@@ -147,6 +149,7 @@ function threeBoardDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
     ],

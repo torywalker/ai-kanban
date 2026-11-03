@@ -66,6 +66,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: '/tmp',
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_seed01',

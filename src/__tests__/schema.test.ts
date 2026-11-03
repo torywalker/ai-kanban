@@ -83,6 +83,12 @@ describe('parseDoc', () => {
     expect(result.doc.boards[0].scratchpad).toBe('');
   });
 
+  it('defaults omitted board terminals to an empty array', () => {
+    const result = parseDoc(fixture);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.doc.boards[0].terminals).toEqual([]);
+  });
+
   it('keeps a scratchpad that was saved on the board', () => {
     const raw = JSON.parse(JSON.stringify(fixture));
     raw.boards[0].scratchpad = 'remember this';

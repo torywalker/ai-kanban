@@ -105,6 +105,11 @@ export const ListSchema = z.object({
   cards: z.array(CardSchema),
 });
 
+export const BoardTerminalSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
 export const BoardSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -118,6 +123,9 @@ export const BoardSchema = z.object({
   // Free-form notes for this board only. `.catch('')` keeps files written
   // before scratchpads existed opening with an empty pad.
   scratchpad: z.string().catch(''),
+  // General-terminal tabs for this board. `.catch([])` covers files written
+  // before they existed.
+  terminals: z.array(BoardTerminalSchema).catch([]),
 });
 
 export const KanbanDocSchema = z.object({
@@ -129,6 +137,7 @@ export const KanbanDocSchema = z.object({
 export type Tag = z.infer<typeof TagSchema>;
 export type Card = z.infer<typeof CardSchema>;
 export type List = z.infer<typeof ListSchema>;
+export type BoardTerminal = z.infer<typeof BoardTerminalSchema>;
 export type Board = z.infer<typeof BoardSchema>;
 export type KanbanDoc = z.infer<typeof KanbanDocSchema>;
 

@@ -12,6 +12,7 @@ export function createSeedDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: newId('lst'), name: 'Waiting', cards: [] },
           { id: newId('lst'), name: 'In Flight', cards: [] },

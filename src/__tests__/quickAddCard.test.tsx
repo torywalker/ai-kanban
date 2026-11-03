@@ -24,6 +24,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: 'lst_left', name: 'Backlog', cards: [] },
           { id: 'lst_right', name: 'Doing', cards: [] },
@@ -241,6 +242,7 @@ describe('Cmd/Ctrl+N: active board with zero lists', () => {
           defaultRepo: null,
           archived: false,
           scratchpad: '',
+          terminals: [],
           lists: [],
         },
       ],
