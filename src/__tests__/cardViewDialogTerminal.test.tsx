@@ -84,6 +84,8 @@ describe('CardViewDialog terminal controls', () => {
     window.electron.platform = 'darwin';
     window.electron.terminal = {
       start: jest.fn().mockResolvedValue(undefined),
+      startShell: jest.fn().mockResolvedValue(undefined),
+      onShellState: jest.fn().mockReturnValue(() => {}),
       input: jest.fn(),
       resize: jest.fn(),
       interrupt: jest.fn().mockResolvedValue(undefined),

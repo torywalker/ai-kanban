@@ -8,6 +8,7 @@ import {
 import type {
   SessionSnapshot,
   ApprovalMode,
+  ShellStartRequest,
   TerminalStartRequest,
 } from '../shared/daemonProtocol';
 import type { UsageTotals } from '../shared/usage';
@@ -175,6 +176,20 @@ const api = {
   terminal: {
     start: (req: Omit<TerminalStartRequest, 'op'>): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.terminalStart, req),
+    startShell: (req: Omit<ShellStartRequest, 'op'>): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.shellStart, req),
+    onShellState: (
+      callback: (id: string, alive: boolean, busy: boolean) => void,
+    ): (() => void) => {
+      const listener = (
+        _e: unknown,
+        id: string,
+        alive: boolean,
+        busy: boolean,
+      ) => callback(id, alive, busy);
+      ipcRenderer.on(CHANNELS.shellState, listener);
+      return () => ipcRenderer.removeListener(CHANNELS.shellState, listener);
+    },
     input: (cardId: string, data: string): void => {
       ipcRenderer.send(CHANNELS.terminalInput, cardId, data);
     },

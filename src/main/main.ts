@@ -31,6 +31,7 @@ import {
 } from '../shared/usage';
 import type {
   ApprovalMode,
+  ShellStartRequest,
   TerminalStartRequest,
 } from '../shared/daemonProtocol';
 import type { AttachmentRef } from '../shared/attachments';
@@ -187,6 +188,11 @@ ipcMain.handle(
 );
 // Keystrokes and resizes are sent, not invoked: one round trip per key
 // would be wasted on a reply nobody reads.
+ipcMain.handle(
+  CHANNELS.shellStart,
+  (_e, req: Omit<ShellStartRequest, 'op'>) =>
+    sendDaemonRequest({ ...req, op: 'shellStart' }),
+);
 ipcMain.on(CHANNELS.terminalInput, (_e, cardId: string, data: string) => {
   sendDaemonRequest({ op: 'terminalInput', cardId, data }).catch((error) =>
     console.error('terminal input:', error),
@@ -252,6 +258,8 @@ subscribeDaemonEvents((event) => {
     send(CHANNELS.terminalData, event.cardId, event.data);
   } else if (event.event === 'terminalReplay') {
     send(CHANNELS.terminalReplay, event.cardId, event.data);
+  } else if (event.event === 'shellState') {
+    send(CHANNELS.shellState, event.id, event.alive, event.busy);
   }
 });
 

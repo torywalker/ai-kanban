@@ -1,6 +1,7 @@
 import net from 'net';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 // `@anthropic-ai/claude-agent-sdk` publishes as an ESM-only package
 // ("type": "module", main: sdk.mjs). This repo's tsconfig uses
 // `module: node16`, and this file has no package.json "type": "module"
@@ -77,6 +78,7 @@ import {
   turnOutcomeFromMessage,
   type TurnOutcome,
 } from './turnLifecycle';
+import { createShellHost } from './shellHost';
 import { createTerminalHost } from './terminalHost';
 
 // Last-resort backstop. Nothing supervises this process: it is spawned
@@ -167,6 +169,20 @@ function persistSnapshot(
 const snapshotPublisher = createSnapshotPublisher({
   broadcast: (snapshot) => broadcast({ event: 'snapshot', snapshot }),
   persist: persistSnapshot,
+});
+
+const shellHost = createShellHost({
+  spawnPty: (file, args, opts) => {
+    // Loaded on first use, like the terminal host's.
+    // eslint-disable-next-line global-require
+    const pty = require('node-pty') as typeof import('node-pty');
+    return pty.spawn(file, args, { ...opts, name: 'xterm-256color' });
+  },
+  platform: process.platform,
+  envShell: process.env.SHELL,
+  baseEnv: process.env,
+  homedir: os.homedir(),
+  publishEvent: broadcast,
 });
 
 const terminalHost = createTerminalHost({
@@ -553,7 +569,7 @@ const server = net.createServer((socket) => {
       const runningTurns = [...sessions.values()].filter(
         (session) => session.turnActive,
       ).length;
-      const activeTurns = runningTurns + terminalHost.openCount();
+      const activeTurns = runningTurns + terminalHost.openCount() + shellHost.openCount();
       frameSender.write(
         socket,
         encodeFrame(
@@ -680,20 +696,39 @@ const server = net.createServer((socket) => {
       case 'terminalStart':
         terminalHost.start(request);
         break;
+      case 'shellStart':
+        shellHost.start(request);
+        break;
       case 'terminalInput':
-        terminalHost.input(request.cardId, request.data);
+        if (shellHost.has(request.cardId)) {
+          shellHost.input(request.cardId, request.data);
+        } else {
+          terminalHost.input(request.cardId, request.data);
+        }
         break;
       case 'terminalResize':
-        terminalHost.resize(request.cardId, request.cols, request.rows);
+        if (shellHost.has(request.cardId)) {
+          shellHost.resize(request.cardId, request.cols, request.rows);
+        } else {
+          terminalHost.resize(request.cardId, request.cols, request.rows);
+        }
         break;
       case 'terminalInterrupt':
         terminalHost.interrupt(request.cardId);
         break;
       case 'terminalClose':
-        terminalHost.close(request.cardId);
+        if (shellHost.has(request.cardId)) {
+          shellHost.close(request.cardId);
+        } else {
+          terminalHost.close(request.cardId);
+        }
         break;
       case 'terminalAttach':
-        terminalHost.attach(request.cardId);
+        if (shellHost.has(request.cardId)) {
+          shellHost.attach(request.cardId);
+        } else {
+          terminalHost.attach(request.cardId);
+        }
         break;
       case 'terminalCloseIdle':
         terminalHost.closeIdle();
@@ -713,6 +748,7 @@ server.listen(socketPath, () => {
 
 process.on('SIGTERM', () => {
   terminalHost.dispose();
+  shellHost.dispose();
   stopQueuedCacheWrites();
   snapshotPublisher.flushAll();
   server.close(() => process.exit(0));

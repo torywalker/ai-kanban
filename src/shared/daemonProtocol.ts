@@ -185,6 +185,14 @@ export interface SessionSnapshot {
  * starts a new conversation under a daemon-generated id; otherwise that
  * conversation is resumed with no prompt.
  */
+export interface ShellStartRequest {
+  op: 'shellStart';
+  id: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+}
+
 export interface TerminalStartRequest {
   op: 'terminalStart';
   cardId: string;
@@ -265,6 +273,7 @@ export type DaemonRequest =
   | { op: 'getState'; cardId: string }
   | { op: 'ping' }
   | TerminalStartRequest
+  | ShellStartRequest
   | { op: 'terminalInput'; cardId: string; data: string }
   | { op: 'terminalResize'; cardId: string; cols: number; rows: number }
   | { op: 'terminalInterrupt'; cardId: string }
@@ -284,6 +293,8 @@ export type DaemonEvent =
   | { event: 'terminalData'; cardId: string; data: string }
   /** The card's whole buffered output, answering `terminalAttach`. */
   | { event: 'terminalReplay'; cardId: string; data: string }
+  /** A general shell's liveness and whether a command is running in it. */
+  | { event: 'shellState'; id: string; alive: boolean; busy: boolean }
   /**
    * `buildId` is the content hash of the daemon bundle this process is
    * running (see `daemonIdentity.ts`). It is how the app detects that the
