@@ -96,7 +96,12 @@ export function createShellHost(deps: ShellHostDeps): ShellHost {
 
   return {
     start(req) {
-      if (shells.has(req.id)) return;
+      const existing = shells.get(req.id);
+      if (existing) {
+        // Every dialog open starts each tab; resync its busy state.
+        publishState(req.id, true, existing.busy);
+        return;
+      }
       const cwd = req.cwd && isDirectory(req.cwd) ? req.cwd : deps.homedir;
       const env: Record<string, string> = {};
       Object.entries(deps.baseEnv).forEach(([key, value]) => {

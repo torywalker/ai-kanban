@@ -14,6 +14,8 @@ interface Props {
 /** The panel fits the pty to its real size once it mounts. */
 const START_COLS = 80;
 const START_ROWS = 24;
+/** A shell that exits sooner than this is not respawned. */
+const MIN_LIFETIME_MS = 1000;
 
 /**
  * The active board's general terminals: one plain login shell per tab, kept
@@ -41,7 +43,9 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
     if (open && boardId && tabKey === '') addBoardTerminal(boardId);
   }, [open, boardId, tabKey, addBoardTerminal]);
 
+  const startedAt = useRef(new Map<string, number>());
   const startShell = useCallback((id: string, cwd: string) => {
+    startedAt.current.set(id, Date.now());
     window.electron?.terminal
       ?.startShell?.({ id, cwd, cols: START_COLS, rows: START_ROWS })
       ?.catch(() => undefined);
@@ -65,9 +69,15 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
           return next;
         });
         if (alive) return;
-        // A shell that exited (say, `exit`) comes back, unless its tab is gone.
+        // A shell that exited (say, `exit`) comes back, unless its tab is
+        // gone. One that died within a second (a broken $SHELL or profile)
+        // stays dead, or it would respawn in a loop; reopening restarts it.
+        const lived = Date.now() - (startedAt.current.get(id) ?? 0);
         const current = selectActiveBoard(useDocStore.getState());
-        if (current?.terminals.some((tab) => tab.id === id)) {
+        if (
+          lived > MIN_LIFETIME_MS &&
+          current?.terminals.some((t) => t.id === id)
+        ) {
           startShell(id, current.defaultRepo ?? '');
         }
       },
@@ -113,6 +123,7 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
   latest.current = { tabs, active, closeTab, addTab, onOpenChange };
   useEffect(() => {
     if (!open) return undefined;
+    // Meta only: Ctrl+T and Ctrl+W are real keys in a shell.
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.metaKey || event.altKey || event.ctrlKey) return;
       if (document.querySelector('[role="alertdialog"]')) return;
@@ -128,8 +139,7 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
         if (state.active) state.closeTab(state.active.id);
       } else if (/^[1-9]$/.test(k)) {
         const target = state.tabs[Number(k) - 1];
-        if (!target) return;
-        setActiveId(target.id);
+        if (target) setActiveId(target.id);
       } else {
         return;
       }

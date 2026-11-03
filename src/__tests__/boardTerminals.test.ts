@@ -90,4 +90,39 @@ describe('board terminals', () => {
     s.removeBoardTerminal('nope', 'x');
     expect(useDocStore.getState().doc).toBe(before);
   });
+
+  it('undo of an unrelated change keeps live tabs', () => {
+    const s = useDocStore.getState();
+    s.addBoardTerminal('brd_a');
+    s.renameBoard('brd_a', 'B');
+    const added = s.addBoardTerminal('brd_a');
+    s.undo();
+    expect(useDocStore.getState().doc!.boards[0].name).toBe('A');
+    expect(tabs().map((t) => t.id)).toContain(added);
+    expect(tabs()).toHaveLength(2);
+    s.redo();
+    expect(tabs()).toHaveLength(2);
+  });
+
+  it('adding a tab does not clear the redo stack', () => {
+    const s = useDocStore.getState();
+    s.renameBoard('brd_a', 'B');
+    s.undo();
+    expect(useDocStore.getState().canRedo).toBe(true);
+    s.addBoardTerminal('brd_a');
+    expect(useDocStore.getState().canRedo).toBe(true);
+    expect(useDocStore.getState().doc!.boards[0].name).toBe('A');
+  });
+
+  it('deleting a board closes its tabs', () => {
+    const close = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window, 'electron', {
+      writable: true,
+      configurable: true,
+      value: { terminal: { close } },
+    });
+    const id = useDocStore.getState().addBoardTerminal('brd_a');
+    useDocStore.getState().deleteBoard('brd_a');
+    expect(close).toHaveBeenCalledWith(id);
+  });
 });

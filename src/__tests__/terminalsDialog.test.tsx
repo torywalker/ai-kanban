@@ -249,10 +249,15 @@ describe('TerminalsDialog', () => {
   });
 
   it('shellState alive:false respawns an existing tab, but not a closed one', () => {
+    jest.useFakeTimers();
     render(<TerminalsDialog open onOpenChange={() => {}} />);
     terminal.startShell.mockClear();
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
 
     act(() => shellState('trm_2', false, false));
+    jest.useRealTimers();
     expect(terminal.startShell).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'trm_2' }),
     );
@@ -263,6 +268,48 @@ describe('TerminalsDialog', () => {
     expect(terminal.startShell).not.toHaveBeenCalledWith(
       expect.objectContaining({ id: 'trm_2' }),
     );
+  });
+
+  it('closing the last tab leaves a fresh Terminal 1 and closes the old shell', () => {
+    load([board('brd_a', [{ id: 'trm_1', name: 'Terminal 1' }])]);
+    render(<TerminalsDialog open onOpenChange={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Terminal 1' }));
+
+    expect(tabNames()).toEqual(['Terminal 1']);
+    expect(useDocStore.getState().doc!.boards[0].terminals[0].id).not.toBe(
+      'trm_1',
+    );
+    expect(terminal.close).toHaveBeenCalledWith('trm_1');
+  });
+
+  it('⌘9 past the last tab is swallowed', () => {
+    render(<TerminalsDialog open onOpenChange={() => {}} />);
+    const event = key({ key: '9', metaKey: true });
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does not respawn a shell that died at once, but does after a second', () => {
+    jest.useFakeTimers();
+    try {
+      render(<TerminalsDialog open onOpenChange={() => {}} />);
+      terminal.startShell.mockClear();
+
+      act(() => shellState('trm_2', false, false));
+      expect(terminal.startShell).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'trm_2' }),
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      act(() => shellState('trm_2', false, false));
+      expect(terminal.startShell).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'trm_2' }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('switching the active board swaps the tabs and starts the new shells', () => {

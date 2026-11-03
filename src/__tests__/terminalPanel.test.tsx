@@ -205,6 +205,10 @@ describe('TerminalPanel', () => {
       raf.mockRestore();
       if (height) {
         Object.defineProperty(HTMLElement.prototype, 'clientHeight', height);
+      } else {
+        // The getter lives on Element.prototype; drop our override.
+        delete (HTMLElement.prototype as { clientHeight?: number })
+          .clientHeight;
       }
     }
   });
@@ -261,5 +265,15 @@ describe('TerminalPanel', () => {
     installTerminalBridge();
     render(<TerminalPanel cardId="crd_1" />);
     expect(Terminal.instances[0].focus).not.toHaveBeenCalled();
+  });
+
+  it('an empty replay still sends the current size', () => {
+    const { terminal, emitReplay } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    terminal.resize.mockClear();
+
+    emitReplay('crd_1', '');
+
+    expect(terminal.resize).toHaveBeenCalledWith('crd_1', 80, 24);
   });
 });

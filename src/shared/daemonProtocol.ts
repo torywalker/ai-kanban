@@ -180,11 +180,7 @@ export interface SessionSnapshot {
   terminal?: TerminalState;
 }
 
-/**
- * Opens a pty running the user's own `claude` CLI. A null `sessionId`
- * starts a new conversation under a daemon-generated id; otherwise that
- * conversation is resumed with no prompt.
- */
+/** Opens a plain login shell, independent of any card. */
 export interface ShellStartRequest {
   op: 'shellStart';
   id: string;
@@ -193,6 +189,11 @@ export interface ShellStartRequest {
   rows: number;
 }
 
+/**
+ * Opens a pty running the user's own `claude` CLI. A null `sessionId`
+ * starts a new conversation under a daemon-generated id; otherwise that
+ * conversation is resumed with no prompt.
+ */
 export interface TerminalStartRequest {
   op: 'terminalStart';
   cardId: string;

@@ -186,13 +186,11 @@ ipcMain.handle(
   (_e, req: Omit<TerminalStartRequest, 'op'>) =>
     sendDaemonRequest({ ...req, op: 'terminalStart' }),
 );
+ipcMain.handle(CHANNELS.shellStart, (_e, req: Omit<ShellStartRequest, 'op'>) =>
+  sendDaemonRequest({ ...req, op: 'shellStart' }),
+);
 // Keystrokes and resizes are sent, not invoked: one round trip per key
 // would be wasted on a reply nobody reads.
-ipcMain.handle(
-  CHANNELS.shellStart,
-  (_e, req: Omit<ShellStartRequest, 'op'>) =>
-    sendDaemonRequest({ ...req, op: 'shellStart' }),
-);
 ipcMain.on(CHANNELS.terminalInput, (_e, cardId: string, data: string) => {
   sendDaemonRequest({ op: 'terminalInput', cardId, data }).catch((error) =>
     console.error('terminal input:', error),

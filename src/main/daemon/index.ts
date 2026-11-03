@@ -565,11 +565,12 @@ const server = net.createServer((socket) => {
       // `shouldReplaceDaemon`. Counted live rather than tracked separately:
       // `turnActive` is already the single source of truth for "a turn is
       // running", maintained by `runTurn`/`stop`. Open terminals count too:
-      // evicting this daemon would kill their ptys.
+      // evicting this daemon would kill their ptys; so would open shells.
       const runningTurns = [...sessions.values()].filter(
         (session) => session.turnActive,
       ).length;
-      const activeTurns = runningTurns + terminalHost.openCount() + shellHost.openCount();
+      const activeTurns =
+        runningTurns + terminalHost.openCount() + shellHost.openCount();
       frameSender.write(
         socket,
         encodeFrame(

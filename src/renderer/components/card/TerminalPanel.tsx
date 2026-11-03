@@ -79,7 +79,13 @@ export function TerminalPanel({
     const paintReplay = (data: string) => {
       term.reset();
       term.write(data);
-      if (data === '') return;
+      // A fresh shell has nothing to repaint, but it still needs the real
+      // size: the first fit's resize reached the daemon before the shell
+      // existed, and a respawn restarts at 80x24.
+      if (data === '') {
+        bridge.resize(cardId, term.cols, term.rows);
+        return;
+      }
       clearTimeout(nudgeTimer);
       bridge.resize(cardId, Math.max(term.cols - 1, 1), term.rows);
       nudgeTimer = setTimeout(() => {

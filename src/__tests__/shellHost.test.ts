@@ -93,6 +93,18 @@ describe('shellHost', () => {
     expect(spawns).toHaveLength(1);
   });
 
+  it('a second start on a busy shell republishes its state', () => {
+    const { host, ptys, events } = setup();
+    host.start(req('s1', ''));
+    ptys[0].process = 'terraform';
+    jest.advanceTimersByTime(1000);
+    events.length = 0;
+    host.start(req('s1', ''));
+    expect(events).toEqual([
+      { event: 'shellState', id: 's1', alive: true, busy: true },
+    ]);
+  });
+
   it('publishes shellState busy when the foreground process is not the shell', () => {
     const { host, ptys, events } = setup();
     host.start(req('s1', ''));

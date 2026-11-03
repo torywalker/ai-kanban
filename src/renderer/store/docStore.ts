@@ -74,11 +74,6 @@ function newSnippetId(): string {
   return `snp_${suffix}`;
 }
 
-/**
- * Scratchpad text is document data, but it is not an undo checkpoint.
- * Restoring an older snapshot would otherwise throw away notes typed after
- * that snapshot was taken.
- */
 /** Lowest positive N such that no tab is already named `Terminal N`. */
 function nextTerminalName(tabs: { name: string }[]): string {
   const used = new Set(tabs.map((t) => t.name));
@@ -87,17 +82,28 @@ function nextTerminalName(tabs: { name: string }[]): string {
   return `Terminal ${n}`;
 }
 
-function withLiveScratchpads(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
-  const pads = new Map(
-    live.boards.map((board) => [board.id, board.scratchpad]),
-  );
+/**
+ * Scratchpad text and terminal tabs are document data, but not undo
+ * checkpoints. Restoring an older snapshot would otherwise throw away notes
+ * typed, or resurrect tabs closed, after that snapshot was taken.
+ */
+function withLiveBoardFields(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
+  const liveBoards = new Map(live.boards.map((board) => [board.id, board]));
   let changed = false;
   const boards = restored.boards.map((board) => {
-    const scratchpad = pads.get(board.id);
-    if (scratchpad === undefined || scratchpad === board.scratchpad)
+    const source = liveBoards.get(board.id);
+    if (
+      !source ||
+      (source.scratchpad === board.scratchpad &&
+        source.terminals === board.terminals)
+    )
       return board;
     changed = true;
-    return { ...board, scratchpad };
+    return {
+      ...board,
+      scratchpad: source.scratchpad,
+      terminals: source.terminals,
+    };
   });
   return changed ? { ...restored, boards } : restored;
 }
@@ -253,6 +259,22 @@ export function closeLiveTerminals(ids: readonly string[]): void {
     const closing = window.electron?.terminal?.close(id);
     if (closing) closing.catch(() => undefined);
   });
+}
+
+/** Applies `edit` to a board's tabs without creating an undo step. */
+function editBoardTerminals(
+  get: () => DocStore,
+  set: (partial: Partial<DocStore>) => void,
+  boardId: string,
+  edit: (tabs: { id: string; name: string }[]) => void,
+): void {
+  const current = get().doc;
+  if (!current) return;
+  const next = produce(current, (draft) => {
+    const board = draft.boards.find((b) => b.id === boardId);
+    if (board) edit(board.terminals);
+  });
+  if (next !== current) set({ doc: next });
 }
 
 export const useDocStore = create<DocStore>((set, get) => ({
@@ -447,7 +469,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
     const nextPast = past.slice(0, -1);
     const nextFuture = [doc, ...get().future].slice(0, MAX_HISTORY);
     set({
-      doc: withLiveScratchpads(previous, doc),
+      doc: withLiveBoardFields(previous, doc),
       past: nextPast,
       future: nextFuture,
       canUndo: nextPast.length > 0,
@@ -462,7 +484,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
     const nextPast = [...get().past, doc].slice(-MAX_HISTORY);
     const nextFuture = future.slice(1);
     set({
-      doc: withLiveScratchpads(next, doc),
+      doc: withLiveBoardFields(next, doc),
       past: nextPast,
       future: nextFuture,
       canUndo: nextPast.length > 0,
@@ -500,6 +522,11 @@ export const useDocStore = create<DocStore>((set, get) => ({
 
   deleteBoard: (boardId) => {
     closeLiveTerminals(cardIds(get().doc, boardId));
+    get()
+      .doc?.boards.find((b) => b.id === boardId)
+      ?.terminals.forEach((tab) => {
+        window.electron?.terminal?.close?.(tab.id)?.catch(() => undefined);
+      });
     const remaining = (get().doc?.boards ?? []).filter((b) => b.id !== boardId);
     get().mutate((draft) => {
       draft.boards = draft.boards.filter((b) => b.id !== boardId);
@@ -817,13 +844,18 @@ export const useDocStore = create<DocStore>((set, get) => ({
     set({ doc: next });
   },
 
+  // Like `setBoardScratchpad`: tab edits bypass `commit`, so they are not
+  // undo steps and leave the redo stack alone.
   addBoardTerminal: (boardId) => {
+    const taken = new Set(
+      get()
+        .doc?.boards.find((b) => b.id === boardId)
+        ?.terminals.map((t) => t.id),
+    );
     let id = newId('trm');
-    get().mutate((draft) => {
-      const board = draft.boards.find((b) => b.id === boardId);
-      if (!board) return;
-      while (board.terminals.some((t) => t.id === id)) id = newId('trm');
-      board.terminals.push({ id, name: nextTerminalName(board.terminals) });
+    while (taken.has(id)) id = newId('trm');
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      tabs.push({ id, name: nextTerminalName(tabs) });
     });
     return id;
   },
@@ -831,22 +863,19 @@ export const useDocStore = create<DocStore>((set, get) => ({
   renameBoardTerminal: (boardId, id, name) => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    get().mutate((draft) => {
-      const tab = draft.boards
-        .find((b) => b.id === boardId)
-        ?.terminals.find((t) => t.id === id);
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const tab = tabs.find((t) => t.id === id);
       if (tab) tab.name = trimmed;
     });
   },
 
   removeBoardTerminal: (boardId, id) => {
-    get().mutate((draft) => {
-      const board = draft.boards.find((b) => b.id === boardId);
-      if (!board || !board.terminals.some((t) => t.id === id)) return;
-      board.terminals = board.terminals.filter((t) => t.id !== id);
-      if (board.terminals.length === 0) {
-        board.terminals.push({ id: newId('trm'), name: 'Terminal 1' });
-      }
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const index = tabs.findIndex((t) => t.id === id);
+      if (index === -1) return;
+      tabs.splice(index, 1);
+      if (tabs.length === 0)
+        tabs.push({ id: newId('trm'), name: 'Terminal 1' });
     });
   },
 
