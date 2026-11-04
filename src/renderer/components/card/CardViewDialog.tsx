@@ -983,51 +983,52 @@ export function CardViewDialog({
               <UsageSummary totals={usage} live={liveUsage} />
             </div>
 
-            <div className="relative">
-              <div className="flex items-start gap-1">
+            <div className="flex items-start gap-1">
+              <button
+                type="button"
+                aria-label={promptCollapsed ? 'Expand prompt' : 'Collapse prompt'}
+                aria-expanded={!promptCollapsed}
+                onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
+                className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    'size-3.5 transition-transform',
+                    !promptCollapsed && 'rotate-90',
+                  )}
+                />
+              </button>
+              {promptCollapsed ? (
                 <button
                   type="button"
-                  aria-label={promptCollapsed ? 'Expand prompt' : 'Collapse prompt'}
-                  aria-expanded={!promptCollapsed}
-                  onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
-                  className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setPromptCollapsed(cardId, false)}
+                  className="flex min-w-0 flex-1 rounded-md bg-muted p-3 text-left font-mono text-base"
                 >
-                  <ChevronRightIcon
-                    className={cn(
-                      'size-3.5 transition-transform',
-                      !promptCollapsed && 'rotate-90',
-                    )}
-                  />
+                  <span className="truncate">
+                    {card.prompt.trim()
+                      ? card.prompt.trim().split('\n')[0]
+                      : EMPTY_PROMPT_PLACEHOLDER}
+                  </span>
+                  <span className="shrink-0 pl-1">...</span>
                 </button>
-                {promptCollapsed ? (
-                  <button
-                    type="button"
-                    onClick={() => setPromptCollapsed(cardId, false)}
-                    className="flex min-w-0 flex-1 rounded-md bg-muted p-3 pr-12 text-left font-mono text-base"
-                  >
-                    <span className="truncate">
-                      {card.prompt.trim()
-                        ? card.prompt.trim().split('\n')[0]
-                        : EMPTY_PROMPT_PLACEHOLDER}
-                    </span>
-                    <span className="shrink-0 pl-1">...</span>
-                  </button>
-                ) : (
-                  <PromptBody
-                    prompt={card.prompt}
-                    className="min-w-0 max-h-48 flex-1 rounded-md bg-muted p-3 pr-12 text-base"
-                  />
-                )}
-              </div>
+              ) : (
+                <PromptBody
+                  prompt={card.prompt}
+                  className="min-w-0 max-h-48 flex-1 rounded-md bg-muted p-3 text-base"
+                />
+              )}
+            </div>
+
+            {card.attachments.length > 0 ? (
               <ImageAttachmentStrip
-                floatPicker
+                hidePicker
                 cardId={cardId}
                 items={card.attachments}
                 onChange={(next) =>
                   updateCard(boardId, listId, cardId, { attachments: next })
                 }
               />
-            </div>
+            ) : null}
 
             {/* Rendered only when a link is set. */}
             {card.link ? (
