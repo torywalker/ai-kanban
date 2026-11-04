@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { EMPTY_FILTER, type FilterState } from '@/domain/filter';
 
+const COMMENTS_OPEN_KEY = 'ai-kanban.commentsOpen';
+
+// Storage can be missing or blocked; the sidebar then simply starts closed.
+function readCommentsOpen(): boolean {
+  try {
+    return window.localStorage.getItem(COMMENTS_OPEN_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 interface UiStore {
   filter: FilterState;
   paletteOpen: boolean;
@@ -34,6 +45,12 @@ interface UiStore {
    * `paletteOpen`.
    */
   showArchived: boolean;
+  /**
+   * Whether the card view dialog's comments sidebar is open. One global
+   * choice, not per card, remembered across relaunches via localStorage
+   * (a per-viewer convenience, not document data).
+   */
+  commentsOpen: boolean;
 
   setFilterText: (text: string) => void;
   toggleFilterTag: (tag: string) => void;
@@ -47,6 +64,7 @@ interface UiStore {
   setExternalChange: (value: boolean) => void;
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
+  setCommentsOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -60,6 +78,7 @@ export const useUiStore = create<UiStore>((set) => ({
   externalChange: false,
   cardDialogExpanded: {},
   showArchived: false,
+  commentsOpen: readCommentsOpen(),
 
   setFilterText: (text) =>
     set((state) => ({ filter: { ...state.filter, text } })),
@@ -87,4 +106,12 @@ export const useUiStore = create<UiStore>((set) => ({
       cardDialogExpanded: { ...state.cardDialogExpanded, [cardId]: expanded },
     })),
   setShowArchived: (showArchived) => set({ showArchived }),
+  setCommentsOpen: (commentsOpen) => {
+    try {
+      window.localStorage.setItem(COMMENTS_OPEN_KEY, String(commentsOpen));
+    } catch {
+      // Not remembered across relaunches; this session still works.
+    }
+    set({ commentsOpen });
+  },
 }));

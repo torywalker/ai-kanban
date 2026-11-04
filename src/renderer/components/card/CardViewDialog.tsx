@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Loader2,
   Maximize2,
+  MessageSquare,
   Minimize2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -62,6 +63,7 @@ import { TagPicker } from '@/components/tags/TagPicker';
 import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
 import { SessionLastError } from './SessionLastError';
+import { CommentsPanel } from './CommentsPanel';
 import { SessionTranscript } from './SessionTranscript';
 import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
@@ -129,6 +131,8 @@ export function CardViewDialog({
     snapshotEngine === 'terminal' &&
     (sessionStatus === 'working' || sessionStatus === 'waiting');
   const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
+  const commentsOpen = useUiStore((s) => s.commentsOpen);
+  const setCommentsOpen = useUiStore((s) => s.setCommentsOpen);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
   // still reports everything it has ever cost.
@@ -458,13 +462,24 @@ export function CardViewDialog({
   // A collapsed terminal still needs a fixed height. Max-height alone lets
   // the dialog shrink to its content, and this content is a flex child with
   // no height of its own, so the pty would have nothing to fill.
+  // The open comments column widens the collapsed dialog by its own width
+  // (`w-72` + the dialog's gap) instead of squeezing the main content.
+  const collapsedWidth = commentsOpen
+    ? 'sm:max-w-[calc(42rem+19rem)]'
+    : 'sm:max-w-2xl';
   const dialogSize = layoutExpanded
     ? 'h-[92vh] max-h-[92vh] sm:max-w-[92vw]'
-    : 'max-h-[85vh] sm:max-w-2xl';
+    : `max-h-[85vh] ${collapsedWidth}`;
   const sizedDialog =
     terminalMode && !layoutExpanded
-      ? 'h-[85vh] max-h-[85vh] sm:max-w-2xl'
+      ? `h-[85vh] max-h-[85vh] ${collapsedWidth}`
       : dialogSize;
+  // The content column and the comments column cap at the dialog's own
+  // content height (its max-height minus `p-6` top and bottom), so the body
+  // still shrinks and scrolls inside them as it did when it was the dialog.
+  const columnMax = layoutExpanded
+    ? 'max-h-[calc(92vh-3rem)]'
+    : 'max-h-[calc(85vh-3rem)]';
 
   /**
    * Every session IPC call can reject before any daemon event exists: if
@@ -822,7 +837,7 @@ export function CardViewDialog({
         onDrop={handleDrop}
         onDragOver={(event) => event.preventDefault()}
         className={cn(
-          'flex flex-col',
+          'flex',
           // Expanded uses a fixed `h-` and not merely a taller `max-h-`: a
           // max-height alone lets the box shrink back to its content, so a
           // short transcript would keep the chat cramped in a dialog the
@@ -845,11 +860,17 @@ export function CardViewDialog({
         {/* `pr-16` reserves the top-right corner: the title is free-form
             card text and would otherwise run under the expand and close
             buttons sitting above it. */}
-        <DialogHeader className="shrink-0 pr-16">
-          <DialogTitle>{card.title}</DialogTitle>
-        </DialogHeader>
+        <div
+          className={cn(
+            'flex min-h-0 min-w-0 flex-1 flex-col gap-4',
+            columnMax,
+          )}
+        >
+          <DialogHeader className="shrink-0 pr-32">
+            <DialogTitle>{card.title}</DialogTitle>
+          </DialogHeader>
 
-        {/*
+          {/*
           Positioned absolutely rather than placed in the header flow,
           because `DialogHeader` is a vertical stack (the button would land
           under the title) and its neighbour — Radix's own close button,
@@ -862,141 +883,155 @@ export function CardViewDialog({
           ("Expand", not "Expanded") — that is what a screen reader user
           needs to decide whether to press it.
         */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="absolute top-3.5 right-10 text-muted-foreground hover:text-foreground"
-          aria-label={layoutExpanded ? 'Collapse' : 'Expand'}
-          onClick={() => setExpanded(!layoutExpanded)}
-        >
-          {layoutExpanded ? (
-            <Minimize2 className="size-4" />
-          ) : (
-            <Maximize2 className="size-4" />
-          )}
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-3.5 right-10 text-muted-foreground hover:text-foreground"
+            aria-label={layoutExpanded ? 'Collapse' : 'Expand'}
+            onClick={() => setExpanded(!layoutExpanded)}
+          >
+            {layoutExpanded ? (
+              <Minimize2 className="size-4" />
+            ) : (
+              <Maximize2 className="size-4" />
+            )}
+          </Button>
 
-        <div
-          ref={bodyRef}
-          data-slot="dialog-body"
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-4 pr-1',
-            // Exactly one of these two regions scrolls. Collapsed, it is
-            // the body (one region for prompt + notes + transcript +
-            // reply). Expanded, the body is frozen and the transcript's
-            // feed scrolls instead, so the conversation — not the prompt
-            // above it — is what the new height belongs to.
-            chatExpanded ? 'overflow-hidden' : 'overflow-y-auto',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            {/* Writes straight through rather than waiting for a Save:
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute top-3.5 right-[4.5rem] gap-1 px-2 text-muted-foreground hover:text-foreground"
+            aria-label={`Comments (${card.comments.length})`}
+            aria-expanded={commentsOpen}
+            onClick={() => setCommentsOpen(!commentsOpen)}
+          >
+            <MessageSquare className="size-4" />
+            {card.comments.length > 0 ? card.comments.length : null}
+          </Button>
+
+          <div
+            ref={bodyRef}
+            data-slot="dialog-body"
+            className={cn(
+              'flex min-h-0 flex-1 flex-col gap-4 pr-1',
+              // Exactly one of these two regions scrolls. Collapsed, it is
+              // the body (one region for prompt + notes + transcript +
+              // reply). Expanded, the body is frozen and the transcript's
+              // feed scrolls instead, so the conversation — not the prompt
+              // above it — is what the new height belongs to.
+              chatExpanded ? 'overflow-hidden' : 'overflow-y-auto',
+            )}
+          >
+            <div className="flex items-center gap-2">
+              {/* Writes straight through rather than waiting for a Save:
                 priority, color, and tags are glance-able markers, and this
                 dialog is where a card is read, so making them a trip
                 through the composer would be the slow path for the
                 fastest edits on the card. */}
-            <PriorityButton
-              value={card.priority}
-              onChange={(next) =>
-                updateCard(boardId, listId, cardId, { priority: next })
-              }
-            />
-            <CardColorButton
-              value={card.color}
-              onChange={(next) =>
-                updateCard(boardId, listId, cardId, { color: next })
-              }
-            />
-            <div className="min-w-0 flex-1">
-              <TagPicker
-                selected={card.tags}
-                onChange={(next) => setCardTags(boardId, listId, cardId, next)}
+              <PriorityButton
+                value={card.priority}
+                onChange={(next) =>
+                  updateCard(boardId, listId, cardId, { priority: next })
+                }
               />
-            </div>
-            <WorktreeBadge
-              usedWorktree={card.usedWorktree}
-              sessionWorktree={card.sessionWorktree}
-            />
-            {/*
+              <CardColorButton
+                value={card.color}
+                onChange={(next) =>
+                  updateCard(boardId, listId, cardId, { color: next })
+                }
+              />
+              <div className="min-w-0 flex-1">
+                <TagPicker
+                  selected={card.tags}
+                  onChange={(next) =>
+                    setCardTags(boardId, listId, cardId, next)
+                  }
+                />
+              </div>
+              <WorktreeBadge
+                usedWorktree={card.usedWorktree}
+                sessionWorktree={card.sessionWorktree}
+              />
+              {/*
               Shares the badge row rather than occupying one of its own, and
               right-aligned into the row's free space: cost is a standing
               fact about the card like its priority and tags, and the row
               already exists at the top of the dialog where a glance lands.
               Its own `ml-auto` does the aligning.
             */}
-            <UsageSummary totals={usage} live={liveUsage} />
-          </div>
+              <UsageSummary totals={usage} live={liveUsage} />
+            </div>
 
-          <PromptBody
-            prompt={card.prompt}
-            className="max-h-48 rounded-md bg-muted p-3 text-base"
-          />
+            <PromptBody
+              prompt={card.prompt}
+              className="max-h-48 rounded-md bg-muted p-3 text-base"
+            />
 
-          <ImageAttachmentStrip
-            cardId={cardId}
-            items={card.attachments}
-            onChange={(next) =>
-              updateCard(boardId, listId, cardId, { attachments: next })
-            }
-          />
+            <ImageAttachmentStrip
+              cardId={cardId}
+              items={card.attachments}
+              onChange={(next) =>
+                updateCard(boardId, listId, cardId, { attachments: next })
+              }
+            />
 
-          {/* Rendered only when a link is set. */}
-          {card.link ? (
-            <button
-              type="button"
-              onClick={() => api.shell.openExternal(card.link)}
-              className="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ExternalLink className="size-3.5 shrink-0" />
-              <span className="truncate underline-offset-2 hover:underline">
-                {card.link}
-              </span>
-            </button>
-          ) : null}
+            {/* Rendered only when a link is set. */}
+            {card.link ? (
+              <button
+                type="button"
+                onClick={() => api.shell.openExternal(card.link)}
+                className="flex items-center gap-1.5 self-start text-sm text-muted-foreground hover:text-foreground"
+              >
+                <ExternalLink className="size-3.5 shrink-0" />
+                <span className="truncate underline-offset-2 hover:underline">
+                  {card.link}
+                </span>
+              </button>
+            ) : null}
 
-          {/*
+            {/*
             Rendered only when non-empty. `notes` is optional on most cards
             (schema defaults it to ''), and an always-present empty block
             would push the transcript — the part of this dialog that actually
             changes while a session runs — further down for no gain.
           */}
-          {card.notes ? (
-            <div className="flex flex-col gap-1">
-              <h3 className="text-xs font-medium text-muted-foreground">
-                Notes
-              </h3>
-              <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">
-                {card.notes}
+            {card.notes ? (
+              <div className="flex flex-col gap-1">
+                <h3 className="text-xs font-medium text-muted-foreground">
+                  Notes
+                </h3>
+                <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-sm">
+                  {card.notes}
+                </p>
+              </div>
+            ) : null}
+
+            {!cwd ? (
+              <p className="text-xs text-muted-foreground">
+                No working directory set — set a default repo on this board, or
+                override it on this card, before running.
               </p>
-            </div>
-          ) : null}
+            ) : null}
 
-          {!cwd ? (
-            <p className="text-xs text-muted-foreground">
-              No working directory set — set a default repo on this board, or
-              override it on this card, before running.
-            </p>
-          ) : null}
+            {terminalMode ? (
+              <>
+                <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
+                {sessionStatus === 'failed' && lastError ? (
+                  <div className="shrink-0">
+                    <SessionLastError status="failed" message={lastError} />
+                  </div>
+                ) : null}
+                <p className="shrink-0 text-xs text-muted-foreground">
+                  Cost is estimated from token counts for terminal sessions.
+                </p>
+              </>
+            ) : (
+              <SessionTranscript cardId={cardId} expanded={chatExpanded} />
+            )}
 
-          {terminalMode ? (
-            <>
-              <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
-              {sessionStatus === 'failed' && lastError ? (
-                <div className="shrink-0">
-                  <SessionLastError status="failed" message={lastError} />
-                </div>
-              ) : null}
-              <p className="shrink-0 text-xs text-muted-foreground">
-                Cost is estimated from token counts for terminal sessions.
-              </p>
-            </>
-          ) : (
-            <SessionTranscript cardId={cardId} expanded={chatExpanded} />
-          )}
+            <BackgroundTasksIndicator cardId={cardId} />
 
-          <BackgroundTasksIndicator cardId={cardId} />
-
-          {/*
+            {/*
             Shown for the whole life of a session, not only while a turn is
             streaming. The reply box is only ever *usable* between turns —
             the daemon refuses a reply that would start a second concurrent
@@ -1007,176 +1042,187 @@ export function CardViewDialog({
             asks for, and visibly disabled with a reason while a turn is in
             flight. Stop stays scoped to an in-flight turn.
           */}
-          {hasSession && !terminalMode ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-end gap-2">
-                <div className="relative flex-1">
-                  {isAgentWorking ? (
-                    <Loader2
-                      aria-hidden="true"
-                      className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-sky-500"
+            {hasSession && !terminalMode ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-end gap-2">
+                  <div className="relative flex-1">
+                    {isAgentWorking ? (
+                      <Loader2
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-sky-500"
+                      />
+                    ) : null}
+                    <Textarea
+                      ref={replyInputRef}
+                      value={reply}
+                      disabled={controlsBusy}
+                      onChange={(event) => setReply(event.target.value)}
+                      placeholder="Reply to the agent…"
+                      rows={1}
+                      className={`min-h-9 max-h-40 resize-none ${isAgentWorking ? 'pl-8' : ''}`}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        // Shift/Alt+Enter keep the textarea's newline. Bare
+                        // Enter is send — unless an IME is still converting
+                        // (Enter confirms the candidate there, not the message).
+                        if (event.shiftKey || event.altKey) return;
+                        if (
+                          event.nativeEvent.isComposing ||
+                          event.nativeEvent.keyCode === 229
+                        ) {
+                          return;
+                        }
+                        event.preventDefault();
+                        if (canSendReply) void sendReply();
+                      }}
                     />
-                  ) : null}
-                  <Textarea
-                    ref={replyInputRef}
-                    value={reply}
-                    disabled={controlsBusy}
-                    onChange={(event) => setReply(event.target.value)}
-                    placeholder="Reply to the agent…"
-                    rows={1}
-                    className={`min-h-9 max-h-40 resize-none ${isAgentWorking ? 'pl-8' : ''}`}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter') return;
-                      // Shift/Alt+Enter keep the textarea's newline. Bare
-                      // Enter is send — unless an IME is still converting
-                      // (Enter confirms the candidate there, not the message).
-                      if (event.shiftKey || event.altKey) return;
-                      if (
-                        event.nativeEvent.isComposing ||
-                        event.nativeEvent.keyCode === 229
-                      ) {
-                        return;
-                      }
-                      event.preventDefault();
-                      if (canSendReply) void sendReply();
-                    }}
-                  />
-                </div>
-                <Button onClick={sendReply} disabled={!canSendReply}>
-                  Send
-                </Button>
-                {turnInFlight || shipBusy ? (
-                  <Button variant="destructive" onClick={stop}>
-                    Stop
+                  </div>
+                  <Button onClick={sendReply} disabled={!canSendReply}>
+                    Send
                   </Button>
+                  {turnInFlight || shipBusy ? (
+                    <Button variant="destructive" onClick={stop}>
+                      Stop
+                    </Button>
+                  ) : null}
+                </div>
+                <ImageAttachmentStrip
+                  cardId={cardId}
+                  items={replyAttachments}
+                  onChange={setReplyAttachments}
+                  disabled={controlsBusy}
+                />
+                {shipBusy || sessionStatus === 'waiting' ? (
+                  <p className="text-xs text-muted-foreground">
+                    {shipBusy
+                      ? 'Ship is in progress — stop it before replying.'
+                      : 'Approve or deny the request above before replying — the agent can’t accept a message while a tool request is pending.'}
+                  </p>
                 ) : null}
               </div>
-              <ImageAttachmentStrip
-                cardId={cardId}
-                items={replyAttachments}
-                onChange={setReplyAttachments}
-                disabled={controlsBusy}
-              />
-              {shipBusy || sessionStatus === 'waiting' ? (
-                <p className="text-xs text-muted-foreground">
-                  {shipBusy
-                    ? 'Ship is in progress — stop it before replying.'
-                    : 'Approve or deny the request above before replying — the agent can’t accept a message while a tool request is pending.'}
-                </p>
-              ) : null}
+            ) : null}
+          </div>
+
+          <DialogFooter className="shrink-0">
+            <div className="flex gap-2 sm:mr-auto">
+              <Button
+                variant="ghost"
+                onClick={archive}
+                title={`${card.archived ? 'Unarchive' : 'Archive'} (⌘A)`}
+              >
+                {card.archived ? (
+                  <ArchiveRestore className="size-3.5" />
+                ) : (
+                  <Archive className="size-3.5" />
+                )}
+                {card.archived ? 'Unarchive' : 'Archive'}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => void copy()}
+                title="Copy prompt (⌘C)"
+              >
+                <Copy className="size-3.5" />
+                Copy
+              </Button>
             </div>
-          ) : null}
+            <Button
+              variant="ghost"
+              onClick={() => setEditing(true)}
+              title="Edit (⌘E)"
+            >
+              Edit
+            </Button>
+            {terminalMode && (claudeRunning || shipBusy) ? (
+              <Button variant="destructive" onClick={stop}>
+                Stop
+              </Button>
+            ) : null}
+            {hasSession ? (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  updateCard(boardId, listId, cardId, { paused: !paused })
+                }
+              >
+                {paused ? (
+                  <Play className="size-3.5" />
+                ) : (
+                  <Pause className="size-3.5" />
+                )}
+                {paused ? 'Resume' : 'Pause'}
+              </Button>
+            ) : null}
+            {shellAlive ? (
+              <Button variant="outline" onClick={requestCloseTerminal}>
+                Close terminal
+              </Button>
+            ) : null}
+            {canShowShip ? (
+              <div className="flex min-w-0 flex-col items-end gap-0.5">
+                <Button
+                  onClick={
+                    card.sessionWorktree?.shipped ? deleteWorktree : requestShip
+                  }
+                  disabled={shipBusy || paused}
+                >
+                  {shipBusy ? (
+                    <Loader2
+                      aria-label={
+                        card.sessionWorktree?.shipped ? 'Deleting' : 'Shipping'
+                      }
+                      className="size-4 animate-spin"
+                    />
+                  ) : card.sessionWorktree?.shipped ? (
+                    'Delete worktree'
+                  ) : (
+                    'Ship'
+                  )}
+                </Button>
+                {shipHelper && !card.sessionWorktree?.shipped ? (
+                  <span
+                    className="max-w-56 text-right text-[11px] text-muted-foreground"
+                    title={
+                      shipPlan?.kind === 'direct'
+                        ? shipPlan.destination
+                        : undefined
+                    }
+                  >
+                    {shipHelper}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {canReconnect ? (
+              <Button
+                onClick={run}
+                disabled={!primary || !card.prompt.trim()}
+                title="Re-connect (⌘X)"
+              >
+                Re-connect
+              </Button>
+            ) : null}
+            {canRun && !shellAlive && !canReconnect ? (
+              <Button
+                onClick={run}
+                disabled={!primary || !card.prompt.trim()}
+                title={`${hasSession ? 'Run again' : 'Run'} (⌘X)`}
+              >
+                {hasSession ? 'Run again' : 'Run'}
+              </Button>
+            ) : null}
+          </DialogFooter>
         </div>
 
-        <DialogFooter className="shrink-0">
-          <div className="flex gap-2 sm:mr-auto">
-            <Button
-              variant="ghost"
-              onClick={archive}
-              title={`${card.archived ? 'Unarchive' : 'Archive'} (⌘A)`}
-            >
-              {card.archived ? (
-                <ArchiveRestore className="size-3.5" />
-              ) : (
-                <Archive className="size-3.5" />
-              )}
-              {card.archived ? 'Unarchive' : 'Archive'}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => void copy()}
-              title="Copy prompt (⌘C)"
-            >
-              <Copy className="size-3.5" />
-              Copy
-            </Button>
-          </div>
-          <Button
-            variant="ghost"
-            onClick={() => setEditing(true)}
-            title="Edit (⌘E)"
-          >
-            Edit
-          </Button>
-          {terminalMode && (claudeRunning || shipBusy) ? (
-            <Button variant="destructive" onClick={stop}>
-              Stop
-            </Button>
-          ) : null}
-          {hasSession ? (
-            <Button
-              variant="outline"
-              onClick={() =>
-                updateCard(boardId, listId, cardId, { paused: !paused })
-              }
-            >
-              {paused ? (
-                <Play className="size-3.5" />
-              ) : (
-                <Pause className="size-3.5" />
-              )}
-              {paused ? 'Resume' : 'Pause'}
-            </Button>
-          ) : null}
-          {shellAlive ? (
-            <Button variant="outline" onClick={requestCloseTerminal}>
-              Close terminal
-            </Button>
-          ) : null}
-          {canShowShip ? (
-            <div className="flex min-w-0 flex-col items-end gap-0.5">
-              <Button
-                onClick={
-                  card.sessionWorktree?.shipped ? deleteWorktree : requestShip
-                }
-                disabled={shipBusy || paused}
-              >
-                {shipBusy ? (
-                  <Loader2
-                    aria-label={
-                      card.sessionWorktree?.shipped ? 'Deleting' : 'Shipping'
-                    }
-                    className="size-4 animate-spin"
-                  />
-                ) : card.sessionWorktree?.shipped ? (
-                  'Delete worktree'
-                ) : (
-                  'Ship'
-                )}
-              </Button>
-              {shipHelper && !card.sessionWorktree?.shipped ? (
-                <span
-                  className="max-w-56 text-right text-[11px] text-muted-foreground"
-                  title={
-                    shipPlan?.kind === 'direct'
-                      ? shipPlan.destination
-                      : undefined
-                  }
-                >
-                  {shipHelper}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {canReconnect ? (
-            <Button
-              onClick={run}
-              disabled={!primary || !card.prompt.trim()}
-              title="Re-connect (⌘X)"
-            >
-              Re-connect
-            </Button>
-          ) : null}
-          {canRun && !shellAlive && !canReconnect ? (
-            <Button
-              onClick={run}
-              disabled={!primary || !card.prompt.trim()}
-              title={`${hasSession ? 'Run again' : 'Run'} (⌘X)`}
-            >
-              {hasSession ? 'Run again' : 'Run'}
-            </Button>
-          ) : null}
-        </DialogFooter>
+        {commentsOpen ? (
+          <CommentsPanel
+            key={cardId}
+            boardId={boardId}
+            listId={listId}
+            cardId={cardId}
+            className={columnMax}
+          />
+        ) : null}
       </DialogContent>
 
       <CardComposerDialog
