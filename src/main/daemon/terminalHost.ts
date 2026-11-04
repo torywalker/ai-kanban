@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
+import { cliCostPathFor } from './cliCost';
 import path from 'path';
 import { StringDecoder } from 'string_decoder';
 import type {
@@ -260,6 +261,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         }
         fs.mkdirSync(deps.hookDir, { recursive: true });
         fs.writeFileSync(hookFile, '');
+        fs.rmSync(cliCostPathFor(hookFile), { force: true });
         const launch = buildTerminalLaunch({
           shell: defaultShell(deps.platform, deps.envShell),
           claudeCliPath: req.claudeCliPath,
