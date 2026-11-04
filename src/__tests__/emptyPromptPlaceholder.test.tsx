@@ -97,7 +97,7 @@ describe('a card with no prompt', () => {
       />,
     );
 
-    expect(screen.getByText(EMPTY_PROMPT_PLACEHOLDER)).toBeInTheDocument();
+    expect(screen.getByText(`${EMPTY_PROMPT_PLACEHOLDER} ...`)).toBeInTheDocument();
   });
 
   it('shows the placeholder on the expanded board card', () => {

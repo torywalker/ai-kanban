@@ -1004,12 +1004,14 @@ export function CardViewDialog({
                   onClick={() => setPromptCollapsed(cardId, false)}
                   className="flex min-w-0 flex-1 rounded-md bg-muted p-3 text-left font-mono text-base"
                 >
+                  {/* The trailing "..." sits inside the truncated span so a long first line's CSS ellipsis replaces it instead of doubling up. */}
                   <span className="truncate">
-                    {card.prompt.trim()
-                      ? card.prompt.trim().split('\n')[0]
-                      : EMPTY_PROMPT_PLACEHOLDER}
+                    {`${
+                      card.prompt.trim()
+                        ? card.prompt.trim().split('\n')[0]
+                        : EMPTY_PROMPT_PLACEHOLDER
+                    } ...`}
                   </span>
-                  <span className="shrink-0 pl-1">...</span>
                 </button>
               ) : (
                 <PromptBody
