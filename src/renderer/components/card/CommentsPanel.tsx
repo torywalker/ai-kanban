@@ -48,7 +48,7 @@ export function CommentsPanel({
   return (
     <aside
       aria-label="Comments"
-      className={`flex min-h-0 w-72 shrink-0 flex-col gap-2 border-l pl-4 ${className}`}
+      className={`flex min-h-0 w-72 shrink-0 flex-col gap-2 border-l pt-8 pl-4 ${className}`}
     >
       <Textarea
         value={draft}

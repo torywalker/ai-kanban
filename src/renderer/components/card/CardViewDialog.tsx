@@ -829,7 +829,11 @@ export function CardViewDialog({
         // interrupt). Anywhere else in the dialog it still closes it.
         onEscapeKeyDown={(event) => {
           const target = event.target as HTMLElement | null;
-          if (terminalMode && target?.closest?.('[data-terminal-host]')) {
+          if (
+            (terminalMode && target?.closest?.('[data-terminal-host]')) ||
+            // Esc in a comment edit box cancels the edit, not the dialog.
+            target?.closest?.('[data-comment-edit]')
+          ) {
             event.preventDefault();
           }
         }}

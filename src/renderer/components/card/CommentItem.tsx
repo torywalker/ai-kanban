@@ -35,6 +35,7 @@ export function CommentItem({
       ) : (
         <Textarea
           autoFocus
+          data-comment-edit
           value={draft}
           className="min-h-12 text-sm"
           onChange={(event) => setDraft(event.target.value)}

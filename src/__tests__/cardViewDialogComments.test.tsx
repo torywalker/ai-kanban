@@ -39,11 +39,14 @@ describe('CardViewDialog comments', () => {
     return cardId;
   };
 
-  const renderDialog = (cardId: string) =>
+  const renderDialog = (
+    cardId: string,
+    onOpenChange: (open: boolean) => void = () => {},
+  ) =>
     render(
       <CardViewDialog
         open
-        onOpenChange={() => {}}
+        onOpenChange={onOpenChange}
         boardId={boardId}
         listId={listId}
         cardId={cardId}
@@ -198,5 +201,32 @@ describe('CardViewDialog comments', () => {
 
     expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveValue('');
     expect(screen.getByText('newer note')).toBeInTheDocument();
+  });
+
+  it('cancels only the edit, not the dialog, on Escape in an edit box', () => {
+    const onOpenChange = jest.fn();
+    renderDialog(addCard([older]), onOpenChange);
+    openPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit comment' }));
+    fireEvent.keyDown(screen.getByDisplayValue('older note'), {
+      key: 'Escape',
+    });
+
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.queryByDisplayValue('older note')).toBeNull();
+    expect(screen.getByText('older note')).toBeInTheDocument();
+  });
+
+  it('starts the comments column below the dialog corner buttons', () => {
+    // jsdom has no layout, so the class is the only observable proof that the
+    // add box is offset from the absolutely positioned Close/Expand/Comments
+    // buttons.
+    useUiStore.setState({ commentsOpen: true });
+    renderDialog(addCard());
+
+    expect(screen.getByRole('complementary', { name: 'Comments' })).toHaveClass(
+      'pt-8',
+    );
   });
 });
