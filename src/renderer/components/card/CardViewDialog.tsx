@@ -145,7 +145,7 @@ export function CardViewDialog({
     setFocusCommentsFor(commentsOpen ? null : cardId);
     setCommentsOpen(cardId, !commentsOpen);
   };
-  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? false);
+  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? true);
   const setPromptCollapsed = useUiStore((s) => s.setPromptCollapsed);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -1004,12 +1004,13 @@ export function CardViewDialog({
                   onClick={() => setPromptCollapsed(cardId, false)}
                   className="flex min-w-0 flex-1 rounded-md bg-muted p-3 text-left font-mono text-base"
                 >
-                  <span className="truncate">
+                  {/* Clipped, not CSS-ellipsized: the CSS ellipsis can land right after a half-visible typed "..." and read as two. */}
+                  <span className="min-w-0 overflow-hidden whitespace-nowrap">
                     {card.prompt.trim()
                       ? card.prompt.trim().split('\n')[0]
                       : EMPTY_PROMPT_PLACEHOLDER}
                   </span>
-                  <span className="shrink-0 pl-1">(...)</span>
+                  <span className="shrink-0 pl-1">...</span>
                 </button>
               ) : (
                 <PromptBody
@@ -1019,13 +1020,16 @@ export function CardViewDialog({
               )}
             </div>
 
-            <ImageAttachmentStrip
-              cardId={cardId}
-              items={card.attachments}
-              onChange={(next) =>
-                updateCard(boardId, listId, cardId, { attachments: next })
-              }
-            />
+            {card.attachments.length > 0 ? (
+              <ImageAttachmentStrip
+                hidePicker
+                cardId={cardId}
+                items={card.attachments}
+                onChange={(next) =>
+                  updateCard(boardId, listId, cardId, { attachments: next })
+                }
+              />
+            ) : null}
 
             {/* Rendered only when a link is set. */}
             {card.link ? (

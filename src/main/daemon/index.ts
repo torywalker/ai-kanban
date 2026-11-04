@@ -57,6 +57,7 @@ import {
 } from './snapshotPublisher';
 import { buildUsageEntries } from './usageEntry';
 import { createTranscriptUsageReader } from './transcriptUsage';
+import { createCliCostReconciler, readCliCost } from './cliCost';
 import { appendUsageEntries, usageLedgerPathFor } from './usageLedger';
 import {
   computeBuildId,
@@ -111,6 +112,8 @@ if (fs.existsSync(socketPath)) {
 const cacheDir = cacheDirFor(socketPath);
 const usageLedgerPath = usageLedgerPathFor(socketPath);
 const transcriptUsage = createTranscriptUsageReader();
+const cliCost = createCliCostReconciler();
+const terminalHookDir = path.join(path.dirname(cacheDir), 'terminal-hooks');
 
 /**
  * This process hashes its OWN bundle (argv[1] is the path it was launched
@@ -193,7 +196,7 @@ const terminalHost = createTerminalHost({
     const pty = require('node-pty') as typeof import('node-pty');
     return pty.spawn(file, args, { ...opts, name: 'xterm-256color' });
   },
-  hookDir: path.join(path.dirname(cacheDir), 'terminal-hooks'),
+  hookDir: terminalHookDir,
   platform: process.platform,
   envShell: process.env.SHELL,
   baseEnv: process.env,
@@ -217,11 +220,15 @@ const terminalHost = createTerminalHost({
     try {
       appendUsageEntries(
         usageLedgerPath,
-        transcriptUsage.read(
+        cliCost.apply(
           cardId,
-          transcriptPath,
-          first,
-          new Date().toISOString(),
+          readCliCost(path.join(terminalHookDir, `${cardId}.log`)),
+          transcriptUsage.read(
+            cardId,
+            transcriptPath,
+            first,
+            new Date().toISOString(),
+          ),
         ),
       );
     } catch (error) {
