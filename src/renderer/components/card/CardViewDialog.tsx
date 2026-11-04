@@ -145,7 +145,7 @@ export function CardViewDialog({
     setFocusCommentsFor(commentsOpen ? null : cardId);
     setCommentsOpen(cardId, !commentsOpen);
   };
-  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? false);
+  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? true);
   const setPromptCollapsed = useUiStore((s) => s.setPromptCollapsed);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -1009,7 +1009,7 @@ export function CardViewDialog({
                       ? card.prompt.trim().split('\n')[0]
                       : EMPTY_PROMPT_PLACEHOLDER}
                   </span>
-                  <span className="shrink-0 pl-1">(...)</span>
+                  <span className="shrink-0 pl-1">...</span>
                 </button>
               ) : (
                 <PromptBody
