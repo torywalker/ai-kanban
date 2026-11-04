@@ -11,6 +11,7 @@ import {
   Pause,
   Play,
   ArchiveRestore,
+  ChevronRightIcon,
   Copy,
   ExternalLink,
   Loader2,
@@ -69,7 +70,7 @@ import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
-import { PromptBody } from './PromptBody';
+import { EMPTY_PROMPT_PLACEHOLDER, PromptBody } from './PromptBody';
 import { CardComposerDialog } from './CardComposerDialog';
 import { ImageAttachmentStrip } from './ImageAttachmentStrip';
 import { ShipTargetDialog } from './ShipTargetDialog';
@@ -144,6 +145,8 @@ export function CardViewDialog({
     setFocusCommentsFor(commentsOpen ? null : cardId);
     setCommentsOpen(cardId, !commentsOpen);
   };
+  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? false);
+  const setPromptCollapsed = useUiStore((s) => s.setPromptCollapsed);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
   // still reports everything it has ever cost.
@@ -980,10 +983,41 @@ export function CardViewDialog({
               <UsageSummary totals={usage} live={liveUsage} />
             </div>
 
-            <PromptBody
-              prompt={card.prompt}
-              className="max-h-48 rounded-md bg-muted p-3 text-base"
-            />
+            <div className="flex items-start gap-1">
+              <button
+                type="button"
+                aria-label={promptCollapsed ? 'Expand prompt' : 'Collapse prompt'}
+                aria-expanded={!promptCollapsed}
+                onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
+                className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    'size-3.5 transition-transform',
+                    !promptCollapsed && 'rotate-90',
+                  )}
+                />
+              </button>
+              {promptCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setPromptCollapsed(cardId, false)}
+                  className="flex min-w-0 flex-1 rounded-md bg-muted p-3 text-left font-mono text-base"
+                >
+                  <span className="truncate">
+                    {card.prompt.trim()
+                      ? card.prompt.trim().split('\n')[0]
+                      : EMPTY_PROMPT_PLACEHOLDER}
+                  </span>
+                  <span className="shrink-0 pl-1">(...)</span>
+                </button>
+              ) : (
+                <PromptBody
+                  prompt={card.prompt}
+                  className="min-w-0 max-h-48 flex-1 rounded-md bg-muted p-3 text-base"
+                />
+              )}
+            </div>
 
             <ImageAttachmentStrip
               cardId={cardId}

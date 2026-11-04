@@ -40,6 +40,8 @@ interface UiStore {
    * like `cardDialogExpanded`: not part of the document.
    */
   commentsOpen: Record<string, boolean>;
+  /** Whether each card's prompt is collapsed to one line in the view dialog, keyed by cardId. */
+  promptCollapsed: Record<string, boolean>;
 
   setFilterText: (text: string) => void;
   toggleFilterTag: (tag: string) => void;
@@ -54,6 +56,7 @@ interface UiStore {
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
   setCommentsOpen: (cardId: string, open: boolean) => void;
+  setPromptCollapsed: (cardId: string, collapsed: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -68,6 +71,7 @@ export const useUiStore = create<UiStore>((set) => ({
   cardDialogExpanded: {},
   showArchived: false,
   commentsOpen: {},
+  promptCollapsed: {},
 
   setFilterText: (text) =>
     set((state) => ({ filter: { ...state.filter, text } })),
@@ -98,5 +102,9 @@ export const useUiStore = create<UiStore>((set) => ({
   setCommentsOpen: (cardId, open) =>
     set((state) => ({
       commentsOpen: { ...state.commentsOpen, [cardId]: open },
+    })),
+  setPromptCollapsed: (cardId, collapsed) =>
+    set((state) => ({
+      promptCollapsed: { ...state.promptCollapsed, [cardId]: collapsed },
     })),
 }));
