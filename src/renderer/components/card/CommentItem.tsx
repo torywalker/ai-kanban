@@ -29,7 +29,7 @@ export function CommentItem({
   };
 
   return (
-    <li className="group flex flex-col gap-1 rounded-md border p-2 text-sm">
+    <li className="group flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm shadow-xs">
       {draft === null ? (
         <p className="whitespace-pre-wrap break-words">{comment.text}</p>
       ) : (
