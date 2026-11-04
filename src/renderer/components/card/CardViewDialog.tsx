@@ -133,6 +133,17 @@ export function CardViewDialog({
   const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
   const commentsOpen = useUiStore((s) => s.commentsOpen[cardId] ?? false);
   const setCommentsOpen = useUiStore((s) => s.setCommentsOpen);
+  // The card whose comments panel was just opened by the user. Only that
+  // transition focuses the add box; a dialog that merely opens onto an
+  // already-open panel must not steal focus.
+  const [focusCommentsFor, setFocusCommentsFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) setFocusCommentsFor(null);
+  }, [open]);
+  const toggleComments = () => {
+    setFocusCommentsFor(commentsOpen ? null : cardId);
+    setCommentsOpen(cardId, !commentsOpen);
+  };
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
   // still reports everything it has ever cost.
@@ -784,7 +795,7 @@ export function CardViewDialog({
     },
     c: () => void copy(),
     a: archive,
-    j: () => setCommentsOpen(cardId, !commentsOpen),
+    j: () => toggleComments(),
   };
 
   // Resolved against the store as each ingest lands rather than against this
@@ -910,7 +921,7 @@ export function CardViewDialog({
             className="absolute top-3.5 right-[4.5rem] gap-1 px-2 text-muted-foreground hover:text-foreground"
             aria-label={`Comments (${card.comments.length})`}
             aria-expanded={commentsOpen}
-            onClick={() => setCommentsOpen(cardId, !commentsOpen)}
+            onClick={() => toggleComments()}
           >
             <MessageSquare className="size-4" />
             {card.comments.length > 0 ? card.comments.length : null}
@@ -1227,6 +1238,7 @@ export function CardViewDialog({
             boardId={boardId}
             listId={listId}
             cardId={cardId}
+            autoFocus={focusCommentsFor === cardId}
             className={columnMax}
           />
         ) : null}

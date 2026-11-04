@@ -12,11 +12,14 @@ export function CommentsPanel({
   boardId,
   listId,
   cardId,
+  autoFocus,
   className,
 }: {
   boardId: string;
   listId: string;
   cardId: string;
+  /** Focus the add box on mount; only when the user just opened the panel. */
+  autoFocus: boolean;
   className: string;
 }) {
   const comments = useDocStore(
@@ -51,7 +54,7 @@ export function CommentsPanel({
       className={`flex min-h-0 w-72 shrink-0 flex-col gap-2 border-l pt-8 pl-4 ${className}`}
     >
       <Textarea
-        autoFocus
+        autoFocus={autoFocus}
         value={draft}
         placeholder="Add a comment…"
         className="min-h-16 shrink-0 text-sm"

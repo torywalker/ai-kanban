@@ -273,4 +273,40 @@ describe('CardViewDialog comments', () => {
 
     expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
   });
+
+  it('does not focus the comment box when a card opens with the panel already open', () => {
+    const cardId = addCard();
+    useUiStore.setState({ commentsOpen: { [cardId]: true } });
+    renderDialog(cardId);
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).not.toHaveFocus();
+  });
+
+  it('focuses the comment box when Cmd+J opens the panel', () => {
+    renderDialog(addCard());
+
+    fireEvent.keyDown(document.body, { key: 'j', metaKey: true });
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveFocus();
+  });
+
+  it('does not focus the box after switching to a card whose panel is open', () => {
+    const first = addCard();
+    const second = addCard();
+    useUiStore.setState({ commentsOpen: { [second]: true } });
+    const view = renderDialog(first);
+    openPanel();
+
+    view.rerender(
+      <CardViewDialog
+        open
+        onOpenChange={() => {}}
+        boardId={boardId}
+        listId={listId}
+        cardId={second}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).not.toHaveFocus();
+  });
 });
