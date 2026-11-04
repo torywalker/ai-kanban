@@ -1,17 +1,6 @@
 import { create } from 'zustand';
 import { EMPTY_FILTER, type FilterState } from '@/domain/filter';
 
-const COMMENTS_OPEN_KEY = 'ai-kanban.commentsOpen';
-
-// Storage can be missing or blocked; the sidebar then simply starts closed.
-function readCommentsOpen(): boolean {
-  try {
-    return window.localStorage.getItem(COMMENTS_OPEN_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 interface UiStore {
   filter: FilterState;
   paletteOpen: boolean;
@@ -46,11 +35,11 @@ interface UiStore {
    */
   showArchived: boolean;
   /**
-   * Whether the card view dialog's comments sidebar is open. One global
-   * choice, not per card, remembered across relaunches via localStorage
-   * (a per-viewer convenience, not document data).
+   * Whether each card's comments sidebar is open, keyed by cardId. Per card
+   * so opening it on one card doesn't open it on every other. Transient,
+   * like `cardDialogExpanded`: not part of the document.
    */
-  commentsOpen: boolean;
+  commentsOpen: Record<string, boolean>;
 
   setFilterText: (text: string) => void;
   toggleFilterTag: (tag: string) => void;
@@ -64,7 +53,7 @@ interface UiStore {
   setExternalChange: (value: boolean) => void;
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
-  setCommentsOpen: (open: boolean) => void;
+  setCommentsOpen: (cardId: string, open: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -78,7 +67,7 @@ export const useUiStore = create<UiStore>((set) => ({
   externalChange: false,
   cardDialogExpanded: {},
   showArchived: false,
-  commentsOpen: readCommentsOpen(),
+  commentsOpen: {},
 
   setFilterText: (text) =>
     set((state) => ({ filter: { ...state.filter, text } })),
@@ -106,12 +95,8 @@ export const useUiStore = create<UiStore>((set) => ({
       cardDialogExpanded: { ...state.cardDialogExpanded, [cardId]: expanded },
     })),
   setShowArchived: (showArchived) => set({ showArchived }),
-  setCommentsOpen: (commentsOpen) => {
-    try {
-      window.localStorage.setItem(COMMENTS_OPEN_KEY, String(commentsOpen));
-    } catch {
-      // Not remembered across relaunches; this session still works.
-    }
-    set({ commentsOpen });
-  },
+  setCommentsOpen: (cardId, open) =>
+    set((state) => ({
+      commentsOpen: { ...state.commentsOpen, [cardId]: open },
+    })),
 }));

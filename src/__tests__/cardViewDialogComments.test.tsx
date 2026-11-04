@@ -62,7 +62,7 @@ describe('CardViewDialog comments', () => {
   beforeEach(async () => {
     installElectronMock();
     useSessionStore.setState({ sessions: {} });
-    useUiStore.setState({ commentsOpen: false });
+    useUiStore.setState({ commentsOpen: {} });
     await useDocStore.getState().createAt('/tmp/kanban.json');
     const doc = useDocStore.getState().doc!;
     boardId = doc.boards[0].id;
@@ -173,9 +173,23 @@ describe('CardViewDialog comments', () => {
     expect(cardNow(cardId).comments.map((c) => c.id)).toEqual(['c1']);
   });
 
-  it('shares the open preference across cards', () => {
-    useUiStore.setState({ commentsOpen: true });
-    renderDialog(addCard());
+  it('remembers the open state per card, not across all cards', () => {
+    const opened = addCard();
+    const untouched = addCard();
+    useUiStore.setState({ commentsOpen: { [opened]: true } });
+    const view = renderDialog(untouched);
+
+    expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+
+    view.rerender(
+      <CardViewDialog
+        open
+        onOpenChange={() => {}}
+        boardId={boardId}
+        listId={listId}
+        cardId={opened}
+      />,
+    );
 
     expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument();
   });
@@ -183,7 +197,7 @@ describe('CardViewDialog comments', () => {
   it('drops the draft when switching cards', () => {
     const first = addCard([older]);
     const second = addCard([newer]);
-    useUiStore.setState({ commentsOpen: true });
+    useUiStore.setState({ commentsOpen: { [first]: true, [second]: true } });
     const view = renderDialog(first);
 
     fireEvent.change(screen.getByPlaceholderText(PLACEHOLDER), {
@@ -222,8 +236,9 @@ describe('CardViewDialog comments', () => {
     // jsdom has no layout, so the class is the only observable proof that the
     // add box is offset from the absolutely positioned Close/Expand/Comments
     // buttons.
-    useUiStore.setState({ commentsOpen: true });
-    renderDialog(addCard());
+    const cardId = addCard();
+    useUiStore.setState({ commentsOpen: { [cardId]: true } });
+    renderDialog(cardId);
 
     expect(screen.getByRole('complementary', { name: 'Comments' })).toHaveClass(
       'pt-8',

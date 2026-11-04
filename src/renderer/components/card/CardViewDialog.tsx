@@ -131,7 +131,7 @@ export function CardViewDialog({
     snapshotEngine === 'terminal' &&
     (sessionStatus === 'working' || sessionStatus === 'waiting');
   const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
-  const commentsOpen = useUiStore((s) => s.commentsOpen);
+  const commentsOpen = useUiStore((s) => s.commentsOpen[cardId] ?? false);
   const setCommentsOpen = useUiStore((s) => s.setCommentsOpen);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
@@ -784,7 +784,7 @@ export function CardViewDialog({
     },
     c: () => void copy(),
     a: archive,
-    j: () => setCommentsOpen(!commentsOpen),
+    j: () => setCommentsOpen(cardId, !commentsOpen),
   };
 
   // Resolved against the store as each ingest lands rather than against this
@@ -910,7 +910,7 @@ export function CardViewDialog({
             className="absolute top-3.5 right-[4.5rem] gap-1 px-2 text-muted-foreground hover:text-foreground"
             aria-label={`Comments (${card.comments.length})`}
             aria-expanded={commentsOpen}
-            onClick={() => setCommentsOpen(!commentsOpen)}
+            onClick={() => setCommentsOpen(cardId, !commentsOpen)}
           >
             <MessageSquare className="size-4" />
             {card.comments.length > 0 ? card.comments.length : null}
