@@ -978,7 +978,7 @@ export function CardViewDialog({
                 aria-label={promptCollapsed ? 'Expand prompt' : 'Collapse prompt'}
                 aria-expanded={!promptCollapsed}
                 onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
-                className="mt-3 shrink-0 text-muted-foreground hover:text-foreground"
+                className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"
               >
                 <ChevronRightIcon
                   className={cn(
