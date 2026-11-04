@@ -229,4 +229,33 @@ describe('CardViewDialog comments', () => {
       'pt-8',
     );
   });
+
+  it('focuses the comment box when the panel opens', () => {
+    renderDialog(addCard());
+    openPanel();
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveFocus();
+  });
+
+  it('toggles the panel with Cmd+J', () => {
+    renderDialog(addCard());
+
+    fireEvent.keyDown(document.body, { key: 'j', metaKey: true });
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toBeInTheDocument();
+
+    fireEvent.keyDown(document.body, { key: 'j', metaKey: true });
+    expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+  });
+
+  it('closes the panel with Cmd+J while typing in the comment box', () => {
+    renderDialog(addCard());
+    openPanel();
+
+    fireEvent.keyDown(screen.getByPlaceholderText(PLACEHOLDER), {
+      key: 'j',
+      metaKey: true,
+    });
+
+    expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
+  });
 });

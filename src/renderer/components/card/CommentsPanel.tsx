@@ -51,6 +51,7 @@ export function CommentsPanel({
       className={`flex min-h-0 w-72 shrink-0 flex-col gap-2 border-l pt-8 pl-4 ${className}`}
     >
       <Textarea
+        autoFocus
         value={draft}
         placeholder="Add a comment…"
         className="min-h-16 shrink-0 text-sm"

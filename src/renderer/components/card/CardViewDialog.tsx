@@ -407,11 +407,13 @@ export function CardViewDialog({
       // Cmd+C/A/E belong to the terminal (interrupt, readline) and to text
       // fields (line start/end, copy) when focus is there.
       const target = event.target as HTMLElement | null;
-      if (
-        target?.closest(
-          '[data-terminal-host], input, textarea, [contenteditable="true"]',
-        )
-      ) {
+      // Cmd+J is exempt from the text-field rule: it has to close the
+      // comments panel from the very box it focuses when it opens.
+      const blocked =
+        event.key.toLowerCase() === 'j'
+          ? '[data-terminal-host]'
+          : '[data-terminal-host], input, textarea, [contenteditable="true"]';
+      if (target?.closest(blocked)) {
         return;
       }
       // A nested dialog (composer, confirm, ship target) owns the keyboard.
@@ -782,6 +784,7 @@ export function CardViewDialog({
     },
     c: () => void copy(),
     a: archive,
+    j: () => setCommentsOpen(!commentsOpen),
   };
 
   // Resolved against the store as each ingest lands rather than against this
