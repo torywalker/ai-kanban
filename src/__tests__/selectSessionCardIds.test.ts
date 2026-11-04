@@ -29,6 +29,7 @@ function card(id: string, sessionId: string | null) {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     createdAt: now,
     updatedAt: now,
   };

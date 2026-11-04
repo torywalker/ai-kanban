@@ -25,6 +25,7 @@ function card(id: string) {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };

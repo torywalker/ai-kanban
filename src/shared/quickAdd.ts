@@ -151,6 +151,7 @@ export function insertNewCard(
     usedWorktree: null,
     archived: false,
     attachments: fields.attachments ?? [],
+    comments: [],
     variables: {},
     copyCount: 0,
     lastCopiedAt: null,

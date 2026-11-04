@@ -650,6 +650,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         usedWorktree: null,
         archived: false,
         attachments: fields.attachments ?? [],
+        comments: [],
         variables: {},
         copyCount: 0,
         lastCopiedAt: null,

@@ -18,6 +18,7 @@ import { CardContextMenu } from './CardContextMenu';
 import { CardViewDialog } from './CardViewDialog';
 import { VariableFillDialog } from './VariableFillDialog';
 import { PriorityButton } from './PriorityButton';
+import { CommentCount } from './CommentCount';
 import { SessionStatusBadge } from './SessionStatusBadge';
 import { SessionChecklist } from './SessionChecklist';
 import { PromptBody } from './PromptBody';
@@ -269,6 +270,7 @@ export function PromptCard({
                     setCardTags(boardId, listId, cardId, next)
                   }
                 />
+                <CommentCount count={card.comments.length} />
                 {/* Always rendered, zero included: hiding it would make "this
                   card hasn't cost anything yet" indistinguishable from "this
                   card doesn't track cost" — same rationale as UsageSummary.

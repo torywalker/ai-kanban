@@ -35,6 +35,14 @@ export const CARD_COLOR_VALUES = [
 export const CardColorSchema = z.enum(CARD_COLOR_VALUES);
 export type CardColor = z.infer<typeof CardColorSchema>;
 
+export const CommentSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  createdAt: z.string(),
+  editedAt: z.string().optional(),
+});
+export type Comment = z.infer<typeof CommentSchema>;
+
 export const CardSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -43,6 +51,9 @@ export const CardSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   notes: z.string().catch(''),
+  // The user's own timestamped status log for the card. `.catch([])` covers
+  // files written before comments existed and any malformed value.
+  comments: z.array(CommentSchema).catch([]),
   link: z.string().catch(''),
   variables: z.record(z.string(), z.string()).catch({}),
   copyCount: z.number().catch(0),
