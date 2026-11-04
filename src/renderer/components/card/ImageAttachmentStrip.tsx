@@ -122,6 +122,13 @@ interface Props {
   onChange: (next: AttachmentMeta[]) => void;
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * Pins the attach button to the top-right of the nearest `relative`
+   * ancestor instead of the end of the row, so a caller can seat it beside
+   * other content and leave the strip empty (zero height) until there are
+   * thumbnails.
+   */
+  floatPicker?: boolean;
 }
 
 /**
@@ -136,6 +143,7 @@ export function ImageAttachmentStrip({
   onChange,
   disabled = false,
   onBusyChange,
+  floatPicker = false,
 }: Props) {
   /**
    * The list as of the last thing that happened, which is not the same as
@@ -184,7 +192,10 @@ export function ImageAttachmentStrip({
   return (
     <div
       data-slot="image-attachment-strip"
-      className="flex flex-wrap items-center gap-2"
+      className={cn(
+        'flex flex-wrap items-center gap-2',
+        floatPicker && items.length > 0 && 'mt-2',
+      )}
     >
       {dialog}
       {items.map((item) => (
@@ -216,6 +227,7 @@ export function ImageAttachmentStrip({
         size="icon-sm"
         aria-label="Attach images"
         disabled={disabled}
+        className={cn(floatPicker && 'absolute top-2 right-2')}
         onClick={() => void pick()}
       >
         <Paperclip />
