@@ -841,6 +841,14 @@ export function CardViewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // Clicking a text field while the terminal has focus lost the click:
+        // xterm redraws on blur, and Radix's focus trap pulls focus to the
+        // dialog while document.body is briefly active mid-click. Focusing
+        // the field synchronously here skips that window.
+        onMouseDownCapture={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.matches?.('input, textarea')) target.focus();
+        }}
         // Radix focuses the first tabbable (the expand button) on open, which
         // would undo the terminal's own autoFocus.
         onOpenAutoFocus={(event) => {
@@ -990,7 +998,9 @@ export function CardViewDialog({
             <div className="flex items-start gap-1">
               <button
                 type="button"
-                aria-label={promptCollapsed ? 'Expand prompt' : 'Collapse prompt'}
+                aria-label={
+                  promptCollapsed ? 'Expand prompt' : 'Collapse prompt'
+                }
                 aria-expanded={!promptCollapsed}
                 onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
                 className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"

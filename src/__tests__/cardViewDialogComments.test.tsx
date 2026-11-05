@@ -347,4 +347,20 @@ describe('CardViewDialog comments', () => {
     expect(screen.getByText('just now')).toHaveClass('ml-auto');
     expect(screen.getByText(/^Today, /)).not.toHaveClass('ml-auto');
   });
+
+  it('focuses a text field on mousedown so the terminal blur cannot steal the click', () => {
+    // In the real dialog, xterm redraws when it blurs and Radix's focus trap
+    // then pulls focus to the dialog while document.body is briefly active.
+    // Focusing on mousedown skips that window. jsdom never focuses on
+    // mousedown by itself, so this fails unless the dialog does it.
+    const cardId = addCard();
+    useUiStore.setState({ commentsOpen: { [cardId]: true } });
+    renderDialog(cardId);
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    expect(box).not.toHaveFocus();
+
+    fireEvent.mouseDown(box);
+
+    expect(box).toHaveFocus();
+  });
 });
