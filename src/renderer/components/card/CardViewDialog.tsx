@@ -841,6 +841,11 @@ export function CardViewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // Radix focuses the first tabbable (the expand button) on open, which
+        // would undo the terminal's own autoFocus.
+        onOpenAutoFocus={(event) => {
+          if (terminalMode) event.preventDefault();
+        }}
         // Escape typed in the terminal belongs to the terminal (Claude's
         // interrupt). Anywhere else in the dialog it still closes it.
         onEscapeKeyDown={(event) => {
@@ -1070,7 +1075,11 @@ export function CardViewDialog({
 
             {terminalMode ? (
               <>
-                <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
+                <TerminalPanel
+                  cardId={cardId}
+                  acceptInput={!shipBusy}
+                  autoFocus
+                />
                 {sessionStatus === 'failed' && lastError ? (
                   <div className="shrink-0">
                     <SessionLastError status="failed" message={lastError} />
