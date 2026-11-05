@@ -469,7 +469,6 @@ export function CardViewDialog({
   // resumes that session instead of submitting the prompt again.
   const canReconnect =
     terminalMode &&
-    !worktreeShipped &&
     !claudeRunning &&
     !claudeTurnActive &&
     !shipBusy &&
