@@ -227,6 +227,7 @@ describe('buildHookSettings', () => {
       'Stop',
       'SubagentStart',
       'SubagentStop',
+      'PreToolUse',
       'SessionEnd',
     ]);
     Object.values(hooks).forEach((entries) => {

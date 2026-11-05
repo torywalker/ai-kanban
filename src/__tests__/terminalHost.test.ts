@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { SUBAGENT_SETTLE_MS } from '../main/daemon/terminalHooks';
+import { HOLD_MAX_MS, SUBAGENT_SETTLE_MS } from '../main/daemon/terminalHooks';
 import type {
   DaemonEvent,
   DaemonRequest,
@@ -208,6 +208,34 @@ describe('start', () => {
         { hook_event_name: 'UserPromptSubmit' },
         { hook_event_name: 'Stop' },
       );
+      expect(lastSnapshot().status).toBe('done');
+    });
+
+    it('holds for a running shell, wakes on a tool call, ends on Stop', () => {
+      host.start(request());
+      const shell = [{ type: 'shell', status: 'running' }];
+      feed({ hook_event_name: 'UserPromptSubmit' });
+      feed({ hook_event_name: 'Stop', background_tasks: shell });
+      expect(lastSnapshot().status).toBe('working');
+      feed({ hook_event_name: 'Stop', background_tasks: [] });
+      expect(lastSnapshot().status).toBe('done');
+      feed({ hook_event_name: 'PreToolUse' });
+      expect(lastSnapshot().status).toBe('working');
+      feed({ hook_event_name: 'Stop', background_tasks: [] });
+      expect(lastSnapshot().status).toBe('done');
+    });
+
+    it('gives up on a shell that outlives HOLD_MAX_MS', () => {
+      host.start(request());
+      feed({
+        hook_event_name: 'Stop',
+        background_tasks: [{ type: 'shell', status: 'running' }],
+      });
+      clock += HOLD_MAX_MS - 1;
+      jest.advanceTimersByTime(250);
+      expect(lastSnapshot().status).toBe('working');
+      clock += 1;
+      jest.advanceTimersByTime(250);
       expect(lastSnapshot().status).toBe('done');
     });
 

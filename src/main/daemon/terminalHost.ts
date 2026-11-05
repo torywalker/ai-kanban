@@ -18,10 +18,9 @@ import {
   applyInterrupt,
   applyPtyExit,
   applySettle,
-  isAwaitingCompletion,
+  holdTimeoutMs,
   isIdleTerminal,
   splitHookRecords,
-  SUBAGENT_SETTLE_MS,
 } from './terminalHooks';
 
 /** The slice of node-pty's `IPty` the host uses, so tests can fake it. */
@@ -96,7 +95,7 @@ interface Terminal {
   transcriptPath: string | null;
   pollTimer: ReturnType<typeof setInterval>;
   lastActivity: number;
-  /** When a card held only for a subagent's completion turn gives up. */
+  /** When a card held for background work gives up waiting. */
   settleAt: number | null;
   /** A resume command was already typed and Claude has not exited since. */
   resumeSent: boolean;
@@ -176,9 +175,8 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         billedSessionEnd = event.name === 'SessionEnd';
       }
     });
-    terminal.settleAt = isAwaitingCompletion(terminal.snapshot)
-      ? deps.now() + SUBAGENT_SETTLE_MS
-      : null;
+    const holdMs = holdTimeoutMs(terminal.snapshot);
+    terminal.settleAt = holdMs === null ? null : deps.now() + holdMs;
     deps.publishSnapshot(terminal.snapshot);
     // Prime every SessionStart in this poll before any Stop bills it.
     // A resume appends to a transcript that already holds billed turns.

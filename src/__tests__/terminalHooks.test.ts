@@ -5,7 +5,9 @@ import {
   applyInterrupt,
   applyPtyExit,
   applySettle,
-  isAwaitingCompletion,
+  holdTimeoutMs,
+  HOLD_MAX_MS,
+  SUBAGENT_SETTLE_MS,
   isIdleTerminal,
   splitHookRecords,
   type HookEvent,
@@ -38,6 +40,8 @@ function hook(
     notificationType: null,
     source: null,
     agentId: null,
+    runningSubagents: 0,
+    runningShells: 0,
     ...extra,
   };
 }
@@ -238,27 +242,62 @@ describe('isIdleTerminal', () => {
   });
 });
 
-describe('background subagents', () => {
+describe('background work', () => {
   const start = hook('SubagentStart', null, { agentId: 'a1' });
   const stop = hook('SubagentStop', null, { agentId: 'a1' });
+  const stopWith = (extra: Partial<HookEvent>) => hook('Stop', null, extra);
 
-  it('keeps the card working when Stop arrives with a subagent running', () => {
-    const running = applyHookEvent(snapshot(), start);
-    const next = applyHookEvent(running, hook('Stop'));
-    expect(next.status).toBe('working');
-    expect(next.terminal?.stopPending).toBe(true);
+  it('parses the running tasks Stop reports, ignoring finished ones', () => {
+    const tasks = [
+      { type: 'subagent', status: 'running' },
+      { type: 'shell', status: 'running' },
+      { type: 'shell', status: 'completed' },
+      { type: 'monitor', status: 'running' },
+    ];
+    const { events } = splitHookRecords(
+      `${JSON.stringify({ hook_event_name: 'Stop', background_tasks: tasks })}\n\x1e\n`,
+    );
+    expect(events[0]).toMatchObject({ runningSubagents: 1, runningShells: 1 });
   });
 
-  it('stays working after the last subagent stops until it settles', () => {
+  it('holds working when Stop lists a running subagent we never saw start', () => {
+    const next = applyHookEvent(snapshot(), stopWith({ runningSubagents: 1 }));
+    expect(next.status).toBe('working');
+    expect(next.terminal?.hold).toBe('running');
+  });
+
+  it('holds working when Stop lists a running shell', () => {
+    const next = applyHookEvent(snapshot(), stopWith({ runningShells: 1 }));
+    expect(next.status).toBe('working');
+    expect(holdTimeoutMs(next)).toBe(HOLD_MAX_MS);
+  });
+
+  it('holds working for a tracked subagent even if Stop lists nothing', () => {
+    const next = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('Stop'),
+    );
+    expect(next.status).toBe('working');
+    expect(holdTimeoutMs(next)).toBeNull();
+  });
+
+  it('finishes on a Stop that reports nothing running', () => {
+    const held = applyHookEvent(snapshot(), stopWith({ runningShells: 1 }));
+    const next = applyHookEvent(held, hook('Stop'));
+    expect(next.status).toBe('done');
+    expect(next.terminal?.hold).toBeUndefined();
+  });
+
+  it('drains for the completion turn after the last subagent stops', () => {
     const held = applyHookEvent(
       applyHookEvent(snapshot(), start),
       hook('Stop'),
     );
     const stopped = applyHookEvent(held, stop);
     expect(stopped.status).toBe('working');
-    expect(isAwaitingCompletion(stopped)).toBe(true);
+    expect(holdTimeoutMs(stopped)).toBe(SUBAGENT_SETTLE_MS);
     expect(applySettle(stopped).status).toBe('done');
-    expect(applySettle(stopped).terminal?.stopPending).toBeFalsy();
+    expect(applySettle(stopped).terminal?.hold).toBeUndefined();
   });
 
   it('finishes normally when the completion turn follows', () => {
@@ -271,23 +310,16 @@ describe('background subagents', () => {
       held,
     );
     expect(next.status).toBe('done');
-    expect(isAwaitingCompletion(next)).toBe(false);
+    expect(holdTimeoutMs(next)).toBeNull();
   });
 
   it('ignores a SubagentStop for an agent it never saw start', () => {
-    const held = applyHookEvent(
-      applyHookEvent(snapshot(), start),
-      hook('Stop'),
-    );
+    const held = applyHookEvent(snapshot(), stopWith({ runningSubagents: 1 }));
     const next = applyHookEvent(
       held,
       hook('SubagentStop', null, { agentId: 'internal' }),
     );
     expect(next).toBe(held);
-  });
-
-  it('does not settle a card that is not awaiting completion', () => {
-    expect(applySettle(snapshot())).toEqual(snapshot());
   });
 
   it('stays working while another subagent is still running', () => {
@@ -296,20 +328,48 @@ describe('background subagents', () => {
       hook('SubagentStart', null, { agentId: 'a2' }),
     );
     const held = applyHookEvent(two, hook('Stop'));
-    expect(applyHookEvent(held, stop).status).toBe('working');
-  });
-
-  it('does not change status when a subagent stops before Stop', () => {
-    const next = applyHookEvent(applyHookEvent(snapshot(), start), stop);
+    const next = applyHookEvent(held, stop);
     expect(next.status).toBe('working');
-    expect(applyHookEvent(next, hook('Stop')).status).toBe('done');
+    expect(holdTimeoutMs(next)).toBeNull();
   });
 
-  it('clears subagents on interrupt and session end', () => {
-    const running = applyHookEvent(snapshot(), start);
-    expect(applyInterrupt(running).terminal?.subagents).toBeUndefined();
+  it('does not settle a card with no hold', () => {
+    expect(applySettle(snapshot())).toEqual(snapshot());
+  });
+
+  it('clears the hold on interrupt, session end and pty exit', () => {
+    const held = applyHookEvent(
+      applyHookEvent(snapshot(), start),
+      hook('Stop'),
+    );
+    expect(applyInterrupt(held).terminal?.hold).toBeUndefined();
     expect(
-      applyHookEvent(running, hook('SessionEnd')).terminal?.subagents,
+      applyHookEvent(held, hook('SessionEnd')).terminal?.hold,
     ).toBeUndefined();
+    expect(applyPtyExit(held).terminal?.hold).toBeUndefined();
+  });
+});
+
+describe('PreToolUse', () => {
+  it('wakes a done card when the main agent starts using tools', () => {
+    const next = applyHookEvent(
+      snapshot({ status: 'done' }),
+      hook('PreToolUse'),
+    );
+    expect(next.status).toBe('working');
+  });
+
+  it('ignores a subagent tool call', () => {
+    const done = snapshot({ status: 'done' });
+    expect(
+      applyHookEvent(done, hook('PreToolUse', null, { agentId: 'a1' })),
+    ).toBe(done);
+  });
+
+  it('leaves waiting and working cards alone', () => {
+    const waiting = snapshot({ status: 'waiting' });
+    expect(applyHookEvent(waiting, hook('PreToolUse'))).toBe(waiting);
+    const working = snapshot();
+    expect(applyHookEvent(working, hook('PreToolUse'))).toBe(working);
   });
 });

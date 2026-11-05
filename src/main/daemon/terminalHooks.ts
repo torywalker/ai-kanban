@@ -13,8 +13,11 @@ export interface HookEvent {
   notificationType: string | null;
   /** SessionStart's `source`: `startup`, `resume`, `clear` or `compact`. */
   source: string | null;
-  /** SubagentStart/SubagentStop's `agent_id`. */
+  /** Set on hooks that fire inside a subagent; null for the main agent. */
   agentId: string | null;
+  /** Stop's `background_tasks` entries that are still running. */
+  runningSubagents: number;
+  runningShells: number;
 }
 
 const stringOrNull = (value: unknown): string | null =>
@@ -23,6 +26,13 @@ const stringOrNull = (value: unknown): string | null =>
 const RECORD_SEPARATOR = '\n\x1e\n';
 
 export const TERMINAL_BUFFER_MAX = 1_000_000;
+
+function countRunning(tasks: unknown, type: string): number {
+  if (!Array.isArray(tasks)) return 0;
+  return tasks.filter(
+    (task) => task?.type === type && task?.status === 'running',
+  ).length;
+}
 
 function parseRecord(text: string): HookEvent | null {
   let raw: unknown;
@@ -41,6 +51,8 @@ function parseRecord(text: string): HookEvent | null {
     notificationType: stringOrNull(record.notification_type),
     source: stringOrNull(record.source),
     agentId: stringOrNull(record.agent_id),
+    runningSubagents: countRunning(record.background_tasks, 'subagent'),
+    runningShells: countRunning(record.background_tasks, 'shell'),
   };
 }
 
@@ -81,8 +93,8 @@ function clearSubagents(terminal: TerminalState): TerminalState {
   };
 }
 
-function clearPending(terminal: TerminalState): TerminalState {
-  return { ...terminal, stopPending: undefined };
+function clearHold(terminal: TerminalState): TerminalState {
+  return { ...terminal, hold: undefined };
 }
 
 function settled(status: SessionStatus): SessionStatus {
@@ -107,22 +119,32 @@ export function applyHookEvent(
       return {
         ...snapshot,
         status: 'working',
-        terminal: clearPending(terminal),
+        terminal: clearHold(terminal),
       };
     case 'Notification':
       // Claude sends this a minute after finishing; it is not a question.
       if (event.notificationType === 'idle_prompt') return snapshot;
       return { ...snapshot, status: 'waiting' };
     case 'Stop':
-      // Background subagents keep the card working past the main turn's Stop.
-      if (running(terminal) > 0) {
+      // Claude's own list of running background work decides the hold; the
+      // tracked ids cover a SubagentStart that lands after this Stop.
+      if (
+        running(terminal) > 0 ||
+        event.runningSubagents > 0 ||
+        event.runningShells > 0
+      ) {
         return {
           ...snapshot,
           status: 'working',
-          terminal: { ...terminal, stopPending: true },
+          terminal: { ...terminal, hold: 'running' },
         };
       }
-      return { ...snapshot, status: 'done' };
+      return { ...snapshot, status: 'done', terminal: clearHold(terminal) };
+    case 'PreToolUse':
+      // Claude wakes for a finished shell or subagent with no prompt hook.
+      // Only the main agent counts: a subagent's tools are not a new turn.
+      if (event.agentId || snapshot.status !== 'done') return snapshot;
+      return { ...snapshot, status: 'working' };
     case 'SubagentStart': {
       if (!event.agentId) return snapshot;
       const subagents = [...(terminal.subagents ?? [])];
@@ -137,7 +159,15 @@ export function applyHookEvent(
       const subagents = terminal.subagents.filter((id) => id !== event.agentId);
       // The completion arrives as a new turn about a second later. Stay
       // working until then; `applySettle` covers a turn that never comes.
-      return { ...snapshot, terminal: { ...terminal, subagents } };
+      const drained = subagents.length === 0 && terminal.hold === 'running';
+      return {
+        ...snapshot,
+        terminal: {
+          ...terminal,
+          subagents,
+          hold: drained ? 'draining' : terminal.hold,
+        },
+      };
     }
     case 'SessionEnd':
       return {
@@ -150,25 +180,27 @@ export function applyHookEvent(
   }
 }
 
-/**
- * How long a held card waits, after its last subagent stops, for the
- * completion turn that reports it. Observed at about 1s.
- */
+/** After the last subagent stops, its completion turn followed in about 1s. */
 export const SUBAGENT_SETTLE_MS = 5000;
 
-/** True while a card is only waiting for the completion turn of a subagent. */
-export function isAwaitingCompletion(snapshot: SessionSnapshot): boolean {
+/**
+ * A hold with no tracked subagent behind it (a shell, or a subagent whose
+ * Start was missed) has no end signal of its own, so a dev server left
+ * running cannot pin the spinner forever.
+ */
+export const HOLD_MAX_MS = 30 * 60 * 1000;
+
+/** How long the card's current hold may last, or null if it has no limit. */
+export function holdTimeoutMs(snapshot: SessionSnapshot): number | null {
   const { terminal } = snapshot;
-  return (
-    snapshot.status === 'working' &&
-    terminal?.stopPending === true &&
-    running(terminal) === 0
-  );
+  if (snapshot.status !== 'working' || !terminal?.hold) return null;
+  if (terminal.hold === 'draining') return SUBAGENT_SETTLE_MS;
+  return running(terminal) > 0 ? null : HOLD_MAX_MS;
 }
 
-/** Ends the hold when no completion turn followed the last subagent. */
+/** Ends a hold whose timeout passed without a completion turn. */
 export function applySettle(snapshot: SessionSnapshot): SessionSnapshot {
-  if (!isAwaitingCompletion(snapshot)) return snapshot;
+  if (holdTimeoutMs(snapshot) === null) return snapshot;
   return {
     ...snapshot,
     status: 'done',

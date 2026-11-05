@@ -136,8 +136,11 @@ export interface TerminalState {
   claudeRunning: boolean;
   /** Ids of background subagents that have started and not yet stopped. */
   subagents?: string[];
-  /** The main turn's `Stop` arrived while subagents were still running. */
-  stopPending?: boolean;
+  /**
+   * Set when the main turn's `Stop` arrived with background work running.
+   * `draining`: the last subagent has stopped and its completion turn is due.
+   */
+  hold?: 'running' | 'draining';
 }
 
 export interface SessionSnapshot {

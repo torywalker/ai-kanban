@@ -28,6 +28,7 @@ const HOOK_EVENTS = [
   'Stop',
   'SubagentStart',
   'SubagentStop',
+  'PreToolUse',
   'SessionEnd',
 ] as const;
 
