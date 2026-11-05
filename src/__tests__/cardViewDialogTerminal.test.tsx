@@ -263,10 +263,10 @@ describe('CardViewDialog terminal controls', () => {
       screen.queryByPlaceholderText('Reply to the agent…'),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="dialog-content"]')?.className,
     ).toContain('h-[92vh]');
@@ -564,10 +564,10 @@ describe('CardViewDialog terminal controls', () => {
     await renderDialog();
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Approve' }),
     ).not.toBeInTheDocument();
@@ -687,10 +687,10 @@ describe('CardViewDialog terminal controls', () => {
     const box = screen.getByText('Working directory does not exist: /nope');
     expect(box.className).toMatch(/destructive/);
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it('opens large and collapses to the narrow dialog', async () => {

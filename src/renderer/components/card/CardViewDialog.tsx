@@ -1076,9 +1076,6 @@ export function CardViewDialog({
                     <SessionLastError status="failed" message={lastError} />
                   </div>
                 ) : null}
-                <p className="shrink-0 text-xs text-muted-foreground">
-                  Cost is estimated from token counts for terminal sessions.
-                </p>
               </>
             ) : (
               <SessionTranscript cardId={cardId} expanded={chatExpanded} />
