@@ -469,7 +469,6 @@ export function CardViewDialog({
   // resumes that session instead of submitting the prompt again.
   const canReconnect =
     terminalMode &&
-    !worktreeShipped &&
     !claudeRunning &&
     !claudeTurnActive &&
     !shipBusy &&
@@ -842,6 +841,11 @@ export function CardViewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // Radix focuses the first tabbable (the expand button) on open, which
+        // would undo the terminal's own autoFocus.
+        onOpenAutoFocus={(event) => {
+          if (terminalMode) event.preventDefault();
+        }}
         // Escape typed in the terminal belongs to the terminal (Claude's
         // interrupt). Anywhere else in the dialog it still closes it.
         onEscapeKeyDown={(event) => {
@@ -1071,15 +1075,16 @@ export function CardViewDialog({
 
             {terminalMode ? (
               <>
-                <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
+                <TerminalPanel
+                  cardId={cardId}
+                  acceptInput={!shipBusy}
+                  autoFocus
+                />
                 {sessionStatus === 'failed' && lastError ? (
                   <div className="shrink-0">
                     <SessionLastError status="failed" message={lastError} />
                   </div>
                 ) : null}
-                <p className="shrink-0 text-xs text-muted-foreground">
-                  Cost is estimated from token counts for terminal sessions.
-                </p>
               </>
             ) : (
               <SessionTranscript cardId={cardId} expanded={chatExpanded} />
