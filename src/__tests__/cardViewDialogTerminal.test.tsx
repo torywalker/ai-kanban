@@ -176,7 +176,9 @@ describe('CardViewDialog terminal controls', () => {
       );
     await renderDialog();
 
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
 
     await waitFor(() => {
@@ -205,7 +207,45 @@ describe('CardViewDialog terminal controls', () => {
         expect.objectContaining({ cardId, sessionId: 'sess_term' }),
       );
     });
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('reconnects a shipped worktree instead of offering Run again', async () => {
+    useDocStore.setState({ useWorktrees: true });
+    useDocStore.getState().updateCard(boardId, listId, cardId, {
+      sessionWorktree: {
+        path: '/tmp/some-repo-wt',
+        branch: 'kanban/card',
+        recordedTargetBranch: 'main',
+        shipped: true,
+      },
+    });
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: false, claudeRunning: false },
+          'done',
+        ),
+      );
+    await renderDialog();
+
+    expect(
+      screen.getByRole('button', { name: 'Delete worktree' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
+
+    await waitFor(() => {
+      expect(window.electron.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ cardId, sessionId: 'sess_term' }),
+      );
+    });
   });
 
   it('replaces Run and the reply box while a terminal is open', async () => {
