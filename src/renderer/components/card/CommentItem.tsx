@@ -5,6 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { relativeTime } from '@/lib/relativeTime';
 
+/** "Today, 3:12 PM" for the current calendar day, else "Nov 4, 2026, 3:12 PM". */
+export function formatCommentTime(iso: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  if (at.toDateString() === now.toDateString()) {
+    return `Today, ${at.toLocaleTimeString(undefined, { timeStyle: 'short' })}`;
+  }
+  return at.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 /** Cmd/Ctrl+Enter, the app's submit chord for multi-line fields. */
 export const isSubmitChord = (event: KeyboardEvent) =>
   event.key === 'Enter' && (event.metaKey || event.ctrlKey);
@@ -52,12 +64,7 @@ export function CommentItem({
         />
       )}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span>
-          {new Date(comment.createdAt).toLocaleString(undefined, {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
-        </span>
+        <span>{formatCommentTime(comment.createdAt)}</span>
         <span>· {relativeTime(comment.createdAt)}</span>
         {comment.editedAt ? <span>edited</span> : null}
         <span className="ml-auto flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">

@@ -323,4 +323,16 @@ describe('CardViewDialog comments', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('says Today for a comment made today', () => {
+    const cardId = addCard();
+    renderDialog(cardId);
+    openPanel();
+
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(box, { target: { value: 'fresh' } });
+    submit(box);
+
+    expect(screen.getByText(/^Today, /)).toBeInTheDocument();
+  });
 });
