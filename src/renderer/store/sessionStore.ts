@@ -16,6 +16,7 @@ interface SessionStore {
    */
   unread: Record<string, boolean>;
   markRead: (cardId: string) => void;
+  markUnread: (cardId: string) => void;
   applySnapshot: (snapshot: SessionSnapshot) => void;
   clearSession: (cardId: string) => void;
   markReattaching: (cardId: string) => void;
@@ -44,6 +45,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       delete next[cardId];
       return { unread: next };
     }),
+
+  markUnread: (cardId) =>
+    set((state) => ({ unread: { ...state.unread, [cardId]: true } })),
 
   applySnapshot: (snapshot) => {
     const previousStatus = get().sessions[snapshot.cardId]?.status;

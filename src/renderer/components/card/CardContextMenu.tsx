@@ -7,6 +7,8 @@ import {
 } from '@/components/ui/context-menu';
 import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
+import { useSessionStore } from '@/store/sessionStore';
+import { CardComposerDialog } from './CardComposerDialog';
 import { MoveCardToBoardDialog } from './MoveCardToBoardDialog';
 
 interface Props {
@@ -25,6 +27,10 @@ interface Props {
  */
 interface CardMenuActions {
   archived: boolean;
+  paused: boolean;
+  openEditDialog: () => void;
+  togglePaused: () => void;
+  markUnread: () => void;
   openMoveDialog: () => void;
   toggleArchived: () => void;
 }
@@ -41,6 +47,21 @@ interface CardMenuItemConfig {
  * the menu is built or wired into `PromptCard` needs to change.
  */
 const CARD_CONTEXT_MENU_ITEMS: CardMenuItemConfig[] = [
+  {
+    id: 'edit',
+    label: () => 'Edit',
+    onSelect: (actions) => actions.openEditDialog(),
+  },
+  {
+    id: 'pause',
+    label: (actions) => (actions.paused ? 'Resume' : 'Pause'),
+    onSelect: (actions) => actions.togglePaused(),
+  },
+  {
+    id: 'mark-unread',
+    label: () => 'Mark unread',
+    onSelect: (actions) => actions.markUnread(),
+  },
   {
     id: 'move-to-board',
     label: () => 'Move to board…',
@@ -68,19 +89,27 @@ export function CardContextMenu({
   children,
 }: Props) {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { confirm, dialog: archiveDialog } = useConfirm();
-  const archived = useDocStore(
-    (s) =>
-      s.doc?.boards
-        .find((b) => b.id === boardId)
-        ?.lists.find((l) => l.id === listId)
-        ?.cards.find((c) => c.id === cardId)?.archived ?? false,
+  const card = useDocStore((s) =>
+    s.doc?.boards
+      .find((b) => b.id === boardId)
+      ?.lists.find((l) => l.id === listId)
+      ?.cards.find((c) => c.id === cardId),
   );
+  const archived = card?.archived ?? false;
+  const paused = card?.paused === true;
+  const updateCard = useDocStore((s) => s.updateCard);
+  const markUnread = useSessionStore((s) => s.markUnread);
   const archiveCard = useDocStore((s) => s.archiveCard);
   const unarchiveCard = useDocStore((s) => s.unarchiveCard);
 
   const actions: CardMenuActions = {
     archived,
+    paused,
+    openEditDialog: () => setEditOpen(true),
+    togglePaused: () => updateCard(boardId, listId, cardId, { paused: !paused }),
+    markUnread: () => markUnread(cardId),
     openMoveDialog: () => setMoveDialogOpen(true),
     toggleArchived: () => {
       if (archived) {
@@ -113,6 +142,13 @@ export function CardContextMenu({
       </ContextMenu>
 
       {archiveDialog}
+      <CardComposerDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        boardId={boardId}
+        listId={listId}
+        cardId={cardId}
+      />
       <MoveCardToBoardDialog
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
