@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -54,46 +55,54 @@ export function TerminalTabs({
                 const active = tab.id === activeId;
                 return (
                   <Draggable key={tab.id} draggableId={tab.id} index={index}>
-                    {(drag) => (
-                      <div
-                        ref={drag.innerRef}
-                        {...drag.draggableProps}
-                        {...drag.dragHandleProps}
-                        role="tab"
-                        tabIndex={-1}
-                        aria-selected={active}
-                        aria-label={tab.name}
-                        className={cn(
-                          'group flex max-w-48 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm',
-                          active
-                            ? 'bg-accent text-foreground'
-                            : 'text-muted-foreground hover:bg-accent/50',
-                        )}
-                      >
-                        {busyIds.has(tab.id) && (
-                          <span
-                            aria-hidden="true"
-                            className="size-1.5 shrink-0 rounded-full bg-primary"
-                          />
-                        )}
-                        <InlineEditableText
-                          value={tab.name}
-                          label={tab.name}
-                          editOn="doubleClick"
-                          onActivate={() => onSelect(tab.id)}
-                          onCommit={(next) => onRename(tab.id, next)}
-                          className="min-w-0"
-                        />
-                        <button
-                          type="button"
-                          aria-label={`Close ${tab.name}`}
-                          onClick={() => onClose(tab.id)}
-                          className="shrink-0 rounded-sm opacity-60 hover:opacity-100"
+                    {(drag, snapshot) => {
+                      const node = (
+                        <div
+                          ref={drag.innerRef}
+                          {...drag.draggableProps}
+                          {...drag.dragHandleProps}
+                          role="tab"
+                          tabIndex={-1}
+                          aria-selected={active}
+                          aria-label={tab.name}
+                          className={cn(
+                            'group flex max-w-48 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-sm',
+                            active
+                              ? 'bg-accent text-foreground'
+                              : 'text-muted-foreground hover:bg-accent/50',
+                          )}
                         >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    )}
+                          {busyIds.has(tab.id) && (
+                            <span
+                              aria-hidden="true"
+                              className="size-1.5 shrink-0 rounded-full bg-primary"
+                            />
+                          )}
+                          <InlineEditableText
+                            value={tab.name}
+                            label={tab.name}
+                            editOn="doubleClick"
+                            onActivate={() => onSelect(tab.id)}
+                            onCommit={(next) => onRename(tab.id, next)}
+                            className="min-w-0"
+                          />
+                          <button
+                            type="button"
+                            aria-label={`Close ${tab.name}`}
+                            onClick={() => onClose(tab.id)}
+                            className="shrink-0 rounded-sm opacity-60 hover:opacity-100"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
+                      );
+                      // The dialog is centred with a CSS transform, which
+                      // re-bases `position: fixed` and makes the dragged tab
+                      // jump; render it outside the dialog while dragging.
+                      return snapshot.isDragging
+                        ? createPortal(node, document.body)
+                        : node;
+                    }}
                   </Draggable>
                 );
               })}
