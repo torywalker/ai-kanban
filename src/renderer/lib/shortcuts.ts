@@ -87,4 +87,9 @@ export const SHORTCUTS: ShortcutEntry[] = [
     description: 'Jump to a terminal tab',
     section: TERMINALS_SECTION,
   },
+  {
+    keys: ['⌘', '⌥', '←/→'],
+    description: 'Previous / next terminal tab',
+    section: TERMINALS_SECTION,
+  },
 ];

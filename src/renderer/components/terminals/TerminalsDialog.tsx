@@ -27,6 +27,7 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
   const addBoardTerminal = useDocStore((s) => s.addBoardTerminal);
   const renameBoardTerminal = useDocStore((s) => s.renameBoardTerminal);
   const removeBoardTerminal = useDocStore((s) => s.removeBoardTerminal);
+  const moveBoardTerminal = useDocStore((s) => s.moveBoardTerminal);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
@@ -121,12 +122,28 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
   // itself, in the capture phase so xterm never sees the keys.
   const latest = useRef({ tabs, addTab, onOpenChange });
   latest.current = { tabs, addTab, onOpenChange };
+  const activeIdRef = useRef<string | undefined>(undefined);
+  activeIdRef.current = active?.id;
   useEffect(() => {
     if (!open) return undefined;
     // Meta only: Ctrl+T and Ctrl+W are real keys in a shell.
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.altKey || event.ctrlKey) return;
+      if (!event.metaKey || event.ctrlKey) return;
       if (document.querySelector('[role="alertdialog"]')) return;
+      if (event.altKey) {
+        // Cmd+Option+Left/Right: previous/next tab, wrapping.
+        if (event.shiftKey || !event.key.startsWith('Arrow')) return;
+        const { tabs: all } = latest.current;
+        const step =
+          event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step || all.length === 0) return;
+        const from = all.findIndex((t) => t.id === activeIdRef.current);
+        const next = all[(Math.max(from, 0) + step + all.length) % all.length];
+        setActiveId(next.id);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const k = event.key.toLowerCase();
       const state = latest.current;
       if (event.shiftKey) return;
@@ -168,6 +185,7 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
                 boardId && renameBoardTerminal(boardId, id, name)
               }
               onClose={closeTab}
+              onMove={(id, to) => boardId && moveBoardTerminal(boardId, id, to)}
             />
           )}
         </div>

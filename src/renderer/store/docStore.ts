@@ -204,6 +204,7 @@ interface DocStore {
   addBoardTerminal: (boardId: string) => string;
   renameBoardTerminal: (boardId: string, id: string, name: string) => void;
   removeBoardTerminal: (boardId: string, id: string) => void;
+  moveBoardTerminal: (boardId: string, id: string, toIndex: number) => void;
   setApprovalMode: (mode: ApprovalMode) => void;
   setDefaultModel: (model: string | null) => void;
   setUseWorktrees: (enabled: boolean) => void;
@@ -867,6 +868,14 @@ export const useDocStore = create<DocStore>((set, get) => ({
     editBoardTerminals(get, set, boardId, (tabs) => {
       const tab = tabs.find((t) => t.id === id);
       if (tab) tab.name = trimmed;
+    });
+  },
+
+  moveBoardTerminal: (boardId, id, toIndex) => {
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const from = tabs.findIndex((t) => t.id === id);
+      if (from === -1 || toIndex < 0 || toIndex >= tabs.length) return;
+      tabs.splice(toIndex, 0, ...tabs.splice(from, 1));
     });
   },
 
