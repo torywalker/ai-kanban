@@ -335,4 +335,16 @@ describe('CardViewDialog comments', () => {
 
     expect(screen.getByText(/^Today, /)).toBeInTheDocument();
   });
+
+  it('right-aligns the relative time while the date stays on the left', () => {
+    // jsdom has no layout, so the class is the only observable proof.
+    renderDialog(addCard());
+    openPanel();
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(box, { target: { value: 'fresh' } });
+    submit(box);
+
+    expect(screen.getByText('just now')).toHaveClass('ml-auto');
+    expect(screen.getByText(/^Today, /)).not.toHaveClass('ml-auto');
+  });
 });

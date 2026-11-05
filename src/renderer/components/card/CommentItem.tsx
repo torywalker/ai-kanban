@@ -41,7 +41,7 @@ export function CommentItem({
   };
 
   return (
-    <li className="group flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm shadow-xs">
+    <li className="group relative flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm shadow-xs">
       {draft === null ? (
         <p className="whitespace-pre-wrap break-words">{comment.text}</p>
       ) : (
@@ -65,9 +65,11 @@ export function CommentItem({
       )}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
         <span>{formatCommentTime(comment.createdAt)}</span>
-        <span>· {relativeTime(comment.createdAt)}</span>
         {comment.editedAt ? <span>edited</span> : null}
-        <span className="ml-auto flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
+        <span className="ml-auto">{relativeTime(comment.createdAt)}</span>
+      </div>
+      {draft === null ? (
+        <span className="absolute top-1 right-1 flex rounded-md bg-card opacity-0 shadow-xs group-focus-within:opacity-100 group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon-xs"
@@ -85,7 +87,7 @@ export function CommentItem({
             <Trash2 />
           </Button>
         </span>
-      </div>
+      ) : null}
     </li>
   );
 }
