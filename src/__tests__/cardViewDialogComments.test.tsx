@@ -309,4 +309,18 @@ describe('CardViewDialog comments', () => {
 
     expect(screen.getByPlaceholderText(PLACEHOLDER)).not.toHaveFocus();
   });
+
+  it('shows the full date and time on each comment', () => {
+    renderDialog(addCard([older]));
+    openPanel();
+
+    expect(
+      screen.getByText(
+        new Date(older.at).toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      ),
+    ).toBeInTheDocument();
+  });
 });

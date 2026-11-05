@@ -52,9 +52,13 @@ export function CommentItem({
         />
       )}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span title={new Date(comment.createdAt).toLocaleString()}>
-          {relativeTime(comment.createdAt)}
+        <span>
+          {new Date(comment.createdAt).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          })}
         </span>
+        <span>· {relativeTime(comment.createdAt)}</span>
         {comment.editedAt ? <span>edited</span> : null}
         <span className="ml-auto flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
           <Button
