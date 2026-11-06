@@ -418,16 +418,20 @@ export function CardViewDialog({
       }
       const action = shortcutsRef.current[event.key.toLowerCase()];
       if (!action) return;
-      // Cmd+C/A/E belong to the terminal (interrupt, readline) and to text
-      // fields (line start/end, copy) when focus is there.
+      // Cmd+C/A belong to the terminal (interrupt, readline) and to text
+      // fields (line start, copy) when focus is there.
       const target = event.target as HTMLElement | null;
-      // Cmd+J is exempt from both rules: it has no terminal meaning, and it
-      // has to toggle the comments panel from the very box it focuses when
-      // it opens (and from the terminal).
+      // Cmd+J has no terminal meaning, and it has to toggle the comments
+      // panel from the very box it focuses when it opens, so it works
+      // everywhere. Cmd+E (edit) also works from the terminal, but still
+      // defers to text fields.
+      const key = event.key.toLowerCase();
       const blocked =
-        event.key.toLowerCase() === 'j'
+        key === 'j'
           ? null
-          : '[data-terminal-host], input, textarea, [contenteditable="true"]';
+          : key === 'e'
+            ? 'input, textarea, [contenteditable="true"]'
+            : '[data-terminal-host], input, textarea, [contenteditable="true"]';
       if (blocked && target?.closest(blocked)) {
         return;
       }
