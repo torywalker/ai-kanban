@@ -430,7 +430,8 @@ export function CardViewDialog({
         key === 'j'
           ? null
           : key === 'e'
-            ? 'input, textarea, [contenteditable="true"]'
+            ? // xterm's hidden input is a textarea inside the terminal host.
+              ':is(input, textarea, [contenteditable="true"]):not([data-terminal-host] *)'
             : '[data-terminal-host], input, textarea, [contenteditable="true"]';
       if (blocked && target?.closest(blocked)) {
         return;
