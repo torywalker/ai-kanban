@@ -176,12 +176,16 @@ export function applySettle(snapshot: SessionSnapshot): SessionSnapshot {
   };
 }
 
-/** Claude fires no hook when Escape interrupts it mid-turn. */
+/**
+ * Claude fires no hook when Escape interrupts it mid-turn. The user did it on
+ * purpose, so settle on `done` (check mark) rather than `interrupted`
+ * (the "disconnected" icon, reserved for a daemon that lost the session).
+ */
 export function applyInterrupt(snapshot: SessionSnapshot): SessionSnapshot {
   return snapshot.status === 'working'
     ? {
         ...snapshot,
-        status: 'interrupted',
+        status: 'done',
         terminal: clearSubagents(terminalOf(snapshot)),
       }
     : snapshot;

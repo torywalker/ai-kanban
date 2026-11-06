@@ -467,25 +467,25 @@ describe('controls', () => {
     expect(ptys[0].written).toEqual(['\x1b']);
   });
 
-  it('marks a working turn interrupted, and a new prompt makes it working', () => {
+  it('marks a working turn settled as done, and a new prompt makes it working', () => {
     host.start(request());
     appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
     jest.advanceTimersByTime(250);
     host.interrupt('crd_1');
-    expect(lastSnapshot().status).toBe('interrupted');
+    expect(lastSnapshot().status).toBe('done');
     appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
     jest.advanceTimersByTime(250);
     expect(lastSnapshot().status).toBe('working');
   });
 
-  it('marks a working turn interrupted when Escape is typed', () => {
+  it('settles a working turn as done when Escape is typed', () => {
     host.start(request());
     appendHook(record({ hook_event_name: 'UserPromptSubmit' }));
     jest.advanceTimersByTime(250);
     host.input('crd_1', '\x1b');
     expect(ptys[0].written).toEqual(['\x1b']);
-    expect(lastSnapshot().status).toBe('interrupted');
-    expect(host.liveSnapshot('crd_1')?.status).toBe('interrupted');
+    expect(lastSnapshot().status).toBe('done');
+    expect(host.liveSnapshot('crd_1')?.status).toBe('done');
   });
 
   it('leaves the status alone for escape sequences and other input', () => {

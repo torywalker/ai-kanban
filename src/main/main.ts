@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { registerQuickAdd } from './quickAddWindow';
@@ -449,6 +449,22 @@ const createWindow = async () => {
 /**
  * Add event listeners...
  */
+
+// Covers Cmd+Q, the menu and the dock. A stray Cmd+Q must never quit silently.
+let quitConfirmed = false;
+app.on('before-quit', (event) => {
+  if (quitConfirmed) return;
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Cancel', 'Quit'],
+    defaultId: 0,
+    cancelId: 0,
+    message: 'Quit AI Kanban?',
+    detail: 'Running terminals and sessions will be interrupted.',
+  });
+  if (choice === 0) event.preventDefault();
+  else quitConfirmed = true;
+});
 
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even
