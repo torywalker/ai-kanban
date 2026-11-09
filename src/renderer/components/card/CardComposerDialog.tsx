@@ -170,7 +170,12 @@ export function CardComposerDialog({
 
   const save = () => {
     if (pendingAttachmentOpsRef.current > 0) return;
-    const trimmedTitle = title.trim() || 'Untitled prompt';
+    // Empty title falls back to the prompt's first non-blank line, cut to 60.
+    const firstLine = prompt.trim().split('\n')[0].trim();
+    const trimmedTitle =
+      title.trim() ||
+      (firstLine.length > 60 ? `${firstLine.slice(0, 59)}…` : firstLine) ||
+      'Untitled prompt';
     if (cardId) {
       // tags travel in the same patch as the rest of the fields: updateCard
       // registers any new tag names and writes the card in a single
@@ -354,6 +359,13 @@ export function CardComposerDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
         className="flex max-h-[85vh] flex-col sm:max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          // New prompts start in the prompt field instead of Radix's default
+          // first-focusable (Title). Editing keeps the default.
+          if (cardId) return;
+          event.preventDefault();
+          document.getElementById('card-prompt')?.focus();
+        }}
         onPaste={(event) => {
           if (!attachmentTarget) return;
           void runAttachmentIngest(async () => {
