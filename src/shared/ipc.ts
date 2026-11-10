@@ -48,6 +48,7 @@ export const CHANNELS = {
   // the same file.
   usageCardTotals: 'usage:card-totals',
   usageBoardTotals: 'usage:board-totals',
+  usageBoardDaily: 'usage:board-daily',
   // Every git operation lives in main: the renderer never runs git, and
   // never names a worktree path main did not give it.
   gitEnsureWorktree: 'git:ensure-worktree',

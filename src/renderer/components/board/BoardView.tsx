@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { Bell, BellOff, SquareTerminal, StickyNote } from 'lucide-react';
+import { Bell, BellOff, ChartColumn, SquareTerminal, StickyNote } from 'lucide-react';
 import { toast } from 'sonner';
 import { WORKTREE_MISSING_ERROR } from '@shared/worktree';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';
@@ -20,6 +20,7 @@ import { ListColumn } from './ListColumn';
 import { AddListColumn } from './AddListColumn';
 import { FilterBar } from './FilterBar';
 import { ScratchpadDialog } from './ScratchpadDialog';
+import { SpendDashboardDialog } from './SpendDashboardDialog';
 
 export function BoardView() {
   const board = useDocStore(selectActiveBoard);
@@ -46,6 +47,7 @@ export function BoardView() {
   // True only between a CARD lift and its drop, so every column can offer a
   // droppable-sized target for exactly as long as one is needed.
   const [cardDragActive, setCardDragActive] = useState(false);
+  const [spendOpen, setSpendOpen] = useState(false);
 
   // Recomputed only when the board's own card set changes shape, not on
   // every render — `useBoardUsage` in turn collapses this to a content key,
@@ -143,6 +145,16 @@ export function BoardView() {
           <SquareTerminal />
           Terminals
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-2"
+          onClick={() => setSpendOpen(true)}
+        >
+          <ChartColumn />
+          Spend
+        </Button>
         {/* `ml-auto` right-aligns it on the name's line, the same trick
             `UsageSummary` uses for a card's badge row. Always rendered,
             zero included — see that component for why hiding a zero total
@@ -173,6 +185,7 @@ export function BoardView() {
         open={scratchpadOpen}
         onOpenChange={setScratchpadOpen}
       />
+      <SpendDashboardDialog open={spendOpen} onOpenChange={setSpendOpen} />
       <TerminalsDialog open={terminalsOpen} onOpenChange={setTerminalsOpen} />
 
       {/* The indices a drop reports are positions among the cards on

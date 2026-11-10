@@ -11,7 +11,7 @@ import type {
   ShellStartRequest,
   TerminalStartArgs,
 } from '../shared/daemonProtocol';
-import type { UsageTotals } from '../shared/usage';
+import type { DailySpend, UsageTotals } from '../shared/usage';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import type {
   SessionWorktree,
@@ -237,6 +237,13 @@ const api = {
      */
     boardTotals: (cardIds: string[]): Promise<UsageTotals> =>
       ipcRenderer.invoke(CHANNELS.usageBoardTotals, cardIds),
+    /** A board's spend per local day over `from`..`to` (inclusive `YYYY-MM-DD`). */
+    boardDaily: (
+      cardIds: string[],
+      from: string,
+      to: string,
+    ): Promise<DailySpend[]> =>
+      ipcRenderer.invoke(CHANNELS.usageBoardDaily, cardIds, from, to),
   },
   git: {
     ensureWorktree: (

@@ -28,6 +28,8 @@ import { CHANNELS, type IpcResult } from '../shared/ipc';
 import {
   boardUsageTotals,
   cardUsageTotals,
+  dailyUsageCosts,
+  type DailySpend,
   type UsageTotals,
 } from '../shared/usage';
 import type {
@@ -251,6 +253,17 @@ ipcMain.handle(CHANNELS.usageCardTotals, (_e, cardId: string): UsageTotals => {
 
 // Same ledger, same read-per-request rationale as `usageCardTotals` above —
 // only the filter differs.
+ipcMain.handle(
+  CHANNELS.usageBoardDaily,
+  (_e, cardIds: string[], from: string, to: string): DailySpend[] =>
+    dailyUsageCosts(
+      readUsageEntries(usageLedgerPathFor(getSessionDaemonSocketPath())),
+      cardIds,
+      from,
+      to,
+    ),
+);
+
 ipcMain.handle(
   CHANNELS.usageBoardTotals,
   (_e, cardIds: string[]): UsageTotals => {
