@@ -175,7 +175,8 @@ function withLiveBoardFields(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
     if (
       !source ||
       (source.scratchpad === board.scratchpad &&
-        source.terminals === board.terminals)
+        source.terminals === board.terminals &&
+        source.shipConflictPrompt === board.shipConflictPrompt)
     )
       return board;
     changed = true;
@@ -183,6 +184,7 @@ function withLiveBoardFields(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
       ...board,
       scratchpad: source.scratchpad,
       terminals: source.terminals,
+      shipConflictPrompt: source.shipConflictPrompt,
     };
   });
   return changed ? { ...restored, boards } : restored;
@@ -283,6 +285,8 @@ interface DocStore {
   ) => void;
   setBoardDefaultRepo: (boardId: string, repo: string | null) => void;
   setBoardScratchpad: (boardId: string, text: string) => void;
+  /** Blank restores the built-in Ship conflict prompt. */
+  setBoardShipConflictPrompt: (boardId: string, text: string) => void;
   addBoardTerminal: (boardId: string) => string;
   renameBoardTerminal: (boardId: string, id: string, name: string) => void;
   removeBoardTerminal: (boardId: string, id: string) => void;
@@ -938,6 +942,18 @@ export const useDocStore = create<DocStore>((set, get) => ({
     const next = produce(current, (draft) => {
       const board = draft.boards.find((candidate) => candidate.id === boardId);
       if (board && board.scratchpad !== text) board.scratchpad = text;
+    });
+    if (next === current) return;
+    set({ doc: next });
+  },
+
+  // Same bypass as `setBoardScratchpad`: typed in Settings, never an undo step.
+  setBoardShipConflictPrompt: (boardId, text) => {
+    const current = get().doc;
+    if (!current) return;
+    const next = produce(current, (draft) => {
+      const board = draft.boards.find((candidate) => candidate.id === boardId);
+      if (board) board.shipConflictPrompt = text.trim() ? text : undefined;
     });
     if (next === current) return;
     set({ doc: next });

@@ -1,5 +1,5 @@
 import type { Board } from '@shared/schema';
-import { Button } from '@/components/ui/button';
+import { BoardSettingsRow } from '@/components/shell/BoardSettingsRow';
 import { useDocStore } from '@/store/docStore';
 
 const NO_BOARDS: Board[] = [];
@@ -10,7 +10,6 @@ const NO_BOARDS: Board[] = [];
  */
 export function SettingsBoardsPanel() {
   const boards = useDocStore((s) => s.doc?.boards ?? NO_BOARDS);
-  const unarchiveBoard = useDocStore((s) => s.unarchiveBoard);
 
   if (boards.length === 0) {
     return <p className="text-sm text-muted-foreground">No boards yet.</p>;
@@ -19,26 +18,8 @@ export function SettingsBoardsPanel() {
   return (
     <ul className="flex flex-col gap-2">
       {boards.map((board) => (
-        <li
-          key={board.id}
-          className="flex items-center gap-3 rounded-md border px-3 py-2"
-        >
-          <span className="min-w-0 flex-1 truncate text-sm">{board.name}</span>
-          {board.archived ? (
-            <>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                Archived
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-label={`Unarchive ${board.name}`}
-                onClick={() => unarchiveBoard(board.id)}
-              >
-                Unarchive
-              </Button>
-            </>
-          ) : null}
+        <li key={board.id}>
+          <BoardSettingsRow board={board} />
         </li>
       ))}
     </ul>
