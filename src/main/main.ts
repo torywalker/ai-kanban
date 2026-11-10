@@ -33,12 +33,12 @@ import {
 import type {
   ApprovalMode,
   ShellStartRequest,
-  TerminalStartRequest,
+  TerminalStartArgs,
 } from '../shared/daemonProtocol';
 import type { AttachmentRef } from '../shared/attachments';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import { readSettings } from './services/settings';
-import { resolveDaemonImages } from './services/assets';
+import { resolveDaemonImages, withImagePaths } from './services/assets';
 import {
   destinationsForShipPlan,
   planShipChooser,
@@ -184,8 +184,21 @@ ipcMain.handle(CHANNELS.sessionRestartDaemon, () => restartDaemon());
 
 ipcMain.handle(
   CHANNELS.terminalStart,
-  (_e, req: Omit<TerminalStartRequest, 'op'>) =>
-    sendDaemonRequest({ ...req, op: 'terminalStart' }),
+  async (_e, { images: refs, ...req }: TerminalStartArgs) => {
+    let { prompt } = req;
+    // Only a new conversation sends the prompt; a resume ignores it.
+    if (refs?.length && req.sessionId === null) {
+      const { dataFilePath } = await readSettings();
+      if (!dataFilePath) {
+        throw new Error('Cannot send images without an open data file.');
+      }
+      prompt = withImagePaths(
+        prompt,
+        resolveDaemonImages(dataFilePath, req.cardId, refs),
+      );
+    }
+    return sendDaemonRequest({ ...req, prompt, op: 'terminalStart' });
+  },
 );
 ipcMain.handle(CHANNELS.shellStart, (_e, req: Omit<ShellStartRequest, 'op'>) =>
   sendDaemonRequest({ ...req, op: 'shellStart' }),

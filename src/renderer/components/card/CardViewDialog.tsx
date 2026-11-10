@@ -561,6 +561,10 @@ export function CardViewDialog({
           approvalMode,
           sessionId: sessionId ?? card.sessionId,
           claudeCliPath,
+          images: card.attachments.map((attachment) => ({
+            ...attachment,
+            cardId,
+          })),
           cols: 120,
           rows: 32,
         });

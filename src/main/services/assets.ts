@@ -146,6 +146,17 @@ export async function previewAttachment(
   throw new Error(`Could not read image ${id}`);
 }
 
+/**
+ * The CLI has no image flag, so a terminal session is told where the files
+ * are and reads them itself. Plain paths in a sentence, not `@` mentions:
+ * the data directory can contain spaces ("Application Support").
+ */
+export function withImagePaths(prompt: string, images: DaemonImage[]): string {
+  if (images.length === 0) return prompt;
+  const list = images.map((image) => `- ${image.path}`).join('\n');
+  return `${prompt}\n\nAttached images (view each with the Read tool):\n${list}`;
+}
+
 export function resolveDaemonImages(
   dataFilePath: string,
   sessionCardId: string,

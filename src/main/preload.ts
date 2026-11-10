@@ -9,7 +9,7 @@ import type {
   SessionSnapshot,
   ApprovalMode,
   ShellStartRequest,
-  TerminalStartRequest,
+  TerminalStartArgs,
 } from '../shared/daemonProtocol';
 import type { UsageTotals } from '../shared/usage';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
@@ -174,7 +174,7 @@ const api = {
     },
   },
   terminal: {
-    start: (req: Omit<TerminalStartRequest, 'op'>): Promise<void> =>
+    start: (req: TerminalStartArgs): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.terminalStart, req),
     startShell: (req: Omit<ShellStartRequest, 'op'>): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.shellStart, req),
