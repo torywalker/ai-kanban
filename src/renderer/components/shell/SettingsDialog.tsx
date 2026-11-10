@@ -210,11 +210,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/*
-        Capped at 85vh with the active tab panel as the only scroll region, so
-        the dialog never grows past a short window the way the previous single
-        stacked column did.
+        A fixed 40rem (capped at 85vh on short windows) so the dialog doesn't
+        resize per tab; the active tab panel is the only scroll region.
       */}
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
+      <DialogContent className="flex h-[40rem] max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
