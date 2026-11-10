@@ -108,13 +108,15 @@ export function createBuildStatusService(deps: {
   let inFlight: Promise<void> | null = null;
   let lastEmitted = '';
 
-  function emit(): void {
+  // `force` is for a renderer that just (re)registered: its store may be empty
+  // after a reload, so an unchanged update must still be delivered to it.
+  function emit(force = false): void {
     const update: BuildStatusUpdate = {
       statuses: [...entries.values()].map((entry) => entry.status),
       paused,
     };
     const serialized = JSON.stringify(update);
-    if (serialized === lastEmitted) return;
+    if (!force && serialized === lastEmitted) return;
     lastEmitted = serialized;
     deps.emit(update);
   }
@@ -372,11 +374,13 @@ export function createBuildStatusService(deps: {
       }
       entries.set(target.cardId, {
         target,
-        status: {
+        // Keep what was last known so the marker doesn't vanish while the
+        // re-poll for the changed target is in flight.
+        status: existing?.status ?? {
           cardId: target.cardId,
           kind: 'none',
           url: null,
-          checks: existing?.status.checks ?? [],
+          checks: [],
           stale: false,
         },
         nextDue: 0,
@@ -387,7 +391,7 @@ export function createBuildStatusService(deps: {
         seen: existing?.seen ?? false,
       });
     });
-    emit();
+    emit(true);
     tick();
   }
 

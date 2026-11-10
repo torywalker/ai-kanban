@@ -42,6 +42,7 @@ function setup(handler: (cmd: string, args: string[]) => ExecResult) {
   return {
     service,
     notices,
+    updates,
     last: () => updates[updates.length - 1],
     advance: (ms: number) => {
       time += ms;
@@ -227,5 +228,33 @@ describe('build status service', () => {
     const status = last().statuses[0];
     expect(status.stale).toBe(true);
     expect(status.checks.map((c) => c.state)).toEqual(['pending']);
+  });
+
+  it('re-sends current state when the renderer re-registers unchanged targets', async () => {
+    const { service, updates } = setup((cmd, args) =>
+      args[1] === 'list'
+        ? ok('[{"url":"https://github.com/o/r/pull/1"}]')
+        : prView([{ name: 'b', status: 'COMPLETED', conclusion: 'SUCCESS' }]),
+    );
+    service.setTargets([baseTarget]);
+    await service.tick();
+    const before = updates.length;
+
+    // A reloaded window sends the same targets again and has an empty store.
+    service.setTargets([baseTarget]);
+    expect(updates.length).toBeGreaterThan(before);
+    expect(updates[updates.length - 1].statuses[0].kind).toBe('pr');
+  });
+
+  it('keeps the last known status while a changed target is re-polled', async () => {
+    const { service, updates } = setup((cmd, args) =>
+      args[1] === 'list'
+        ? ok('[{"url":"https://github.com/o/r/pull/1"}]')
+        : prView([{ name: 'b', status: 'IN_PROGRESS' }]),
+    );
+    service.setTargets([baseTarget]);
+    await service.tick();
+    service.setTargets([{ ...baseTarget, title: 'Renamed' }]);
+    expect(updates[updates.length - 1].statuses[0].kind).toBe('pr');
   });
 });
