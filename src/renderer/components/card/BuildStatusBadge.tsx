@@ -41,7 +41,7 @@ export function BuildStatusBadge({ cardId }: { cardId: string }) {
           <BuildGlyph view={view} />
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" align="start">
+      <TooltipContent side="bottom" align="start">
         <BuildStatusDetails status={status} view={view} />
       </TooltipContent>
     </Tooltip>
