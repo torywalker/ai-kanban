@@ -176,7 +176,6 @@ export function PromptCard({
                   />
 
                   <SessionStatusBadge cardId={cardId} paused={card.paused} />
-                  <BuildStatusBadge cardId={cardId} />
                 </div>
 
                 {/*
@@ -273,6 +272,7 @@ export function PromptCard({
                   }
                 />
                 <CommentCount count={card.comments.length} />
+                <BuildStatusBadge cardId={cardId} />
                 {/* Always rendered, zero included: hiding it would make "this
                   card hasn't cost anything yet" indistinguishable from "this
                   card doesn't track cost" — same rationale as UsageSummary.
