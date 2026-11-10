@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { BuildStatusBadge } from '../renderer/components/card/BuildStatusBadge';
 import { useBuildStatusStore } from '../renderer/store/buildStatusStore';
 import type { BuildCheck, BuildStatus } from '../shared/buildStatus';
@@ -9,11 +9,15 @@ const check = (name: string, state: BuildCheck['state']): BuildCheck => ({
   url: null,
 });
 
-function show(checks: BuildCheck[], kind: BuildStatus['kind'] = 'pr') {
+function show(
+  checks: BuildCheck[],
+  kind: BuildStatus['kind'] = 'pr',
+  url: string | null = null,
+) {
   act(() => {
     useBuildStatusStore.getState().apply({
       paused: null,
-      statuses: [{ cardId: 'c1', kind, url: null, checks, stale: false }],
+      statuses: [{ cardId: 'c1', kind, url, checks, stale: false }],
     });
   });
   render(<BuildStatusBadge cardId="c1" />);
@@ -44,5 +48,33 @@ describe('BuildStatusBadge', () => {
     expect(
       screen.getByRole('button', { name: 'Build failed: lint' }),
     ).toBeTruthy();
+  });
+
+  it('opens a tooltip with the headline, failing steps and a click hint', () => {
+    show(
+      [
+        check('lint', 'fail'),
+        check('build', 'pending'),
+        check('test', 'pass'),
+      ],
+      'pr',
+      'https://github.com/o/r/pull/1',
+    );
+    fireEvent.focus(screen.getByRole('button'));
+    expect(screen.getAllByText('Build failed').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('1 failed · 1 running · 1 passed').length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText('lint').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Click to open on GitHub').length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('explains states that have no link, since they are not disabled', () => {
+    show([], 'unpushed');
+    fireEvent.focus(screen.getByRole('button'));
+    expect(screen.getAllByText('Not pushed yet').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Click to open on GitHub')).toBeNull();
   });
 });
