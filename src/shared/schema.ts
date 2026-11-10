@@ -108,6 +108,9 @@ export const CardSchema = z.object({
   // it answers "was a worktree used" even once none exists any more. Null
   // until a card's first run has started.
   usedWorktree: z.boolean().nullable().catch(null),
+  // ISO time of the last Ship that landed. Lives on the card, not on
+  // `sessionWorktree`, because that is cleared when the worktree is deleted.
+  lastShippedAt: z.string().optional().catch(undefined),
 });
 
 export const ListSchema = z.object({

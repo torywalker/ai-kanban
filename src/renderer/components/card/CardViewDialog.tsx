@@ -69,6 +69,8 @@ import { CommentsPanel } from './CommentsPanel';
 import { SessionTranscript } from './SessionTranscript';
 import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
+import { relativeTime } from '@/lib/relativeTime';
+import { formatCommentTime } from './CommentItem';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
 import { EMPTY_PROMPT_PLACEHOLDER, PromptBody } from './PromptBody';
@@ -679,6 +681,7 @@ export function CardViewDialog({
       }
       updateCard(boardId, listId, cardId, {
         sessionWorktree: { ...card.sessionWorktree, shipped: true },
+        lastShippedAt: new Date().toISOString(),
       });
       setShipQueue(null);
       toast.success('Shipped');
@@ -1008,6 +1011,14 @@ export function CardViewDialog({
               Its own `ml-auto` does the aligning.
             */}
               <UsageSummary totals={usage} live={liveUsage} />
+              {card.lastShippedAt ? (
+                <span
+                  className="text-xs text-muted-foreground"
+                  title={formatCommentTime(card.lastShippedAt)}
+                >
+                  Last shipped {relativeTime(card.lastShippedAt)}
+                </span>
+              ) : null}
             </div>
 
             <div className="flex items-start gap-1">
