@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { SHIP_CONFLICT_PROMPT } from '@shared/worktree';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { DisclosureSection } from '@/components/common/DisclosureSection';
 import { useDocStore } from '@/store/docStore';
 
 interface Props {
@@ -13,7 +12,7 @@ interface Props {
 }
 
 /**
- * A board's Ship merge-conflict prompt: collapsed and read-only until the
+ * A board's Ship merge-conflict prompt: read-only until the
  * user opts in with Edit, so the built-in text is never changed by accident.
  */
 export function ShipConflictPromptEditor({
@@ -33,10 +32,13 @@ export function ShipConflictPromptEditor({
   };
 
   return (
-    <DisclosureSection
-      title="Ship merge-conflict prompt"
-      summary={prompt ? 'Custom' : 'Default'}
-    >
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium">
+        Ship merge-conflict prompt
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {prompt ? 'Custom' : 'Default'}
+        </span>
+      </div>
       {draft === null ? (
         <>
           <p className="whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
@@ -81,6 +83,6 @@ export function ShipConflictPromptEditor({
           </div>
         </>
       )}
-    </DisclosureSection>
+    </div>
   );
 }
