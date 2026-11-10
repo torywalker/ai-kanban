@@ -1,9 +1,9 @@
 import {
-  CircleX,
   CloudUpload,
   Hourglass,
   PackageX,
   ShieldCheck,
+  ShieldX,
   type LucideIcon,
 } from 'lucide-react';
 import { summarizeChecks, type BuildStatus } from '@shared/buildStatus';
@@ -108,8 +108,8 @@ export function describeBuild(status: BuildStatus): BuildView | null {
   }
   if (failing.length > 0) {
     return {
-      icon: CircleX,
-      color: 'text-destructive',
+      icon: ShieldX,
+      color: 'text-rose-500',
       label: `Build failed: ${failing.map((c) => c.name).join(', ')}`,
       title: 'Build failed',
       summary: [

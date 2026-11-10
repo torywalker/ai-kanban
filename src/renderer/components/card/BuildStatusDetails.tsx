@@ -1,4 +1,4 @@
-import { CircleX } from 'lucide-react';
+import { ShieldX } from 'lucide-react';
 import {
   summarizeChecks,
   type BuildCheck,
@@ -19,7 +19,7 @@ function SegmentBar({ checks }: { checks: BuildCheck[] }) {
       className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-muted"
     >
       <div className="bg-indigo-500" style={{ width: pct(passed) }} />
-      <div className="bg-destructive" style={{ width: pct(failing.length) }} />
+      <div className="bg-rose-500" style={{ width: pct(failing.length) }} />
       <div className="bg-sky-500/40" style={{ width: pct(pending) }} />
     </div>
   );
@@ -29,7 +29,7 @@ function CheckRow({ check }: { check: BuildCheck }) {
   return (
     <li className="flex items-center gap-2">
       {check.state === 'fail' ? (
-        <CircleX className="size-3 shrink-0 text-destructive" />
+        <ShieldX className="size-3 shrink-0 text-rose-500" />
       ) : (
         <span className="flex size-3 shrink-0 items-center justify-center">
           <span className="size-1.5 animate-pulse rounded-full bg-sky-500" />
