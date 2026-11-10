@@ -26,6 +26,7 @@ const SETTINGS: Settings = {
   sidebarCollapsed: false,
   slashSnippets: [],
   commentSnippets: [],
+  promptDeleteWorktreeOnDone: true,
 };
 
 function boardNamed(name: string) {

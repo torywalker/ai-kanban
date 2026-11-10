@@ -52,11 +52,7 @@ describe('BuildStatusBadge', () => {
 
   it('opens a tooltip with the headline, failing steps and a click hint', () => {
     show(
-      [
-        check('lint', 'fail'),
-        check('build', 'pending'),
-        check('test', 'pass'),
-      ],
+      [check('lint', 'fail'), check('build', 'pending'), check('test', 'pass')],
       'pr',
       'https://github.com/o/r/pull/1',
     );
@@ -66,9 +62,9 @@ describe('BuildStatusBadge', () => {
       screen.getAllByText('1 failed · 1 running · 1 passed').length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText('lint').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Click to open on GitHub').length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getAllByText('Click to open on GitHub').length,
+    ).toBeGreaterThan(0);
   });
 
   it('explains states that have no link, since they are not disabled', () => {

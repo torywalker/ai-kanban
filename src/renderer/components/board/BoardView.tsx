@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { Bell, BellOff, ChartColumn, SquareTerminal, StickyNote } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  ChartColumn,
+  SquareTerminal,
+  StickyNote,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { WORKTREE_MISSING_ERROR } from '@shared/worktree';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';

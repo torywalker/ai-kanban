@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createCliCostReconciler, readCliCost } from '../main/daemon/cliCost';
 import type { UsageEntry } from '@shared/usage';
+import { createCliCostReconciler, readCliCost } from '../main/daemon/cliCost';
 
 const row = (costUSD: number, model = 'm'): UsageEntry => ({
   cardId: 'c',

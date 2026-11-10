@@ -33,8 +33,12 @@ describe('WelcomeScreen never bypasses the existing-file check', () => {
 
   beforeEach(() => {
     installElectronMock('/Users/me/Library/ai-kanban/kanban.json');
-    openAtSpy = jest.spyOn(useDocStore.getState(), 'openAt').mockResolvedValue(undefined);
-    createAtSpy = jest.spyOn(useDocStore.getState(), 'createAt').mockResolvedValue(undefined);
+    openAtSpy = jest
+      .spyOn(useDocStore.getState(), 'openAt')
+      .mockResolvedValue(undefined);
+    createAtSpy = jest
+      .spyOn(useDocStore.getState(), 'createAt')
+      .mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -44,13 +48,17 @@ describe('WelcomeScreen never bypasses the existing-file check', () => {
 
   it('"Use default location" calls openAt, never createAt directly', async () => {
     render(<WelcomeScreen />);
-    const button = await screen.findByRole('button', { name: 'Use default location' });
+    const button = await screen.findByRole('button', {
+      name: 'Use default location',
+    });
     await waitFor(() => expect(button).not.toBeDisabled());
 
     fireEvent.click(button);
 
     await waitFor(() =>
-      expect(openAtSpy).toHaveBeenCalledWith('/Users/me/Library/ai-kanban/kanban.json'),
+      expect(openAtSpy).toHaveBeenCalledWith(
+        '/Users/me/Library/ai-kanban/kanban.json',
+      ),
     );
     expect(createAtSpy).not.toHaveBeenCalled();
   });
@@ -67,7 +75,9 @@ describe('WelcomeScreen never bypasses the existing-file check', () => {
 
   it('"Open an existing file…" calls openAt with the picked path', async () => {
     render(<WelcomeScreen />);
-    fireEvent.click(screen.getByRole('button', { name: /Open an existing file/ }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Open an existing file/ }),
+    );
 
     await waitFor(() =>
       expect(openAtSpy).toHaveBeenCalledWith('/Users/me/existing-board.json'),

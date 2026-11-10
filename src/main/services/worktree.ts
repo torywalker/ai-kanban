@@ -205,11 +205,7 @@ export async function removeWorktree(
     return;
   }
 
-  const deleteBranch = await git(primary, [
-    'branch',
-    '-D',
-    worktree.branch,
-  ]);
+  const deleteBranch = await git(primary, ['branch', '-D', worktree.branch]);
   if (!deleteBranch.ok && (await gitRefExists(primary, worktree.branch))) {
     throw new Error(deleteBranch.stderr);
   }

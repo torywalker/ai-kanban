@@ -91,7 +91,7 @@ describe('ListColumn paste-to-create', () => {
     const group = screen.getByRole('group', { name: /list:/i });
     fireEvent.paste(group, { clipboardData: makeClipboardData(text) });
 
-    const cards = useDocStore.getState().doc!.boards[0].lists[0].cards;
+    const { cards } = useDocStore.getState().doc!.boards[0].lists[0];
     expect(cards).toHaveLength(1);
     expect(cards[0].prompt).toBe(text);
     // 60 chars total: 57 kept + '...'
@@ -112,7 +112,7 @@ describe('ListColumn paste-to-create', () => {
       clipboardData: makeClipboardData('first line\nsecond line'),
     });
 
-    const cards = useDocStore.getState().doc!.boards[0].lists[0].cards;
+    const { cards } = useDocStore.getState().doc!.boards[0].lists[0];
     expect(cards).toHaveLength(0);
   });
 });

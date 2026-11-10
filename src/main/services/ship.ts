@@ -436,7 +436,12 @@ export function createDaemonAgentTurnRunner(deps: {
               cardId: request.cardId,
               data: request.prompt,
             })
-            .then(() => new Promise((r) => setTimeout(r, CLI_SUBMIT_DELAY_MS)))
+            .then(
+              () =>
+                new Promise((_resolve) => {
+                  setTimeout(_resolve, CLI_SUBMIT_DELAY_MS);
+                }),
+            )
             .then(() =>
               deps.send({
                 op: 'terminalInput',

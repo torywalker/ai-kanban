@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
-import { cliCostPathFor } from './cliCost';
 import path from 'path';
 import { StringDecoder } from 'string_decoder';
 import type {
@@ -8,6 +7,7 @@ import type {
   SessionSnapshot,
   TerminalStartRequest,
 } from '@shared/daemonProtocol';
+import { cliCostPathFor } from './cliCost';
 import {
   buildTerminalLaunch,
   claudeResumeLine,

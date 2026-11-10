@@ -12,7 +12,12 @@ import {
  * chime was configured with, rather than only the last one.
  */
 function installFakeAudioContext() {
-  const oscillators: { frequency: { value: number }; start: jest.Mock; stop: jest.Mock; connect: jest.Mock }[] = [];
+  const oscillators: {
+    frequency: { value: number };
+    start: jest.Mock;
+    stop: jest.Mock;
+    connect: jest.Mock;
+  }[] = [];
   const ctx = {
     currentTime: 0,
     destination: {},
@@ -28,7 +33,10 @@ function installFakeAudioContext() {
       return oscillator;
     }),
     createGain: jest.fn(() => ({
-      gain: { setValueAtTime: jest.fn(), exponentialRampToValueAtTime: jest.fn() },
+      gain: {
+        setValueAtTime: jest.fn(),
+        exponentialRampToValueAtTime: jest.fn(),
+      },
       connect: jest.fn(),
     })),
     close: jest.fn(),

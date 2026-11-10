@@ -71,12 +71,10 @@ export function featureBranchFor(cardId: string): string {
 
 export function truncateBranch(name: string, maxChars = 32): string {
   if (name.length <= maxChars) return name;
-  return name.slice(0, maxChars - 1) + '…';
+  return `${name.slice(0, maxChars - 1)}…`;
 }
 
-export type ShipHead =
-  | { kind: 'branch'; name: string }
-  | { kind: 'detached' };
+export type ShipHead = { kind: 'branch'; name: string } | { kind: 'detached' };
 
 export type ShipChooserPlan =
   | { kind: 'direct'; destination: string }
@@ -98,8 +96,7 @@ export function planShipChooser(input: {
     }
     return {
       kind: 'blocked',
-      message:
-        'Cannot ship: the original branch is gone and HEAD is detached.',
+      message: 'Cannot ship: the original branch is gone and HEAD is detached.',
     };
   }
 

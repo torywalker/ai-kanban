@@ -17,7 +17,6 @@ import { registerQuickAdd } from './quickAddWindow';
 import { registerIpc } from './services/registerIpc';
 import { stopWatching } from './services/watcher';
 import {
-  ensureDaemonRunning,
   getSessionDaemonSocketPath,
   restartDaemon,
   sendDaemonRequest,
@@ -48,10 +47,7 @@ import {
   type ShipChooserPlan,
 } from '../shared/worktree';
 import { git, gitHead, gitRefExists } from './services/git';
-import {
-  createBuildStatusService,
-  defaultExec,
-} from './services/buildStatus';
+import { createBuildStatusService, defaultExec } from './services/buildStatus';
 import { showBuildNotification } from './services/notifications';
 import type { BuildWatchTarget } from '../shared/buildStatus';
 import {
@@ -432,9 +428,8 @@ const buildStatusService = createBuildStatusService({
 });
 buildStatusService.start();
 
-ipcMain.handle(
-  CHANNELS.buildStatusWatch,
-  (_e, targets: BuildWatchTarget[]) => buildStatusService.setTargets(targets),
+ipcMain.handle(CHANNELS.buildStatusWatch, (_e, targets: BuildWatchTarget[]) =>
+  buildStatusService.setTargets(targets),
 );
 ipcMain.handle(CHANNELS.buildStatusRetry, () => buildStatusService.retry());
 

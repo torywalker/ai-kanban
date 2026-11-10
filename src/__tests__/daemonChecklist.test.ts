@@ -16,7 +16,14 @@ describe('deriveSessionUpdate', () => {
     const snapshot = deriveSessionUpdate(base(), {
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: 'tu_1', name: 'Read', input: { file_path: 'auth.py' } }],
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tu_1',
+            name: 'Read',
+            input: { file_path: 'auth.py' },
+          },
+        ],
       },
     });
     expect(snapshot.checklist).toEqual([
@@ -29,7 +36,14 @@ describe('deriveSessionUpdate', () => {
     const snapshot = deriveSessionUpdate(base(), {
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: 'tu_2', name: 'WebSearch', input: { query: 'foo' } }],
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tu_2',
+            name: 'WebSearch',
+            input: { query: 'foo' },
+          },
+        ],
       },
     });
     expect(snapshot.checklist[0].label).toBe('WebSearch');
@@ -58,7 +72,14 @@ describe('deriveSessionUpdate', () => {
     const msg = {
       type: 'assistant',
       message: {
-        content: [{ type: 'tool_use', id: 'tu_1', name: 'Read', input: { file_path: 'a.py' } }],
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tu_1',
+            name: 'Read',
+            input: { file_path: 'a.py' },
+          },
+        ],
       },
     };
     snapshot = deriveSessionUpdate(snapshot, msg);
@@ -75,14 +96,28 @@ describe('deriveSessionUpdate', () => {
    * SDK's own `tool_result` messages.
    */
   describe('M1: done tracks real tool completion, not the request', () => {
-    const toolUse = (id: string, name = 'Bash', input: unknown = { command: 'ls' }) => ({
+    const toolUse = (
+      id: string,
+      name = 'Bash',
+      input: unknown = { command: 'ls' },
+    ) => ({
       type: 'assistant',
       message: { content: [{ type: 'tool_use', id, name, input }] },
     });
-    const toolResult = (toolUseId: string, extra: Record<string, unknown> = {}) => ({
+    const toolResult = (
+      toolUseId: string,
+      extra: Record<string, unknown> = {},
+    ) => ({
       type: 'user',
       message: {
-        content: [{ type: 'tool_result', tool_use_id: toolUseId, content: 'ok', ...extra }],
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: toolUseId,
+            content: 'ok',
+            ...extra,
+          },
+        ],
       },
     });
 
@@ -105,13 +140,32 @@ describe('deriveSessionUpdate', () => {
         type: 'assistant',
         message: {
           content: [
-            { type: 'tool_use', id: 'tu_a', name: 'Read', input: { file_path: 'a.py' } },
-            { type: 'tool_use', id: 'tu_b', name: 'Read', input: { file_path: 'b.py' } },
-            { type: 'tool_use', id: 'tu_c', name: 'Read', input: { file_path: 'c.py' } },
+            {
+              type: 'tool_use',
+              id: 'tu_a',
+              name: 'Read',
+              input: { file_path: 'a.py' },
+            },
+            {
+              type: 'tool_use',
+              id: 'tu_b',
+              name: 'Read',
+              input: { file_path: 'b.py' },
+            },
+            {
+              type: 'tool_use',
+              id: 'tu_c',
+              name: 'Read',
+              input: { file_path: 'c.py' },
+            },
           ],
         },
       });
-      expect(snapshot.checklist.map((i) => i.done)).toEqual([false, false, false]);
+      expect(snapshot.checklist.map((i) => i.done)).toEqual([
+        false,
+        false,
+        false,
+      ]);
 
       snapshot = deriveSessionUpdate(snapshot, toolResult('tu_b'));
       expect(snapshot.checklist.find((i) => i.id === 'tu_a')!.done).toBe(false);
@@ -119,7 +173,7 @@ describe('deriveSessionUpdate', () => {
       expect(snapshot.checklist.find((i) => i.id === 'tu_c')!.done).toBe(false);
 
       snapshot = deriveSessionUpdate(snapshot, toolResult('tu_c'));
-      expect(snapshot.checklist.map((i) => i.id + ':' + i.done)).toEqual([
+      expect(snapshot.checklist.map((i) => `${i.id}:${i.done}`)).toEqual([
         'tu_a:false',
         'tu_b:true',
         'tu_c:true',
@@ -136,8 +190,14 @@ describe('deriveSessionUpdate', () => {
     });
 
     it('marks done in one shot when a result batches several tool_use ids', () => {
-      let snapshot = deriveSessionUpdate(base(), toolUse('tu_1', 'Read', { file_path: 'a' }));
-      snapshot = deriveSessionUpdate(snapshot, toolUse('tu_2', 'Read', { file_path: 'b' }));
+      let snapshot = deriveSessionUpdate(
+        base(),
+        toolUse('tu_1', 'Read', { file_path: 'a' }),
+      );
+      snapshot = deriveSessionUpdate(
+        snapshot,
+        toolUse('tu_2', 'Read', { file_path: 'b' }),
+      );
       snapshot = deriveSessionUpdate(snapshot, {
         type: 'user',
         message: {
@@ -153,7 +213,9 @@ describe('deriveSessionUpdate', () => {
     it('returns the SAME snapshot object for a result that changes nothing', () => {
       const withTool = deriveSessionUpdate(base(), toolUse('tu_1'));
       // A result for an id this snapshot never saw.
-      expect(deriveSessionUpdate(withTool, toolResult('tu_unknown'))).toBe(withTool);
+      expect(deriveSessionUpdate(withTool, toolResult('tu_unknown'))).toBe(
+        withTool,
+      );
       // A plain user text message with no tool_result blocks.
       expect(
         deriveSessionUpdate(withTool, {
@@ -186,10 +248,17 @@ describe('deriveSessionUpdate', () => {
       const snapshot = deriveSessionUpdate(base(), {
         type: 'assistant',
         uuid: 'evt_1',
-        message: { content: [{ type: 'text', text: 'Looking at the file now.' }] },
+        message: {
+          content: [{ type: 'text', text: 'Looking at the file now.' }],
+        },
       });
       expect(snapshot.messages).toEqual([
-        { id: 'evt_1:0', kind: 'text', text: 'Looking at the file now.', seq: 0 },
+        {
+          id: 'evt_1:0',
+          kind: 'text',
+          text: 'Looking at the file now.',
+          seq: 0,
+        },
       ]);
     });
 
@@ -197,10 +266,19 @@ describe('deriveSessionUpdate', () => {
       const snapshot = deriveSessionUpdate(base(), {
         type: 'assistant',
         uuid: 'evt_1',
-        message: { content: [{ type: 'thinking', thinking: 'Let me check the tests first.' }] },
+        message: {
+          content: [
+            { type: 'thinking', thinking: 'Let me check the tests first.' },
+          ],
+        },
       });
       expect(snapshot.messages).toEqual([
-        { id: 'evt_1:0', kind: 'thinking', text: 'Let me check the tests first.', seq: 0 },
+        {
+          id: 'evt_1:0',
+          kind: 'thinking',
+          text: 'Let me check the tests first.',
+          seq: 0,
+        },
       ]);
     });
 
@@ -228,13 +306,22 @@ describe('deriveSessionUpdate', () => {
       let snapshot = deriveSessionUpdate(base(), {
         type: 'assistant',
         uuid: 'evt_1',
-        message: { content: [{ type: 'text', text: 'I will read the file first.' }] },
+        message: {
+          content: [{ type: 'text', text: 'I will read the file first.' }],
+        },
       });
       snapshot = deriveSessionUpdate(snapshot, {
         type: 'assistant',
         uuid: 'evt_2',
         message: {
-          content: [{ type: 'tool_use', id: 'tu_1', name: 'Read', input: { file_path: 'a.py' } }],
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu_1',
+              name: 'Read',
+              input: { file_path: 'a.py' },
+            },
+          ],
         },
       });
       snapshot = deriveSessionUpdate(snapshot, {
@@ -297,7 +384,9 @@ describe('deriveSessionUpdate', () => {
     const toolResult = (toolUseId: string) => ({
       type: 'user',
       message: {
-        content: [{ type: 'tool_result', tool_use_id: toolUseId, content: 'ok' }],
+        content: [
+          { type: 'tool_result', tool_use_id: toolUseId, content: 'ok' },
+        ],
       },
     });
     const result = (subtype: string) => ({ type: 'result', subtype });
@@ -318,7 +407,11 @@ describe('deriveSessionUpdate', () => {
       snapshot = deriveSessionUpdate(snapshot, {
         type: 'assistant',
         uuid: 'evt_bg',
-        message: { content: [{ type: 'text', text: 'Still working in the background...' }] },
+        message: {
+          content: [
+            { type: 'text', text: 'Still working in the background...' },
+          ],
+        },
       });
       snapshot = deriveSessionUpdate(snapshot, toolResult('tu_task'));
       snapshot = deriveSessionUpdate(snapshot, result('success'));

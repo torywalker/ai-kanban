@@ -50,8 +50,9 @@ describe('worktree lifecycle', () => {
       .digest('hex')
       .slice(0, 16);
 
-    expect(worktreePathFor(userDataRoot, fs.realpathSync(repo), 'crd_test1'))
-      .toBe(path.join(userDataRoot, 'worktrees', digest, 'crd_test1'));
+    expect(
+      worktreePathFor(userDataRoot, fs.realpathSync(repo), 'crd_test1'),
+    ).toBe(path.join(userDataRoot, 'worktrees', digest, 'crd_test1'));
   });
 
   it('creates, reuses, and removes a card worktree', async () => {
@@ -190,8 +191,10 @@ describe('worktree lifecycle', () => {
       fs.realpathSync(repo),
       'crd_test1',
     );
-    fs.mkdirSync(destination, { recursive: true });
-    fs.writeFileSync(path.join(destination, 'blocker.txt'), 'occupied\n');
+    // A non-directory at the destination isn't a stale worktree ensureWorktree
+    // clears, so `git worktree add` itself fails.
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, 'occupied\n');
 
     await expect(
       ensureWorktree({
@@ -202,9 +205,7 @@ describe('worktree lifecycle', () => {
       }),
     ).rejects.toThrow();
 
-    expect(fs.readFileSync(path.join(destination, 'blocker.txt'), 'utf8')).toBe(
-      'occupied\n',
-    );
+    expect(fs.readFileSync(destination, 'utf8')).toBe('occupied\n');
   });
 
   it('rejects a non-git working directory', async () => {

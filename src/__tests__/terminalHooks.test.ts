@@ -202,9 +202,7 @@ describe('applyPtyExit', () => {
 
 describe('applyInterrupt', () => {
   it('settles a working turn as done', () => {
-    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe(
-      'done',
-    );
+    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe('done');
   });
 
   it('leaves any other status alone', () => {

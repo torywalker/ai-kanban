@@ -118,8 +118,8 @@ describe('undo/redo', () => {
   it('scenario 1/2: applyDrag is covered by commit, so undo/redo move a card back and forth', async () => {
     await freshDoc();
     const boardId = useDocStore.getState().doc!.boards[0].id;
-    const [waitingList, inFlightList] = useDocStore.getState().doc!.boards[0]
-      .lists;
+    const [waitingList, inFlightList] =
+      useDocStore.getState().doc!.boards[0].lists;
     const cardId = useDocStore.getState().addCard(boardId, waitingList.id, {
       title: 'Draggable',
       prompt: 'p',
@@ -174,9 +174,7 @@ describe('undo/redo', () => {
     const beforeRedoAttempt = useDocStore.getState().doc;
     useDocStore.getState().redo();
     expect(useDocStore.getState().doc).toBe(beforeRedoAttempt);
-    expect(useDocStore.getState().doc!.boards[0].name).toBe(
-      'Branched rename',
-    );
+    expect(useDocStore.getState().doc!.boards[0].name).toBe('Branched rename');
   });
 
   it('undo/redo do not themselves push onto history (they bypass commit)', async () => {
@@ -378,11 +376,7 @@ describe('undo/redo', () => {
       return { boardId, listId, cardId };
     }
 
-    const readCard = (
-      boardId: string,
-      listId: string,
-      cardId: string,
-    ) =>
+    const readCard = (boardId: string, listId: string, cardId: string) =>
       useDocStore
         .getState()
         .doc!.boards.find((b) => b.id === boardId)!
@@ -477,7 +471,9 @@ describe('undo/redo', () => {
           ?.lists.find((l) => l.id === listId)
           ?.cards.find((c) => c.id === cardId);
         if (card && card.sessionId !== LIVE) {
-          useDocStore.getState().setCardSessionId(boardId, listId, cardId, LIVE);
+          useDocStore
+            .getState()
+            .setCardSessionId(boardId, listId, cardId, LIVE);
         }
       };
 
@@ -498,12 +494,7 @@ describe('undo/redo', () => {
 
       // Three renames back out one at a time; the fourth press steps past
       // the addCard commit. Nothing gets stuck on the session write.
-      expect(names).toEqual([
-        'Rename B',
-        'Rename A',
-        'Prompts',
-        'Prompts',
-      ]);
+      expect(names).toEqual(['Rename B', 'Rename A', 'Prompts', 'Prompts']);
       expect(useDocStore.getState().doc!.boards[0].lists[0].cards).toHaveLength(
         0,
       );

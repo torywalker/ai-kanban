@@ -47,8 +47,5 @@ export function useBuildStatusSync(): void {
     window.electron?.buildStatus?.watch(JSON.parse(key));
   }, [key]);
 
-  useEffect(
-    () => window.electron?.buildStatus?.onUpdate(apply),
-    [apply],
-  );
+  useEffect(() => window.electron?.buildStatus?.onUpdate(apply), [apply]);
 }

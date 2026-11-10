@@ -1,5 +1,4 @@
 import {
-  extensionForMime,
   newAttachmentId,
   sniffImageMime,
   MAX_IMAGE_BYTES,

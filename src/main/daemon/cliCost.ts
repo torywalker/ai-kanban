@@ -12,7 +12,9 @@ export function cliCostPathFor(hookFile: string): string {
  */
 export function readCliCost(hookFile: string): number | null {
   try {
-    const parsed = JSON.parse(fs.readFileSync(cliCostPathFor(hookFile), 'utf8'));
+    const parsed = JSON.parse(
+      fs.readFileSync(cliCostPathFor(hookFile), 'utf8'),
+    );
     const total = parsed?.cost?.total_cost_usd;
     return typeof total === 'number' && Number.isFinite(total) && total >= 0
       ? total

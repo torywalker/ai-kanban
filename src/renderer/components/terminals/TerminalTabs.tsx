@@ -97,11 +97,7 @@ export function TerminalTabs({
                             onCommit={(next) => onRename(tab.id, next)}
                             onEditingChange={(editing) =>
                               setEditingId((cur) =>
-                                editing
-                                  ? tab.id
-                                  : cur === tab.id
-                                    ? null
-                                    : cur,
+                                editing ? tab.id : cur === tab.id ? null : cur,
                               )
                             }
                             className="min-w-0"

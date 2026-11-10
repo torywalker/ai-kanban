@@ -136,6 +136,7 @@ export function PromptCard({
               overdue && 'border-destructive ring-2 ring-destructive',
             )}
           >
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- pointer-only open; keyboard access is a known gap */}
             <div
               ref={scrollRef}
               onClick={() => setViewOpen(true)}

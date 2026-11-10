@@ -127,7 +127,7 @@ describe('CardComposerDialog', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-      const cards = useDocStore.getState().doc!.boards[0].lists[0].cards;
+      const { cards } = useDocStore.getState().doc!.boards[0].lists[0];
       expect(cards.map((card) => card.id)).toEqual([cardId]);
       expect(cards[0].title).toBe('Edited title');
     });
@@ -149,7 +149,7 @@ describe('CardComposerDialog', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Always' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add prompt' }));
 
-      const cards = useDocStore.getState().doc!.boards[0].lists[0].cards;
+      const { cards } = useDocStore.getState().doc!.boards[0].lists[0];
       expect(cards).toHaveLength(2);
       expect(cards[1].useWorktree).toBe(true);
     });

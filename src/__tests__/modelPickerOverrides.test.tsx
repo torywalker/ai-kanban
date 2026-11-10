@@ -30,17 +30,22 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = jest.fn();
 });
 
-
 describe('ModelPicker', () => {
   it('offers the aliases and reports the chosen one, not free text', () => {
     const onChange = jest.fn();
     render(
-      <ModelPicker value={null} onChange={onChange} inheritLabel="Uses the global default" />,
+      <ModelPicker
+        value={null}
+        onChange={onChange}
+        inheritLabel="Uses the global default"
+      />,
     );
 
     // Collapsed state shows the inherited label, and there is no text input
     // to type an arbitrary string into.
-    expect(screen.getByRole('button', { name: /Uses the global default/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Uses the global default/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 
     fireEvent.keyDown(
@@ -55,18 +60,28 @@ describe('ModelPicker', () => {
   it('reveals an empty text input for "Custom model id…" and clears the alias', () => {
     const onChange = jest.fn();
     const { rerender } = render(
-      <ModelPicker value="opus" onChange={onChange} inheritLabel="Uses the global default" />,
+      <ModelPicker
+        value="opus"
+        onChange={onChange}
+        inheritLabel="Uses the global default"
+      />,
     );
 
     fireEvent.keyDown(screen.getByRole('button', { name: /Opus/ }), {
       key: 'ArrowDown',
     });
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Custom model id/ }));
+    fireEvent.click(
+      screen.getByRole('menuitemradio', { name: /Custom model id/ }),
+    );
 
     // The alias is dropped rather than left behind as a pre-filled id.
     expect(onChange).toHaveBeenCalledWith(null);
     rerender(
-      <ModelPicker value={null} onChange={onChange} inheritLabel="Uses the global default" />,
+      <ModelPicker
+        value={null}
+        onChange={onChange}
+        inheritLabel="Uses the global default"
+      />,
     );
 
     const input = screen.getByRole('textbox') as HTMLInputElement;
@@ -87,7 +102,9 @@ describe('ModelPicker', () => {
     expect(
       screen.getByRole('button', { name: /claude-opus-4-8/ }),
     ).toBeInTheDocument();
-    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('claude-opus-4-8');
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(
+      'claude-opus-4-8',
+    );
   });
 });
 
@@ -123,7 +140,9 @@ describe('CardComposerDialog overrides disclosure', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /Overrides/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Overrides/ }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Model')).not.toBeInTheDocument();
     expect(screen.queryByText('Working directory')).not.toBeInTheDocument();
   });
@@ -174,7 +193,9 @@ describe('CardComposerDialog overrides disclosure', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Overrides/ }));
     expect(
-      screen.getByRole('button', { name: /Uses the global default \(Sonnet\)/ }),
+      screen.getByRole('button', {
+        name: /Uses the global default \(Sonnet\)/,
+      }),
     ).toBeInTheDocument();
   });
 
