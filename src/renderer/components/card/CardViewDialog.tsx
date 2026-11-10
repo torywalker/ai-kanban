@@ -124,6 +124,10 @@ export function CardViewDialog({
   );
   const shellAlive =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.shellAlive) === true;
+  // A foreground program the hooks never reported, e.g. a hand-attached Claude.
+  const foregroundBusy =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.foregroundBusy) ===
+    true;
   const claudeRunning =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
@@ -480,6 +484,7 @@ export function CardViewDialog({
     terminalMode &&
     !claudeRunning &&
     !claudeTurnActive &&
+    !(shellAlive && foregroundBusy) &&
     !shipBusy &&
     !!resumeSessionId &&
     (shellAlive || canRun);

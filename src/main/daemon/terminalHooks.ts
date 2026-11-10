@@ -78,6 +78,21 @@ function clearSubagents(terminal: TerminalState): TerminalState {
   return {
     shellAlive: terminal.shellAlive,
     claudeRunning: terminal.claudeRunning,
+    ...(terminal.foregroundBusy ? { foregroundBusy: true } : {}),
+  };
+}
+
+/** Records whether a non-shell process holds the pty's foreground. */
+export function applyForeground(
+  snapshot: SessionSnapshot,
+  busy: boolean,
+): SessionSnapshot {
+  const terminal = terminalOf(snapshot);
+  if ((terminal.foregroundBusy === true) === busy) return snapshot;
+  const { foregroundBusy, ...rest } = terminal;
+  return {
+    ...snapshot,
+    terminal: busy ? { ...rest, foregroundBusy: true } : rest,
   };
 }
 
@@ -215,6 +230,8 @@ export function appendCapped(
  */
 export function isIdleTerminal(snapshot: SessionSnapshot): boolean {
   const terminal = terminalOf(snapshot);
+  // A foreground process the hooks cannot see may be a hand-attached Claude.
+  if (terminal.foregroundBusy) return false;
   if (terminal.shellAlive && !terminal.claudeRunning) return true;
   return (
     snapshot.status === 'waiting' ||
