@@ -1,4 +1,10 @@
-import { Loader2, CircleAlert, CircleCheck, CirclePause, Unplug } from 'lucide-react';
+import {
+  Loader2,
+  CircleAlert,
+  CircleCheck,
+  CirclePause,
+  Unplug,
+} from 'lucide-react';
 import { useSessionStore } from '@/store/sessionStore';
 import type { SessionStatus } from '@shared/daemonProtocol';
 

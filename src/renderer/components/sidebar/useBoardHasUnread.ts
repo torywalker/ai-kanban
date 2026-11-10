@@ -6,8 +6,8 @@ import { useSessionStore } from '@/store/sessionStore';
 export function useBoardHasUnread(boardId: string): boolean {
   const cardIds = useDocStore(
     useShallow((s) => {
-    const board = s.doc?.boards.find((b) => b.id === boardId);
-    return board?.lists.flatMap((l) => l.cards.map((c) => c.id)) ?? [];
+      const board = s.doc?.boards.find((b) => b.id === boardId);
+      return board?.lists.flatMap((l) => l.cards.map((c) => c.id)) ?? [];
     }),
   );
   return useSessionStore((s) => cardIds.some((id) => s.unread[id] === true));

@@ -114,4 +114,6 @@ export interface Settings {
   // immediately. App-level, like the other settings, so the library stays
   // when a different kanban file is opened.
   slashSnippets: SlashSnippet[];
+  // Same idea for the comment box; a separate library from the prompt one.
+  commentSnippets: SlashSnippet[];
 }

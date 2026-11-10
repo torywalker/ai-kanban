@@ -74,6 +74,86 @@ function newSnippetId(): string {
   return `snp_${suffix}`;
 }
 
+type SnippetKey = 'slashSnippets' | 'commentSnippets';
+type SnippetResult = { ok: true } | { ok: false; error: string };
+type SnippetSet = (patch: Partial<Record<SnippetKey, SlashSnippet[]>>) => void;
+type SnippetGet = () => Record<SnippetKey, SlashSnippet[]>;
+
+function saveSnippets(set: SnippetSet, key: SnippetKey, list: SlashSnippet[]) {
+  set({ [key]: list });
+  void api.settings.write({ [key]: list });
+}
+
+function addSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  triggerRaw: string,
+  expansionRaw: string,
+): SnippetResult {
+  const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
+  if (!parsed.ok) return parsed;
+  const list = get()[key];
+  if (list.some((snippet) => snippet.trigger === parsed.trigger)) {
+    return { ok: false, error: `/${parsed.trigger} already exists.` };
+  }
+  saveSnippets(set, key, [
+    ...list,
+    {
+      id: newSnippetId(),
+      trigger: parsed.trigger,
+      expansion: parsed.expansion,
+    },
+  ]);
+  return { ok: true };
+}
+
+function updateSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  id: string,
+  triggerRaw: string,
+  expansionRaw: string,
+): SnippetResult {
+  const list = get()[key];
+  if (!list.some((snippet) => snippet.id === id)) {
+    return { ok: false, error: 'That command no longer exists.' };
+  }
+  const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
+  if (!parsed.ok) return parsed;
+  if (
+    list.some(
+      (snippet) => snippet.id !== id && snippet.trigger === parsed.trigger,
+    )
+  ) {
+    return { ok: false, error: `/${parsed.trigger} already exists.` };
+  }
+  saveSnippets(
+    set,
+    key,
+    list.map((snippet) =>
+      snippet.id === id
+        ? { ...snippet, trigger: parsed.trigger, expansion: parsed.expansion }
+        : snippet,
+    ),
+  );
+  return { ok: true };
+}
+
+function deleteSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  id: string,
+) {
+  saveSnippets(
+    set,
+    key,
+    get()[key].filter((snippet) => snippet.id !== id),
+  );
+}
+
 /** Lowest positive N such that no tab is already named `Terminal N`. */
 function nextTerminalName(tabs: { name: string }[]): string {
   const used = new Set(tabs.map((t) => t.name));
@@ -142,6 +222,7 @@ interface DocStore {
   promptDeleteWorktreeOnDone: boolean;
   sidebarCollapsed: boolean;
   slashSnippets: SlashSnippet[];
+  commentSnippets: SlashSnippet[];
 
   bootstrap: () => Promise<void>;
   createAt: (file: string) => Promise<void>;
@@ -224,6 +305,16 @@ interface DocStore {
     expansion: string,
   ) => { ok: true } | { ok: false; error: string };
   deleteSlashSnippet: (id: string) => void;
+  addCommentSnippet: (
+    trigger: string,
+    expansion: string,
+  ) => { ok: true } | { ok: false; error: string };
+  updateCommentSnippet: (
+    id: string,
+    trigger: string,
+    expansion: string,
+  ) => { ok: true } | { ok: false; error: string };
+  deleteCommentSnippet: (id: string) => void;
   ensureTag: (name: string) => string;
   setCardTags: (
     boardId: string,
@@ -299,6 +390,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   promptDeleteWorktreeOnDone: true,
   sidebarCollapsed: false,
   slashSnippets: [],
+  commentSnippets: [],
 
   /**
    * Decides the opening screen. No stored path, or a stored path whose file
@@ -316,6 +408,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
       promptDeleteWorktreeOnDone: settings.promptDeleteWorktreeOnDone ?? true,
       sidebarCollapsed: settings.sidebarCollapsed,
       slashSnippets: settings.slashSnippets ?? [],
+      commentSnippets: settings.commentSnippets ?? [],
     });
     if (!settings.dataFilePath) {
       set({ status: { kind: 'welcome' } });
@@ -938,56 +1031,14 @@ export const useDocStore = create<DocStore>((set, get) => ({
     void api.settings.write({ sidebarCollapsed: collapsed });
   },
 
-  addSlashSnippet: (triggerRaw, expansionRaw) => {
-    const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
-    if (!parsed.ok) return parsed;
-    if (
-      get().slashSnippets.some((snippet) => snippet.trigger === parsed.trigger)
-    ) {
-      return { ok: false, error: `/${parsed.trigger} already exists.` };
-    }
-    const slashSnippets = [
-      ...get().slashSnippets,
-      {
-        id: newSnippetId(),
-        trigger: parsed.trigger,
-        expansion: parsed.expansion,
-      },
-    ];
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-    return { ok: true };
-  },
-
-  updateSlashSnippet: (id, triggerRaw, expansionRaw) => {
-    const current = get().slashSnippets.find((snippet) => snippet.id === id);
-    if (!current) return { ok: false, error: 'That command no longer exists.' };
-    const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
-    if (!parsed.ok) return parsed;
-    if (
-      get().slashSnippets.some(
-        (snippet) => snippet.id !== id && snippet.trigger === parsed.trigger,
-      )
-    ) {
-      return { ok: false, error: `/${parsed.trigger} already exists.` };
-    }
-    const slashSnippets = get().slashSnippets.map((snippet) =>
-      snippet.id === id
-        ? { ...snippet, trigger: parsed.trigger, expansion: parsed.expansion }
-        : snippet,
-    );
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-    return { ok: true };
-  },
-
-  deleteSlashSnippet: (id) => {
-    const slashSnippets = get().slashSnippets.filter(
-      (snippet) => snippet.id !== id,
-    );
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-  },
+  addSlashSnippet: (t, e) => addSnippet(set, get, 'slashSnippets', t, e),
+  updateSlashSnippet: (id, t, e) =>
+    updateSnippet(set, get, 'slashSnippets', id, t, e),
+  deleteSlashSnippet: (id) => deleteSnippet(set, get, 'slashSnippets', id),
+  addCommentSnippet: (t, e) => addSnippet(set, get, 'commentSnippets', t, e),
+  updateCommentSnippet: (id, t, e) =>
+    updateSnippet(set, get, 'commentSnippets', id, t, e),
+  deleteCommentSnippet: (id) => deleteSnippet(set, get, 'commentSnippets', id),
 
   // `name` is the raw, as-typed text (e.g. "Not ready"), so this is the
   // one place a tag's display label can be captured from what the user

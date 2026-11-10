@@ -2,8 +2,9 @@ import { useState, type KeyboardEvent } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Comment } from '@shared/schema';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { relativeTime } from '@/lib/relativeTime';
+import { useDocStore } from '@/store/docStore';
+import { SlashPromptTextarea } from './SlashPromptTextarea';
 
 /** "Today, 3:12 PM" for the current calendar day, else "Nov 4, 2026, 3:12 PM". */
 export function formatCommentTime(iso: string, now: Date = new Date()): string {
@@ -31,6 +32,7 @@ export function CommentItem({
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const commentSnippets = useDocStore((s) => s.commentSnippets);
 
   const save = () => {
     const text = (draft ?? '').trim();
@@ -45,23 +47,29 @@ export function CommentItem({
       {draft === null ? (
         <p className="whitespace-pre-wrap break-words">{comment.text}</p>
       ) : (
-        <Textarea
-          autoFocus
-          data-comment-edit
-          value={draft}
-          className="min-h-12 text-sm"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (isSubmitChord(event)) {
-              event.preventDefault();
-              save();
-            } else if (event.key === 'Escape') {
-              // Cancel the edit, not the whole dialog.
-              event.stopPropagation();
-              setDraft(null);
-            }
-          }}
-        />
+        // The wrapper marks the edit so the dialog's Escape handler skips it.
+        <div data-comment-edit>
+          <SlashPromptTextarea
+            id={`comment-edit-${comment.id}`}
+            rows={2}
+            snippets={commentSnippets}
+            autoFocus
+            value={draft}
+            className="min-h-12 text-sm"
+            placeholder=""
+            onChange={setDraft}
+            onKeyDown={(event) => {
+              if (isSubmitChord(event)) {
+                event.preventDefault();
+                save();
+              } else if (event.key === 'Escape') {
+                // Cancel the edit, not the whole dialog.
+                event.stopPropagation();
+                setDraft(null);
+              }
+            }}
+          />
+        </div>
       )}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
         <span>{formatCommentTime(comment.createdAt)}</span>

@@ -73,11 +73,25 @@ function SnippetDraft({
  * The library of phrases a card prompt can expand. Commands are added,
  * edited, and removed here; typing `/name` in a prompt performs the expansion.
  */
-export function SettingsSnippetsPanel() {
-  const snippets = useDocStore((s) => s.slashSnippets);
-  const addSlashSnippet = useDocStore((s) => s.addSlashSnippet);
-  const updateSlashSnippet = useDocStore((s) => s.updateSlashSnippet);
-  const deleteSlashSnippet = useDocStore((s) => s.deleteSlashSnippet);
+export function SettingsSnippetsPanel({
+  target = 'prompt',
+}: {
+  target?: 'prompt' | 'comment';
+}) {
+  const isComment = target === 'comment';
+  const noun = isComment ? 'comment' : 'prompt';
+  const snippets = useDocStore((s) =>
+    isComment ? s.commentSnippets : s.slashSnippets,
+  );
+  const addSlashSnippet = useDocStore((s) =>
+    isComment ? s.addCommentSnippet : s.addSlashSnippet,
+  );
+  const updateSlashSnippet = useDocStore((s) =>
+    isComment ? s.updateCommentSnippet : s.updateSlashSnippet,
+  );
+  const deleteSlashSnippet = useDocStore((s) =>
+    isComment ? s.deleteCommentSnippet : s.deleteSlashSnippet,
+  );
   const { confirm, dialog } = useConfirm();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [addKey, setAddKey] = useState(0);
@@ -90,13 +104,13 @@ export function SettingsSnippetsPanel() {
     <div className="flex flex-col gap-4">
       {dialog}
       <p className="text-xs text-muted-foreground">
-        Type /command in a card&apos;s prompt. It expands as soon as the name is
+        Type /command in a card&apos;s {noun}. It expands as soon as the name is
         complete.
       </p>
 
       <SnippetDraft
         key={addKey}
-        idPrefix="snippet"
+        idPrefix={isComment ? 'comment-snippet' : 'snippet'}
         initialTrigger=""
         initialExpansion=""
         submitLabel="Add command"
@@ -116,7 +130,7 @@ export function SettingsSnippetsPanel() {
             <li key={snippet.id} className="rounded-md border px-3 py-2">
               {editingId === snippet.id ? (
                 <SnippetDraft
-                  idPrefix={`snippet-${snippet.id}`}
+                  idPrefix={`${isComment ? 'comment-' : ''}snippet-${snippet.id}`}
                   initialTrigger={snippet.trigger}
                   initialExpansion={snippet.expansion}
                   submitLabel="Save"
@@ -155,7 +169,7 @@ export function SettingsSnippetsPanel() {
                     onClick={() =>
                       confirm({
                         title: `Delete /${snippet.trigger}?`,
-                        body: 'This command will no longer expand in prompts.',
+                        body: `This command will no longer expand in ${noun}s.`,
                         confirmLabel: 'Delete command',
                         onConfirm: () => deleteSlashSnippet(snippet.id),
                       })

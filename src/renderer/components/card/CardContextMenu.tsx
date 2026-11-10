@@ -108,7 +108,8 @@ export function CardContextMenu({
     archived,
     paused,
     openEditDialog: () => setEditOpen(true),
-    togglePaused: () => updateCard(boardId, listId, cardId, { paused: !paused }),
+    togglePaused: () =>
+      updateCard(boardId, listId, cardId, { paused: !paused }),
     markUnread: () => markUnread(cardId),
     openMoveDialog: () => setMoveDialogOpen(true),
     toggleArchived: () => {

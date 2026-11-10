@@ -210,11 +210,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/*
-        Capped at 85vh with the active tab panel as the only scroll region, so
-        the dialog never grows past a short window the way the previous single
-        stacked column did.
+        A fixed 40rem (capped at 85vh on short windows) so the dialog doesn't
+        resize per tab; the active tab panel is the only scroll region.
       */}
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-xl">
+      <DialogContent className="flex h-[40rem] max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -228,7 +227,8 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
             <TabsTrigger value="sessions">Agent sessions</TabsTrigger>
             <TabsTrigger value="tags">Tags</TabsTrigger>
             <TabsTrigger value="boards">Boards</TabsTrigger>
-            <TabsTrigger value="snippets">Snippets</TabsTrigger>
+            <TabsTrigger value="snippets">Prompt snippets</TabsTrigger>
+            <TabsTrigger value="comment-snippets">Comment snippets</TabsTrigger>
           </TabsList>
 
           <TabsContent value="data" className={PANEL_CLASS}>
@@ -420,6 +420,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
 
           <TabsContent value="snippets" className={PANEL_CLASS}>
             <SettingsSnippetsPanel />
+          </TabsContent>
+
+          <TabsContent value="comment-snippets" className={PANEL_CLASS}>
+            <SettingsSnippetsPanel target="comment" />
           </TabsContent>
         </Tabs>
       </DialogContent>
