@@ -158,13 +158,17 @@ export function BoardView() {
           type="button"
           variant={soundEnabled ? 'outline' : 'secondary'}
           size="icon"
-          className="ml-2"
+          className={
+            soundEnabled
+              ? 'ml-2'
+              : 'ml-2 bg-red-900 text-white hover:bg-red-800 hover:text-white'
+          }
           aria-pressed={!soundEnabled}
           aria-label="Mute notifications"
           title={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
           onClick={() => setSoundEnabled(!soundEnabled)}
         >
-          {soundEnabled ? <Bell /> : <BellOff className="text-red-500" />}
+          {soundEnabled ? <Bell /> : <BellOff />}
         </Button>
       </header>
 
