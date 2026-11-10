@@ -15,9 +15,8 @@ export interface HookEvent {
   source: string | null;
   /** Set on hooks that fire inside a subagent; null for the main agent. */
   agentId: string | null;
-  /** Stop's `background_tasks` entries that are still running. */
-  runningSubagents: number;
-  runningShells: number;
+  /** Stop's `background_tasks` still running: shells, subagents, monitors... */
+  runningTasks: number;
 }
 
 const stringOrNull = (value: unknown): string | null =>
@@ -27,11 +26,9 @@ const RECORD_SEPARATOR = '\n\x1e\n';
 
 export const TERMINAL_BUFFER_MAX = 1_000_000;
 
-function countRunning(tasks: unknown, type: string): number {
+function countRunning(tasks: unknown): number {
   if (!Array.isArray(tasks)) return 0;
-  return tasks.filter(
-    (task) => task?.type === type && task?.status === 'running',
-  ).length;
+  return tasks.filter((task) => task?.status === 'running').length;
 }
 
 function parseRecord(text: string): HookEvent | null {
@@ -51,8 +48,7 @@ function parseRecord(text: string): HookEvent | null {
     notificationType: stringOrNull(record.notification_type),
     source: stringOrNull(record.source),
     agentId: stringOrNull(record.agent_id),
-    runningSubagents: countRunning(record.background_tasks, 'subagent'),
-    runningShells: countRunning(record.background_tasks, 'shell'),
+    runningTasks: countRunning(record.background_tasks),
   };
 }
 
@@ -128,11 +124,7 @@ export function applyHookEvent(
     case 'Stop':
       // Claude's own list of running background work decides the hold; the
       // tracked ids cover a SubagentStart that lands after this Stop.
-      if (
-        running(terminal) > 0 ||
-        event.runningSubagents > 0 ||
-        event.runningShells > 0
-      ) {
+      if (running(terminal) > 0 || event.runningTasks > 0) {
         return {
           ...snapshot,
           status: 'working',

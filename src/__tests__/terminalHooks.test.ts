@@ -40,8 +40,7 @@ function hook(
     notificationType: null,
     source: null,
     agentId: null,
-    runningSubagents: 0,
-    runningShells: 0,
+    runningTasks: 0,
     ...extra,
   };
 }
@@ -247,7 +246,7 @@ describe('background work', () => {
   const stop = hook('SubagentStop', null, { agentId: 'a1' });
   const stopWith = (extra: Partial<HookEvent>) => hook('Stop', null, extra);
 
-  it('parses the running tasks Stop reports, ignoring finished ones', () => {
+  it('counts every running task Stop reports, whatever its type', () => {
     const tasks = [
       { type: 'subagent', status: 'running' },
       { type: 'shell', status: 'running' },
@@ -257,17 +256,29 @@ describe('background work', () => {
     const { events } = splitHookRecords(
       `${JSON.stringify({ hook_event_name: 'Stop', background_tasks: tasks })}\n\x1e\n`,
     );
-    expect(events[0]).toMatchObject({ runningSubagents: 1, runningShells: 1 });
+    expect(events[0]).toMatchObject({ runningTasks: 3 });
   });
 
   it('holds working when Stop lists a running subagent we never saw start', () => {
-    const next = applyHookEvent(snapshot(), stopWith({ runningSubagents: 1 }));
+    const next = applyHookEvent(snapshot(), stopWith({ runningTasks: 1 }));
     expect(next.status).toBe('working');
     expect(next.terminal?.hold).toBe('running');
   });
 
+  it('holds working when Stop lists only a running monitor', () => {
+    const { events } = splitHookRecords(
+      `${JSON.stringify({
+        hook_event_name: 'Stop',
+        background_tasks: [{ type: 'monitor', status: 'running' }],
+      })}\n\x1e\n`,
+    );
+    const next = applyHookEvent(snapshot(), events[0]);
+    expect(next.status).toBe('working');
+    expect(holdTimeoutMs(next)).toBe(HOLD_MAX_MS);
+  });
+
   it('holds working when Stop lists a running shell', () => {
-    const next = applyHookEvent(snapshot(), stopWith({ runningShells: 1 }));
+    const next = applyHookEvent(snapshot(), stopWith({ runningTasks: 1 }));
     expect(next.status).toBe('working');
     expect(holdTimeoutMs(next)).toBe(HOLD_MAX_MS);
   });
@@ -282,7 +293,7 @@ describe('background work', () => {
   });
 
   it('finishes on a Stop that reports nothing running', () => {
-    const held = applyHookEvent(snapshot(), stopWith({ runningShells: 1 }));
+    const held = applyHookEvent(snapshot(), stopWith({ runningTasks: 1 }));
     const next = applyHookEvent(held, hook('Stop'));
     expect(next.status).toBe('done');
     expect(next.terminal?.hold).toBeUndefined();
@@ -314,7 +325,7 @@ describe('background work', () => {
   });
 
   it('ignores a SubagentStop for an agent it never saw start', () => {
-    const held = applyHookEvent(snapshot(), stopWith({ runningSubagents: 1 }));
+    const held = applyHookEvent(snapshot(), stopWith({ runningTasks: 1 }));
     const next = applyHookEvent(
       held,
       hook('SubagentStop', null, { agentId: 'internal' }),
