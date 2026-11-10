@@ -214,7 +214,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
         the dialog never grows past a short window the way the previous single
         stacked column did.
       */}
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -228,7 +228,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
             <TabsTrigger value="sessions">Agent sessions</TabsTrigger>
             <TabsTrigger value="tags">Tags</TabsTrigger>
             <TabsTrigger value="boards">Boards</TabsTrigger>
-            <TabsTrigger value="snippets">Snippets</TabsTrigger>
+            <TabsTrigger value="snippets">Prompt snippets</TabsTrigger>
             <TabsTrigger value="comment-snippets">Comment snippets</TabsTrigger>
           </TabsList>
 
