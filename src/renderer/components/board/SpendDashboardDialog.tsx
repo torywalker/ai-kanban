@@ -22,6 +22,20 @@ function currentMonthRange(): { from: string; to: string } {
   };
 }
 
+function niceCeil(value: number): number {
+  if (value <= 0) return 1;
+  const pow = 10 ** Math.floor(Math.log10(value));
+  const n = value / pow;
+  return ([1, 2, 5, 10].find((step) => n <= step) ?? 10) * pow;
+}
+
+function dayLabel(day: string): string {
+  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 interface SpendDashboardDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,15 +49,17 @@ export function SpendDashboardDialog({
   const board = useDocStore(selectActiveBoard);
   const [range, setRange] = useState(currentMonthRange);
   const [days, setDays] = useState<DailySpend[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const validRange = !!range.from && !!range.to && range.from <= range.to;
 
   const idsKey = useMemo(
-    () =>
-      board?.lists.flatMap((l) => l.cards.map((c) => c.id)).join(',') ?? '',
+    () => board?.lists.flatMap((l) => l.cards.map((c) => c.id)).join(',') ?? '',
     [board],
   );
 
   useEffect(() => {
-    if (!open || !range.from || !range.to || range.from > range.to) {
+    setError(null);
+    if (!open || !validRange) {
       setDays([]);
       return;
     }
@@ -53,16 +69,26 @@ export function SpendDashboardDialog({
       .then((next) => {
         if (!cancelled) setDays(next);
       })
-      .catch(() => {
-        if (!cancelled) setDays([]);
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setDays([]);
+        setError(e instanceof Error ? e.message : String(e));
       });
     return () => {
       cancelled = true;
     };
-  }, [open, idsKey, range]);
+  }, [open, idsKey, range, validRange]);
+
+  let emptyMessage = 'Pick a valid date range.';
+  if (error) emptyMessage = `Couldn't load spend: ${error}`;
+  else if (validRange) emptyMessage = 'Loading…';
 
   const total = days.reduce((sum, d) => sum + d.costUSD, 0);
   const max = Math.max(...days.map((d) => d.costUSD), 0);
+  // Round the axis top up to 1/2/5 × 10^n so the gridlines land on clean values.
+  const top = niceCeil(max);
+  const ticks = [0, 1, 2, 3, 4].map((i) => (top / 4) * i);
+  const labelEvery = Math.ceil(days.length / 10);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -98,36 +124,69 @@ export function SpendDashboardDialog({
         </div>
         {days.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
-            Pick a valid date range.
+            {emptyMessage}
           </p>
         ) : (
-          <div
-            className="flex h-64 items-end gap-px"
-            role="img"
-            aria-label="Daily spend bar chart"
-          >
-            {days.map((d) => (
-              <div
-                key={d.day}
-                className="flex h-full min-w-0 flex-1 items-end"
-                title={`${d.day}: ${formatUsd(d.costUSD)}`}
-              >
+          <div className="flex gap-2">
+            <span className="text-xs text-muted-foreground [writing-mode:vertical-rl] rotate-180 self-center">
+              Spend per day (USD)
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex h-64">
+                <div className="relative w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {ticks.map((t) => (
+                    <span
+                      key={t}
+                      className="absolute right-2 -translate-y-1/2"
+                      style={{ bottom: `${(t / top) * 100}%` }}
+                    >
+                      {formatUsd(t)}
+                    </span>
+                  ))}
+                </div>
                 <div
-                  className="w-full rounded-t-sm bg-primary"
-                  style={{
-                    height: max > 0 ? `${(d.costUSD / max) * 100}%` : 0,
-                    minHeight: d.costUSD > 0 ? 2 : 0,
-                  }}
-                />
+                  className="relative flex min-w-0 flex-1 items-end gap-px border-b border-l border-border"
+                  role="img"
+                  aria-label="Daily spend bar chart"
+                >
+                  {ticks.slice(1).map((t) => (
+                    <div
+                      key={t}
+                      className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/60"
+                      style={{ bottom: `${(t / top) * 100}%` }}
+                    />
+                  ))}
+                  {days.map((d) => (
+                    <div
+                      key={d.day}
+                      className="relative flex h-full min-w-0 flex-1 items-end"
+                      title={`${d.day}: ${formatUsd(d.costUSD)}`}
+                    >
+                      <div
+                        className="w-full rounded-t-sm bg-primary"
+                        style={{
+                          height: `${(d.costUSD / top) * 100}%`,
+                          minHeight: d.costUSD > 0 ? 2 : 0,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-        {days.length > 0 && (
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{days[0].day}</span>
-            <span>Peak {formatUsd(max)}</span>
-            <span>{days[days.length - 1].day}</span>
+              <div className="ml-14 flex pt-1 text-xs text-muted-foreground">
+                {days.map((d, i) => (
+                  <span
+                    key={d.day}
+                    className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center"
+                  >
+                    {i % labelEvery === 0 ? dayLabel(d.day) : ''}
+                  </span>
+                ))}
+              </div>
+              <span className="ml-14 pt-1 text-center text-xs text-muted-foreground">
+                Date
+              </span>
+            </div>
           </div>
         )}
       </DialogContent>
