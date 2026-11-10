@@ -420,9 +420,9 @@ export function CardViewDialog({
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
-        return;
-      }
+      if (!event.metaKey || event.ctrlKey || event.altKey) return;
+      // Run is Cmd+Shift+R; every other shortcut here is Cmd+<key> alone.
+      if (event.shiftKey !== (event.key.toLowerCase() === 'r')) return;
       const action = shortcutsRef.current[event.key.toLowerCase()];
       if (!action) return;
       // Cmd+C/A belong to the terminal (interrupt, readline) and to text
@@ -430,11 +430,11 @@ export function CardViewDialog({
       const target = event.target as HTMLElement | null;
       // Cmd+J has no terminal meaning, and it has to toggle the comments
       // panel from the very box it focuses when it opens, so it works
-      // everywhere. Cmd+E (edit) also works from the terminal, but still
-      // defers to text fields.
+      // everywhere. Cmd+Shift+R (run) has none either. Cmd+E (edit) also
+      // works from the terminal, but still defers to text fields.
       const key = event.key.toLowerCase();
       const blocked =
-        key === 'j'
+        key === 'j' || key === 'r'
           ? null
           : key === 'e'
             ? // xterm's hidden input is a textarea inside the terminal host.
@@ -816,7 +816,7 @@ export function CardViewDialog({
 
   shortcutsRef.current = {
     e: () => setEditing(true),
-    x: () => {
+    r: () => {
       if (!primary || !card.prompt.trim()) return;
       // Re-connect takes the place of Run once a terminal session exists,
       // including while the shell is still open.
@@ -1303,7 +1303,7 @@ export function CardViewDialog({
               <Button
                 onClick={run}
                 disabled={!primary || !card.prompt.trim()}
-                title="Re-connect (⌘X)"
+                title="Re-connect (⌘⇧R)"
               >
                 Re-connect
               </Button>
@@ -1312,7 +1312,7 @@ export function CardViewDialog({
               <Button
                 onClick={run}
                 disabled={!primary || !card.prompt.trim()}
-                title={`${hasSession ? 'Run again' : 'Run'} (⌘X)`}
+                title={`${hasSession ? 'Run again' : 'Run'} (⌘⇧R)`}
               >
                 {hasSession ? 'Run again' : 'Run'}
               </Button>
