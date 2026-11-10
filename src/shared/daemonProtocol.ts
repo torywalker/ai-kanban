@@ -134,6 +134,12 @@ export interface LiveTokenUsage {
 export interface TerminalState {
   shellAlive: boolean;
   claudeRunning: boolean;
+  /**
+   * Something other than the shell holds the pty's foreground while no hook
+   * has reported Claude (e.g. a `claude --resume` typed by hand, which lacks
+   * the app's hooks). Omitted when false.
+   */
+  foregroundBusy?: boolean;
   /** Ids of background subagents that have started and not yet stopped. */
   subagents?: string[];
   /** The main turn's `Stop` arrived while subagents were still running. */

@@ -233,6 +233,20 @@ describe('isIdleTerminal', () => {
     expect(isIdleTerminal(snapshot({ status: 'interrupted' }))).toBe(true);
   });
 
+  it('is not idle while a foreground program runs outside the hooks', () => {
+    expect(
+      isIdleTerminal(
+        snapshot({
+          terminal: {
+            shellAlive: true,
+            claudeRunning: false,
+            foregroundBusy: true,
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it('is busy while claude is working', () => {
     expect(isIdleTerminal(snapshot({ status: 'working' }))).toBe(false);
   });

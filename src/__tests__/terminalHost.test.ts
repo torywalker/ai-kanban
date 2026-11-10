@@ -21,6 +21,7 @@ interface FakePty extends PtyLike {
   written: string[];
   resized: Array<[number, number]>;
   killed: number;
+  process?: string;
 }
 
 function fakePty(): FakePty {
@@ -185,6 +186,65 @@ describe('start', () => {
     host.start(request());
     expect(ptys[0].written).toHaveLength(2);
     expect(ptys[0].written[1]).toContain("--resume 'sess-1'");
+  });
+
+  describe('foreground process', () => {
+    const terminalState = () => lastSnapshot().terminal;
+
+    it('flags a non-shell foreground while no hook reported Claude', () => {
+      host.start(request());
+      ptys[0].process = 'node';
+      jest.advanceTimersByTime(250);
+      expect(terminalState()).toEqual({
+        shellAlive: true,
+        claudeRunning: false,
+        foregroundBusy: true,
+      });
+      ptys[0].process = '-zsh';
+      jest.advanceTimersByTime(250);
+      expect(terminalState()).toEqual({
+        shellAlive: true,
+        claudeRunning: false,
+      });
+    });
+
+    it('keeps the flag through a hook that clears subagents', () => {
+      host.start(request());
+      ptys[0].process = 'claude';
+      jest.advanceTimersByTime(250);
+      appendHook(
+        record({ hook_event_name: 'SessionEnd', session_id: 'sess-1' }),
+      );
+      jest.advanceTimersByTime(250);
+      expect(terminalState()?.foregroundBusy).toBe(true);
+    });
+
+    it('does not publish again while the foreground is unchanged', () => {
+      host.start(request());
+      ptys[0].process = 'node';
+      jest.advanceTimersByTime(250);
+      const count = snapshots.length;
+      jest.advanceTimersByTime(1000);
+      expect(snapshots).toHaveLength(count);
+    });
+
+    it('does not type a resume line into a live foreground program', () => {
+      host.start(request());
+      ptys[0].process = 'claude';
+      host.start(request());
+      expect(ptys[0].written).toHaveLength(0);
+      ptys[0].process = 'zsh';
+      host.start(request());
+      expect(ptys[0].written).toHaveLength(1);
+    });
+
+    it('does not close a terminal with a foreground program', () => {
+      host.start(request());
+      ptys[0].process = 'claude';
+      jest.advanceTimersByTime(250);
+      host.closeIdle();
+      expect(ptys[0].killed).toBe(0);
+    });
   });
 
   describe('background subagent', () => {

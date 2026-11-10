@@ -1,7 +1,6 @@
 import fs from 'fs';
-import path from 'path';
 import type { DaemonEvent } from '@shared/daemonProtocol';
-import { defaultShell } from './terminalLaunch';
+import { defaultShell, processBaseName as baseName } from './terminalLaunch';
 import { appendCapped } from './terminalHooks';
 import type { PtyLike } from './terminalHost';
 
@@ -55,10 +54,6 @@ const BUSY_POLL_MS = 500;
 
 /** App-internal env vars that must not leak into user shells. */
 const ENV_BLOCKLIST = new Set(['ELECTRON_RUN_AS_NODE', 'NODE_OPTIONS']);
-
-function baseName(proc: string): string {
-  return path.basename(proc).replace(/^-/, '');
-}
 
 function isDirectory(dir: string): boolean {
   try {

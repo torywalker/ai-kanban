@@ -55,6 +55,11 @@ const NON_POSIX_RUNNERS: Record<string, string> = {
   pwsh: '& /bin/sh -c $env:AI_KANBAN_SCRIPT; exit $LASTEXITCODE',
 };
 
+/** A pty process title as a comparable name: no directory, no login dash. */
+export function processBaseName(proc: string): string {
+  return proc.slice(proc.lastIndexOf('/') + 1).replace(/^-/, '');
+}
+
 function shellName(shell: string): string {
   return shell.slice(shell.lastIndexOf('/') + 1);
 }
