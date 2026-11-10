@@ -1,5 +1,6 @@
 import fs from 'fs';
 import {
+  NOTHING_TO_SHIP_ERROR,
   SHIP_CONFLICT_PROMPT,
   shipCommitMessage,
   type SessionWorktree,
@@ -23,8 +24,7 @@ import { createShipQueue, type ShipQueueSnapshot } from './shipQueue';
 
 export const COMMIT_FAILED_ERROR =
   'Could not commit the worktree for Ship. Uncommitted changes remain.';
-export const NOTHING_TO_SHIP_ERROR =
-  'Nothing to ship: this card made no commits in its worktree.';
+export { NOTHING_TO_SHIP_ERROR };
 export const CONFLICT_FAILED_ERROR =
   'Could not resolve merge conflicts automatically.';
 export const CONFLICT_DECLINED_ERROR =

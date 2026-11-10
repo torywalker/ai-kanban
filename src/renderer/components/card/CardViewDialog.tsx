@@ -56,6 +56,7 @@ import type { LiveTokenUsage } from '@shared/daemonProtocol';
 import { resolveSessionEngine } from '@shared/sessionEngine';
 import {
   resolveUseWorktree,
+  NOTHING_TO_SHIP_ERROR,
   WORKTREE_MISSING_ERROR,
   type ShipChooserPlan,
   type ShipQueueSnapshot,
@@ -659,6 +660,14 @@ export function CardViewDialog({
       if (!result.ok) {
         if (result.error === WORKTREE_MISSING_ERROR) {
           updateCard(boardId, listId, cardId, { sessionWorktree: null });
+        }
+        if (result.error === NOTHING_TO_SHIP_ERROR) {
+          // Nothing landed, but the button should now offer Delete worktree.
+          updateCard(boardId, listId, cardId, {
+            sessionWorktree: { ...card.sessionWorktree, shipped: true },
+          });
+          toast.info(result.error);
+          return;
         }
         if (
           !shipCancelledByUser.current ||

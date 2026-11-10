@@ -58,6 +58,8 @@ export function shipCommitMessage(title: string, cardId: string): string {
 export const SHIP_CONFLICT_PROMPT =
   'You are finishing a git merge in this worktree that the app started for Ship. Resolve every conflict by editing the files so that no conflict markers remain, and leave the resolved files in the working tree. Do not run git add, git commit, git merge, git rebase, or git push: the app commits your resolution for you as soon as the files are clean, and running git yourself can undo the work. Do not change files outside this working directory.';
 
+export const NOTHING_TO_SHIP_ERROR =
+  'Nothing to ship: this card made no commits in its worktree.';
 export const WORKTREE_MISSING_ERROR = 'The card worktree no longer exists.';
 
 export function featureBranchFor(cardId: string): string {
