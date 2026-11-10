@@ -214,7 +214,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
         the dialog never grows past a short window the way the previous single
         stacked column did.
       */}
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-xl">
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
