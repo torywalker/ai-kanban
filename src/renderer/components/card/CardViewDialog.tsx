@@ -668,6 +668,7 @@ export function CardViewDialog({
         sessionId: card.sessionId,
         approvalMode,
         model,
+        conflictPrompt: board?.shipConflictPrompt,
       });
       if (!result.ok) {
         if (result.error === WORKTREE_MISSING_ERROR) {
