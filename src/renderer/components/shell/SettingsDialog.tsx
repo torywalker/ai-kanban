@@ -95,6 +95,12 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   const setClaudeCliPath = useDocStore((s) => s.setClaudeCliPath);
   const soundEnabled = useDocStore((s) => s.soundEnabled);
   const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
+  const promptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.promptDeleteWorktreeOnDone,
+  );
+  const setPromptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.setPromptDeleteWorktreeOnDone,
+  );
   const [recents, setRecents] = useState<string[]>([]);
   // Set only when the picked move target already has a file at it — the
   // confirm dialog below gates `performMove` on the user explicitly
@@ -204,11 +210,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/*
-        Capped at 85vh with the active tab panel as the only scroll region, so
-        the dialog never grows past a short window the way the previous single
-        stacked column did.
+        A fixed 40rem (capped at 85vh on short windows) so the dialog doesn't
+        resize per tab; the active tab panel is the only scroll region.
       */}
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-xl">
+      <DialogContent className="flex h-[40rem] max-h-[85vh] flex-col sm:max-w-3xl">
         <DialogHeader className="shrink-0">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -222,7 +227,8 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
             <TabsTrigger value="sessions">Agent sessions</TabsTrigger>
             <TabsTrigger value="tags">Tags</TabsTrigger>
             <TabsTrigger value="boards">Boards</TabsTrigger>
-            <TabsTrigger value="snippets">Snippets</TabsTrigger>
+            <TabsTrigger value="snippets">Prompt snippets</TabsTrigger>
+            <TabsTrigger value="comment-snippets">Comment snippets</TabsTrigger>
           </TabsList>
 
           <TabsContent value="data" className={PANEL_CLASS}>
@@ -296,6 +302,14 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
                 onChange={setUseWorktrees}
               />
 
+              <SettingsCheckboxRow
+                id="prompt-delete-worktree-on-done"
+                label="Offer to delete the worktree when a card is done"
+                description="Moving a card to a done list asks whether to delete its worktree."
+                checked={promptDeleteWorktreeOnDone}
+                onChange={setPromptDeleteWorktreeOnDone}
+              />
+
               <div className="flex flex-col gap-1.5">
                 <Label>Tool approval</Label>
                 <OptionButtons
@@ -356,7 +370,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
               <SettingsCheckboxRow
                 id="sound-enabled"
                 label="Play notification sounds"
-                description="A chime plays when a card finishes, and a different one when it needs your input."
+                description="A chime plays when a card finishes, and a different one when it needs your input. Turning this off also silences desktop notifications."
                 checked={soundEnabled}
                 onChange={setSoundEnabled}
               />
@@ -406,6 +420,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
 
           <TabsContent value="snippets" className={PANEL_CLASS}>
             <SettingsSnippetsPanel />
+          </TabsContent>
+
+          <TabsContent value="comment-snippets" className={PANEL_CLASS}>
+            <SettingsSnippetsPanel target="comment" />
           </TabsContent>
         </Tabs>
       </DialogContent>

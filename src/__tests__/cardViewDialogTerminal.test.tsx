@@ -176,7 +176,9 @@ describe('CardViewDialog terminal controls', () => {
       );
     await renderDialog();
 
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
 
     await waitFor(() => {
@@ -205,7 +207,45 @@ describe('CardViewDialog terminal controls', () => {
         expect.objectContaining({ cardId, sessionId: 'sess_term' }),
       );
     });
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('reconnects a shipped worktree instead of offering Run again', async () => {
+    useDocStore.setState({ useWorktrees: true });
+    useDocStore.getState().updateCard(boardId, listId, cardId, {
+      sessionWorktree: {
+        path: '/tmp/some-repo-wt',
+        branch: 'kanban/card',
+        recordedTargetBranch: 'main',
+        shipped: true,
+      },
+    });
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: false, claudeRunning: false },
+          'done',
+        ),
+      );
+    await renderDialog();
+
+    expect(
+      screen.getByRole('button', { name: 'Delete worktree' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
+
+    await waitFor(() => {
+      expect(window.electron.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ cardId, sessionId: 'sess_term' }),
+      );
+    });
   });
 
   it('replaces Run and the reply box while a terminal is open', async () => {
@@ -223,10 +263,10 @@ describe('CardViewDialog terminal controls', () => {
       screen.queryByPlaceholderText('Reply to the agent…'),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="dialog-content"]')?.className,
     ).toContain('h-[92vh]');
@@ -524,10 +564,10 @@ describe('CardViewDialog terminal controls', () => {
     await renderDialog();
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Approve' }),
     ).not.toBeInTheDocument();
@@ -647,10 +687,10 @@ describe('CardViewDialog terminal controls', () => {
     const box = screen.getByText('Working directory does not exist: /nope');
     expect(box.className).toMatch(/destructive/);
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it('opens large and collapses to the narrow dialog', async () => {

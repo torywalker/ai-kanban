@@ -237,4 +237,10 @@ describe('buildHookSettings', () => {
       });
     });
   });
+
+  it('captures the CLI status JSON for exact cost via statusLine', () => {
+    const { statusLine } = JSON.parse(buildHookSettings());
+    expect(statusLine.type).toBe('command');
+    expect(statusLine.command).toContain('$AI_KANBAN_HOOK_FILE.cost');
+  });
 });

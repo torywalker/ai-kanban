@@ -1,4 +1,4 @@
-import { resolveDaemonImages } from '../main/services/assets';
+import { resolveDaemonImages, withImagePaths } from '../main/services/assets';
 import type { AttachmentRef } from '../shared/attachments';
 
 describe('resolveDaemonImages', () => {
@@ -66,5 +66,20 @@ describe('resolveDaemonImages', () => {
     expect(() =>
       resolveDaemonImages('/tmp/kanban.json', 'crd_1', [malformedRef]),
     ).toThrow('Invalid image MIME type.');
+  });
+});
+
+describe('withImagePaths', () => {
+  it('leaves a prompt with no images untouched', () => {
+    expect(withImagePaths('Do it', [])).toBe('Do it');
+  });
+
+  it('lists each image path, spaces included, after the prompt', () => {
+    const [image] = resolveDaemonImages('/Application Support/k.json', 'c', [
+      { id: 'a', cardId: 'c', filename: 'a.png', mimeType: 'image/png' },
+    ]);
+    expect(withImagePaths('Do it', [image])).toBe(
+      'Do it\n\nAttached images (view each with the Read tool):\n- /Application Support/k.assets/c/a.png',
+    );
   });
 });

@@ -11,6 +11,7 @@ import {
   Pause,
   Play,
   ArchiveRestore,
+  ChevronRightIcon,
   Copy,
   ExternalLink,
   Loader2,
@@ -55,6 +56,7 @@ import type { LiveTokenUsage } from '@shared/daemonProtocol';
 import { resolveSessionEngine } from '@shared/sessionEngine';
 import {
   resolveUseWorktree,
+  NOTHING_TO_SHIP_ERROR,
   WORKTREE_MISSING_ERROR,
   type ShipChooserPlan,
   type ShipQueueSnapshot,
@@ -67,9 +69,11 @@ import { CommentsPanel } from './CommentsPanel';
 import { SessionTranscript } from './SessionTranscript';
 import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
+import { relativeTime } from '@/lib/relativeTime';
+import { formatCommentTime } from './CommentItem';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
-import { PromptBody } from './PromptBody';
+import { EMPTY_PROMPT_PLACEHOLDER, PromptBody } from './PromptBody';
 import { CardComposerDialog } from './CardComposerDialog';
 import { ImageAttachmentStrip } from './ImageAttachmentStrip';
 import { ShipTargetDialog } from './ShipTargetDialog';
@@ -120,6 +124,10 @@ export function CardViewDialog({
   );
   const shellAlive =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.shellAlive) === true;
+  // A foreground program the hooks never reported, e.g. a hand-attached Claude.
+  const foregroundBusy =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.foregroundBusy) ===
+    true;
   const claudeRunning =
     useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
     true;
@@ -133,6 +141,19 @@ export function CardViewDialog({
   const expansionPref = useUiStore((s) => s.cardDialogExpanded[cardId]);
   const commentsOpen = useUiStore((s) => s.commentsOpen[cardId] ?? false);
   const setCommentsOpen = useUiStore((s) => s.setCommentsOpen);
+  // The card whose comments panel was just opened by the user. Only that
+  // transition focuses the add box; a dialog that merely opens onto an
+  // already-open panel must not steal focus.
+  const [focusCommentsFor, setFocusCommentsFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) setFocusCommentsFor(null);
+  }, [open]);
+  const toggleComments = () => {
+    setFocusCommentsFor(commentsOpen ? null : cardId);
+    setCommentsOpen(cardId, !commentsOpen);
+  };
+  const promptCollapsed = useUiStore((s) => s.promptCollapsed[cardId] ?? true);
+  const setPromptCollapsed = useUiStore((s) => s.setPromptCollapsed);
   // Lifetime totals for this card, not just the live session's: the ledger
   // behind them outlives any one daemon, so a card reopened after a relaunch
   // still reports everything it has ever cost.
@@ -399,21 +420,27 @@ export function CardViewDialog({
   useEffect(() => {
     if (!open) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
-        return;
-      }
+      if (!event.metaKey || event.ctrlKey || event.altKey) return;
+      // Run is Cmd+Shift+R; every other shortcut here is Cmd+<key> alone.
+      if (event.shiftKey !== (event.key.toLowerCase() === 'r')) return;
       const action = shortcutsRef.current[event.key.toLowerCase()];
       if (!action) return;
-      // Cmd+C/A/E belong to the terminal (interrupt, readline) and to text
-      // fields (line start/end, copy) when focus is there.
+      // Cmd+C/A belong to the terminal (interrupt, readline) and to text
+      // fields (line start, copy) when focus is there.
       const target = event.target as HTMLElement | null;
-      // Cmd+J is exempt from the text-field rule: it has to close the
-      // comments panel from the very box it focuses when it opens.
+      // Cmd+J has no terminal meaning, and it has to toggle the comments
+      // panel from the very box it focuses when it opens, so it works
+      // everywhere. Cmd+Shift+R (run) has none either. Cmd+E (edit) also
+      // works from the terminal, but still defers to text fields.
+      const key = event.key.toLowerCase();
       const blocked =
-        event.key.toLowerCase() === 'j'
-          ? '[data-terminal-host]'
-          : '[data-terminal-host], input, textarea, [contenteditable="true"]';
-      if (target?.closest(blocked)) {
+        key === 'j' || key === 'r'
+          ? null
+          : key === 'e'
+            ? // xterm's hidden input is a textarea inside the terminal host.
+              ':is(input, textarea, [contenteditable="true"]):not([data-terminal-host] *)'
+            : '[data-terminal-host], input, textarea, [contenteditable="true"]';
+      if (blocked && target?.closest(blocked)) {
         return;
       }
       // A nested dialog (composer, confirm, ship target) owns the keyboard.
@@ -455,9 +482,9 @@ export function CardViewDialog({
   // resumes that session instead of submitting the prompt again.
   const canReconnect =
     terminalMode &&
-    !worktreeShipped &&
     !claudeRunning &&
     !claudeTurnActive &&
+    !(shellAlive && foregroundBusy) &&
     !shipBusy &&
     !!resumeSessionId &&
     (shellAlive || canRun);
@@ -539,6 +566,10 @@ export function CardViewDialog({
           approvalMode,
           sessionId: sessionId ?? card.sessionId,
           claudeCliPath,
+          images: card.attachments.map((attachment) => ({
+            ...attachment,
+            cardId,
+          })),
           cols: 120,
           rows: 32,
         });
@@ -641,6 +672,14 @@ export function CardViewDialog({
         if (result.error === WORKTREE_MISSING_ERROR) {
           updateCard(boardId, listId, cardId, { sessionWorktree: null });
         }
+        if (result.error === NOTHING_TO_SHIP_ERROR) {
+          // Nothing landed, but the button should now offer Delete worktree.
+          updateCard(boardId, listId, cardId, {
+            sessionWorktree: { ...card.sessionWorktree, shipped: true },
+          });
+          toast.info(result.error);
+          return;
+        }
         if (
           !shipCancelledByUser.current ||
           result.error !== 'Ship cancelled.'
@@ -652,6 +691,7 @@ export function CardViewDialog({
       updateCard(boardId, listId, cardId, {
         sessionWorktree: { ...card.sessionWorktree, shipped: true },
         shipRecord: { sha: result.value, targetBranch: destinationBranch },
+        lastShippedAt: new Date().toISOString(),
       });
       setShipQueue(null);
       toast.success('Shipped');
@@ -777,7 +817,7 @@ export function CardViewDialog({
 
   shortcutsRef.current = {
     e: () => setEditing(true),
-    x: () => {
+    r: () => {
       if (!primary || !card.prompt.trim()) return;
       // Re-connect takes the place of Run once a terminal session exists,
       // including while the shell is still open.
@@ -785,7 +825,7 @@ export function CardViewDialog({
     },
     c: () => void copy(),
     a: archive,
-    j: () => setCommentsOpen(cardId, !commentsOpen),
+    j: () => toggleComments(),
   };
 
   // Resolved against the store as each ingest lands rather than against this
@@ -829,6 +869,19 @@ export function CardViewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        // Clicking a text field while the terminal has focus lost the click:
+        // xterm redraws on blur, and Radix's focus trap pulls focus to the
+        // dialog while document.body is briefly active mid-click. Focusing
+        // the field synchronously here skips that window.
+        onMouseDownCapture={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.matches?.('input, textarea')) target.focus();
+        }}
+        // Radix focuses the first tabbable (the expand button) on open, which
+        // would undo the terminal's own autoFocus.
+        onOpenAutoFocus={(event) => {
+          if (terminalMode) event.preventDefault();
+        }}
         // Escape typed in the terminal belongs to the terminal (Claude's
         // interrupt). Anywhere else in the dialog it still closes it.
         onEscapeKeyDown={(event) => {
@@ -911,7 +964,7 @@ export function CardViewDialog({
             className="absolute top-3.5 right-[4.5rem] gap-1 px-2 text-muted-foreground hover:text-foreground"
             aria-label={`Comments (${card.comments.length})`}
             aria-expanded={commentsOpen}
-            onClick={() => setCommentsOpen(cardId, !commentsOpen)}
+            onClick={() => toggleComments()}
           >
             <MessageSquare className="size-4" />
             {card.comments.length > 0 ? card.comments.length : null}
@@ -968,20 +1021,65 @@ export function CardViewDialog({
               Its own `ml-auto` does the aligning.
             */}
               <UsageSummary totals={usage} live={liveUsage} />
+              {card.lastShippedAt ? (
+                <span
+                  className="text-xs text-muted-foreground"
+                  title={formatCommentTime(card.lastShippedAt)}
+                >
+                  Last shipped {relativeTime(card.lastShippedAt)}
+                </span>
+              ) : null}
             </div>
 
-            <PromptBody
-              prompt={card.prompt}
-              className="max-h-48 rounded-md bg-muted p-3 text-base"
-            />
+            <div className="flex items-start gap-1">
+              <button
+                type="button"
+                aria-label={
+                  promptCollapsed ? 'Expand prompt' : 'Collapse prompt'
+                }
+                aria-expanded={!promptCollapsed}
+                onClick={() => setPromptCollapsed(cardId, !promptCollapsed)}
+                className="mt-[17px] shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    'size-3.5 transition-transform',
+                    !promptCollapsed && 'rotate-90',
+                  )}
+                />
+              </button>
+              {promptCollapsed ? (
+                <button
+                  type="button"
+                  onClick={() => setPromptCollapsed(cardId, false)}
+                  className="flex min-w-0 flex-1 rounded-md bg-muted p-3 text-left font-mono text-base"
+                >
+                  {/* Clipped, not CSS-ellipsized: the CSS ellipsis can land right after a half-visible typed "..." and read as two. */}
+                  <span className="min-w-0 overflow-hidden whitespace-nowrap">
+                    {card.prompt.trim()
+                      ? card.prompt.trim().split('\n')[0]
+                      : EMPTY_PROMPT_PLACEHOLDER}
+                  </span>
+                  <span className="shrink-0 pl-1">...</span>
+                </button>
+              ) : (
+                <PromptBody
+                  prompt={card.prompt}
+                  className="min-w-0 max-h-48 flex-1 rounded-md bg-muted p-3 text-base"
+                />
+              )}
+            </div>
 
-            <ImageAttachmentStrip
-              cardId={cardId}
-              items={card.attachments}
-              onChange={(next) =>
-                updateCard(boardId, listId, cardId, { attachments: next })
-              }
-            />
+            {card.attachments.length > 0 ? (
+              <ImageAttachmentStrip
+                hidePicker
+                cardId={cardId}
+                items={card.attachments}
+                onChange={(next) =>
+                  updateCard(boardId, listId, cardId, { attachments: next })
+                }
+              />
+            ) : null}
 
             {/* Rendered only when a link is set. */}
             {card.link ? (
@@ -1023,15 +1121,16 @@ export function CardViewDialog({
 
             {terminalMode ? (
               <>
-                <TerminalPanel cardId={cardId} acceptInput={!shipBusy} />
+                <TerminalPanel
+                  cardId={cardId}
+                  acceptInput={!shipBusy}
+                  autoFocus
+                />
                 {sessionStatus === 'failed' && lastError ? (
                   <div className="shrink-0">
                     <SessionLastError status="failed" message={lastError} />
                   </div>
                 ) : null}
-                <p className="shrink-0 text-xs text-muted-foreground">
-                  Cost is estimated from token counts for terminal sessions.
-                </p>
               </>
             ) : (
               <SessionTranscript cardId={cardId} expanded={chatExpanded} />
@@ -1205,7 +1304,7 @@ export function CardViewDialog({
               <Button
                 onClick={run}
                 disabled={!primary || !card.prompt.trim()}
-                title="Re-connect (⌘X)"
+                title="Re-connect (⌘⇧R)"
               >
                 Re-connect
               </Button>
@@ -1214,7 +1313,7 @@ export function CardViewDialog({
               <Button
                 onClick={run}
                 disabled={!primary || !card.prompt.trim()}
-                title={`${hasSession ? 'Run again' : 'Run'} (⌘X)`}
+                title={`${hasSession ? 'Run again' : 'Run'} (⌘⇧R)`}
               >
                 {hasSession ? 'Run again' : 'Run'}
               </Button>
@@ -1228,6 +1327,7 @@ export function CardViewDialog({
             boardId={boardId}
             listId={listId}
             cardId={cardId}
+            autoFocus={focusCommentsFor === cardId}
             className={columnMax}
           />
         ) : null}

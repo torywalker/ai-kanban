@@ -13,6 +13,8 @@ import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 import { cn } from '@/lib/utils';
 import { BoardContextMenu } from './BoardContextMenu';
+import { UnreadDot } from './UnreadDot';
+import { useBoardHasUnread } from './useBoardHasUnread';
 
 interface Props {
   boardId: string;
@@ -26,6 +28,7 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
     (s) => s.doc?.boards.find((b) => b.id === boardId) ?? null,
   );
   const isActive = useDocStore((s) => s.activeBoardId === boardId);
+  const hasUnread = useBoardHasUnread(boardId);
   const setActiveBoard = useDocStore((s) => s.setActiveBoard);
   const renameBoard = useDocStore((s) => s.renameBoard);
   const deleteBoard = useDocStore((s) => s.deleteBoard);
@@ -57,6 +60,8 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
             className="w-full"
           />
         </div>
+
+        {hasUnread && <UnreadDot />}
 
         <DropdownMenu>
           <DropdownMenuTrigger

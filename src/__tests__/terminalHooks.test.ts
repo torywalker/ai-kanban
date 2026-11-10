@@ -192,9 +192,9 @@ describe('applyPtyExit', () => {
 });
 
 describe('applyInterrupt', () => {
-  it('marks a working turn interrupted', () => {
+  it('settles a working turn as done', () => {
     expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe(
-      'interrupted',
+      'done',
     );
   });
 
@@ -231,6 +231,20 @@ describe('isIdleTerminal', () => {
     expect(isIdleTerminal(snapshot({ status: 'waiting' }))).toBe(true);
     expect(isIdleTerminal(snapshot({ status: 'done' }))).toBe(true);
     expect(isIdleTerminal(snapshot({ status: 'interrupted' }))).toBe(true);
+  });
+
+  it('is not idle while a foreground program runs outside the hooks', () => {
+    expect(
+      isIdleTerminal(
+        snapshot({
+          terminal: {
+            shellAlive: true,
+            claudeRunning: false,
+            foregroundBusy: true,
+          },
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('is busy while claude is working', () => {

@@ -16,6 +16,7 @@ interface SessionStore {
    */
   unread: Record<string, boolean>;
   markRead: (cardId: string) => void;
+  markUnread: (cardId: string) => void;
   applySnapshot: (snapshot: SessionSnapshot) => void;
   clearSession: (cardId: string) => void;
   markReattaching: (cardId: string) => void;
@@ -45,6 +46,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return { unread: next };
     }),
 
+  markUnread: (cardId) =>
+    set((state) => ({ unread: { ...state.unread, [cardId]: true } })),
+
   applySnapshot: (snapshot) => {
     const previousStatus = get().sessions[snapshot.cardId]?.status;
     set((state) => ({
@@ -63,7 +67,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // apply the status silently, with no chime.
     if (pendingReattachCardIds.delete(snapshot.cardId)) return;
     if (snapshot.status === 'done' || snapshot.status === 'waiting') {
-      set((state) => ({ unread: { ...state.unread, [snapshot.cardId]: true } }));
+      set((state) => ({
+        unread: { ...state.unread, [snapshot.cardId]: true },
+      }));
     }
     if (snapshot.status === 'done') {
       // `done` is emitted only after the SDK iterator has closed, so any

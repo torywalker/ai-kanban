@@ -1,7 +1,7 @@
 // Type-only, so nothing from `attachments.ts` (zod included) is pulled into
 // the daemon bundle at runtime — this module is shared by the renderer, the
 // main process and the daemon, and only the daemon's bundle is size-tuned.
-import type { AllowedImageMime } from './attachments';
+import type { AllowedImageMime, AttachmentRef } from './attachments';
 import type { AskUserQuestionAnswers } from './askUserQuestion';
 
 /**
@@ -134,6 +134,12 @@ export interface LiveTokenUsage {
 export interface TerminalState {
   shellAlive: boolean;
   claudeRunning: boolean;
+  /**
+   * Something other than the shell holds the pty's foreground while no hook
+   * has reported Claude (e.g. a `claude --resume` typed by hand, which lacks
+   * the app's hooks). Omitted when false.
+   */
+  foregroundBusy?: boolean;
   /** Ids of background subagents that have started and not yet stopped. */
   subagents?: string[];
   /** The main turn's `Stop` arrived while subagents were still running. */
@@ -206,6 +212,15 @@ export interface TerminalStartRequest {
   cols: number;
   rows: number;
 }
+
+/**
+ * What the renderer sends to start a terminal session. `images` are the
+ * card's attachments by reference; main resolves them to file paths and folds
+ * them into `prompt`, so the daemon never sees them.
+ */
+export type TerminalStartArgs = Omit<TerminalStartRequest, 'op'> & {
+  images?: AttachmentRef[];
+};
 
 export type DaemonRequest =
   | {

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import type { Comment } from '@shared/schema';
-import { Textarea } from '@/components/ui/textarea';
 import { newId } from '@/domain/ids';
 import { useDocStore } from '@/store/docStore';
 import { CommentItem, isSubmitChord } from './CommentItem';
+import { SlashPromptTextarea } from './SlashPromptTextarea';
 
 const NO_COMMENTS: Comment[] = [];
 
@@ -12,11 +12,14 @@ export function CommentsPanel({
   boardId,
   listId,
   cardId,
+  autoFocus,
   className,
 }: {
   boardId: string;
   listId: string;
   cardId: string;
+  /** Focus the add box on mount; only when the user just opened the panel. */
+  autoFocus: boolean;
   className: string;
 }) {
   const comments = useDocStore(
@@ -27,6 +30,7 @@ export function CommentsPanel({
         ?.cards.find((c) => c.id === cardId)?.comments ?? NO_COMMENTS,
   );
   const updateCard = useDocStore((s) => s.updateCard);
+  const commentSnippets = useDocStore((s) => s.commentSnippets);
   const [draft, setDraft] = useState('');
 
   const write = (next: Comment[]) =>
@@ -50,12 +54,15 @@ export function CommentsPanel({
       aria-label="Comments"
       className={`flex min-h-0 w-72 shrink-0 flex-col gap-2 border-l pt-8 pl-4 ${className}`}
     >
-      <Textarea
-        autoFocus
+      <SlashPromptTextarea
+        id="card-comment"
+        rows={2}
+        snippets={commentSnippets}
+        autoFocus={autoFocus}
         value={draft}
         placeholder="Add a comment…"
         className="min-h-16 shrink-0 text-sm"
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={setDraft}
         onKeyDown={(event) => {
           if (isSubmitChord(event)) {
             event.preventDefault();

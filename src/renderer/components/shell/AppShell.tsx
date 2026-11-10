@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/sidebar/Sidebar';
 import { Toaster } from '@/components/ui/sonner';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { CardComposerDialog } from '@/components/card/CardComposerDialog';
+import { ShipConflictPrompt } from './ShipConflictPrompt';
 import { ShortcutsHelpDialog } from './ShortcutsHelpDialog';
 
 export function AppShell() {
@@ -375,6 +376,7 @@ export function AppShell() {
         </main>
       </div>
       <Toaster />
+      <ShipConflictPrompt />
       <CommandPalette />
       <ShortcutsHelpDialog
         open={shortcutsHelpOpen}

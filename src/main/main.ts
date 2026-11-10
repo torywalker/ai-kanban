@@ -8,8 +8,9 @@
  * When running `pnpm run build` or `pnpm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
+import { randomUUID } from 'crypto';
 import path from 'path';
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 import { registerQuickAdd } from './quickAddWindow';
@@ -27,17 +28,19 @@ import { CHANNELS, type IpcResult } from '../shared/ipc';
 import {
   boardUsageTotals,
   cardUsageTotals,
+  dailyUsageCosts,
+  type DailySpend,
   type UsageTotals,
 } from '../shared/usage';
 import type {
   ApprovalMode,
   ShellStartRequest,
-  TerminalStartRequest,
+  TerminalStartArgs,
 } from '../shared/daemonProtocol';
 import type { AttachmentRef } from '../shared/attachments';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import { readSettings } from './services/settings';
-import { resolveDaemonImages } from './services/assets';
+import { resolveDaemonImages, withImagePaths } from './services/assets';
 import {
   destinationsForShipPlan,
   planShipChooser,
@@ -189,8 +192,21 @@ ipcMain.handle(CHANNELS.sessionRestartDaemon, () => restartDaemon());
 
 ipcMain.handle(
   CHANNELS.terminalStart,
-  (_e, req: Omit<TerminalStartRequest, 'op'>) =>
-    sendDaemonRequest({ ...req, op: 'terminalStart' }),
+  async (_e, { images: refs, ...req }: TerminalStartArgs) => {
+    let { prompt } = req;
+    // Only a new conversation sends the prompt; a resume ignores it.
+    if (refs?.length && req.sessionId === null) {
+      const { dataFilePath } = await readSettings();
+      if (!dataFilePath) {
+        throw new Error('Cannot send images without an open data file.');
+      }
+      prompt = withImagePaths(
+        prompt,
+        resolveDaemonImages(dataFilePath, req.cardId, refs),
+      );
+    }
+    return sendDaemonRequest({ ...req, prompt, op: 'terminalStart' });
+  },
 );
 ipcMain.handle(CHANNELS.shellStart, (_e, req: Omit<ShellStartRequest, 'op'>) =>
   sendDaemonRequest({ ...req, op: 'shellStart' }),
@@ -244,6 +260,17 @@ ipcMain.handle(CHANNELS.usageCardTotals, (_e, cardId: string): UsageTotals => {
 // Same ledger, same read-per-request rationale as `usageCardTotals` above —
 // only the filter differs.
 ipcMain.handle(
+  CHANNELS.usageBoardDaily,
+  (_e, cardIds: string[], from: string, to: string): DailySpend[] =>
+    dailyUsageCosts(
+      readUsageEntries(usageLedgerPathFor(getSessionDaemonSocketPath())),
+      cardIds,
+      from,
+      to,
+    ),
+);
+
+ipcMain.handle(
   CHANNELS.usageBoardTotals,
   (_e, cardIds: string[]): UsageTotals => {
     const ledgerPath = usageLedgerPathFor(getSessionDaemonSocketPath());
@@ -257,6 +284,11 @@ subscribeDaemonEvents((event) => {
       win.webContents.send(channel, ...args),
     );
   if (event.event === 'snapshot') {
+    if (event.snapshot.engine === 'terminal') {
+      if (event.snapshot.terminal?.claudeRunning) {
+        cliRunningCards.add(event.snapshot.cardId);
+      } else cliRunningCards.delete(event.snapshot.cardId);
+    }
     send(CHANNELS.sessionSnapshot, event.snapshot);
   } else if (event.event === 'terminalData') {
     send(CHANNELS.terminalData, event.cardId, event.data);
@@ -267,12 +299,37 @@ subscribeDaemonEvents((event) => {
   }
 });
 
+// Which cards have a live Claude CLI, from the same snapshots the renderer gets.
+const cliRunningCards = new Set<string>();
+const pendingConflictAsks = new Map<string, (autoResolve: boolean) => void>();
+ipcMain.on(
+  CHANNELS.gitShipConflictAnswer,
+  (_e, requestId: string, autoResolve: boolean) =>
+    pendingConflictAsks.get(requestId)?.(autoResolve === true),
+);
+
 const shipService = createShipService({
+  confirmAutoResolve: ({ title }, signal) =>
+    new Promise<boolean>((resolve) => {
+      const requestId = randomUUID();
+      const settle = (answer: boolean) => {
+        pendingConflictAsks.delete(requestId);
+        signal.removeEventListener('abort', onAbort);
+        resolve(answer);
+      };
+      const onAbort = () => settle(false);
+      signal.addEventListener('abort', onAbort, { once: true });
+      pendingConflictAsks.set(requestId, settle);
+      BrowserWindow.getAllWindows().forEach((win) =>
+        win.webContents.send(CHANNELS.gitShipConflictAsk, { requestId, title }),
+      );
+    }),
   // Ship's own turns go through the daemon exactly like a user's reply, so
   // they stream into the card's transcript and cost the same ledger.
   runAgentTurn: createDaemonAgentTurnRunner({
     send: sendDaemonRequest,
     subscribe: subscribeDaemonEvents,
+    cliRunning: (cardId) => cliRunningCards.has(cardId),
   }),
   stopSession: (cardId: string) => sendDaemonRequest({ op: 'stop', cardId }),
   // Broadcast to every window, matching the session snapshot fan-out above.
@@ -479,6 +536,22 @@ const createWindow = async () => {
 /**
  * Add event listeners...
  */
+
+// Covers Cmd+Q, the menu and the dock. A stray Cmd+Q must never quit silently.
+let quitConfirmed = false;
+app.on('before-quit', (event) => {
+  if (quitConfirmed) return;
+  const choice = dialog.showMessageBoxSync({
+    type: 'question',
+    buttons: ['Cancel', 'Quit'],
+    defaultId: 0,
+    cancelId: 0,
+    message: 'Quit AI Kanban?',
+    detail: 'Running terminals and sessions will be interrupted.',
+  });
+  if (choice === 0) event.preventDefault();
+  else quitConfirmed = true;
+});
 
 app.on('window-all-closed', () => {
   // Respect the OSX convention of having the application in memory even

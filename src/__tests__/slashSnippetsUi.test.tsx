@@ -19,7 +19,7 @@ describe('slash snippets', () => {
   it('adds and deletes a command from Settings', async () => {
     await useDocStore.getState().createAt('/tmp/kanban.json');
     render(<SettingsDialog open onOpenChange={() => {}} />);
-    selectTab('Snippets');
+    selectTab('Prompt snippets');
 
     fireEvent.change(screen.getByLabelText('Command'), {
       target: { value: '/grill-me' },

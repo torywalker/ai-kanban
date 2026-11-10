@@ -115,6 +115,9 @@ export const CardSchema = z.object({
     .object({ sha: z.string(), targetBranch: z.string() })
     .optional()
     .catch(undefined),
+  // ISO time of the last Ship that landed. Lives on the card, not on
+  // `sessionWorktree`, because that is cleared when the worktree is deleted.
+  lastShippedAt: z.string().optional().catch(undefined),
 });
 
 export const ListSchema = z.object({

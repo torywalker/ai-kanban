@@ -273,4 +273,94 @@ describe('CardViewDialog comments', () => {
 
     expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
   });
+
+  it('does not focus the comment box when a card opens with the panel already open', () => {
+    const cardId = addCard();
+    useUiStore.setState({ commentsOpen: { [cardId]: true } });
+    renderDialog(cardId);
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).not.toHaveFocus();
+  });
+
+  it('focuses the comment box when Cmd+J opens the panel', () => {
+    renderDialog(addCard());
+
+    fireEvent.keyDown(document.body, { key: 'j', metaKey: true });
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).toHaveFocus();
+  });
+
+  it('does not focus the box after switching to a card whose panel is open', () => {
+    const first = addCard();
+    const second = addCard();
+    useUiStore.setState({ commentsOpen: { [second]: true } });
+    const view = renderDialog(first);
+    openPanel();
+
+    view.rerender(
+      <CardViewDialog
+        open
+        onOpenChange={() => {}}
+        boardId={boardId}
+        listId={listId}
+        cardId={second}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText(PLACEHOLDER)).not.toHaveFocus();
+  });
+
+  it('shows the full date and time on each comment', () => {
+    renderDialog(addCard([older]));
+    openPanel();
+
+    expect(
+      screen.getByText(
+        new Date(older.at).toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says Today for a comment made today', () => {
+    const cardId = addCard();
+    renderDialog(cardId);
+    openPanel();
+
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(box, { target: { value: 'fresh' } });
+    submit(box);
+
+    expect(screen.getByText(/^Today, /)).toBeInTheDocument();
+  });
+
+  it('right-aligns the relative time while the date stays on the left', () => {
+    // jsdom has no layout, so the class is the only observable proof.
+    renderDialog(addCard());
+    openPanel();
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(box, { target: { value: 'fresh' } });
+    submit(box);
+
+    expect(screen.getByText('just now')).toHaveClass('ml-auto');
+    expect(screen.getByText(/^Today, /)).not.toHaveClass('ml-auto');
+  });
+
+  it('focuses a text field on mousedown so the terminal blur cannot steal the click', () => {
+    // In the real dialog, xterm redraws when it blurs and Radix's focus trap
+    // then pulls focus to the dialog while document.body is briefly active.
+    // Focusing on mousedown skips that window. jsdom never focuses on
+    // mousedown by itself, so this fails unless the dialog does it.
+    const cardId = addCard();
+    useUiStore.setState({ commentsOpen: { [cardId]: true } });
+    renderDialog(cardId);
+    const box = screen.getByPlaceholderText(PLACEHOLDER);
+    expect(box).not.toHaveFocus();
+
+    fireEvent.mouseDown(box);
+
+    expect(box).toHaveFocus();
+  });
 });

@@ -1,6 +1,35 @@
 import { create } from 'zustand';
 import { EMPTY_FILTER, type FilterState } from '@/domain/filter';
 
+const COMMENTS_OPEN_KEY = 'ai-kanban.commentsOpen';
+
+// Stored as the list of open card ids. Storage can be missing, blocked or
+// corrupt; every failure just means "nothing was remembered".
+function readCommentsOpen(): Record<string, boolean> {
+  try {
+    const ids: unknown = JSON.parse(
+      window.localStorage.getItem(COMMENTS_OPEN_KEY) ?? '[]',
+    );
+    if (!Array.isArray(ids)) return {};
+    return Object.fromEntries(
+      ids.filter((id) => typeof id === 'string').map((id) => [id, true]),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeCommentsOpen(open: Record<string, boolean>): void {
+  try {
+    window.localStorage.setItem(
+      COMMENTS_OPEN_KEY,
+      JSON.stringify(Object.keys(open).filter((id) => open[id])),
+    );
+  } catch {
+    // Not remembered across relaunches; this session still works.
+  }
+}
+
 interface UiStore {
   filter: FilterState;
   paletteOpen: boolean;
@@ -36,10 +65,13 @@ interface UiStore {
   showArchived: boolean;
   /**
    * Whether each card's comments sidebar is open, keyed by cardId. Per card
-   * so opening it on one card doesn't open it on every other. Transient,
-   * like `cardDialogExpanded`: not part of the document.
+   * so opening it on one card doesn't open it on every other. A view
+   * preference, not document data: remembered across relaunches in
+   * localStorage.
    */
   commentsOpen: Record<string, boolean>;
+  /** Whether each card's prompt is collapsed to one line in the view dialog, keyed by cardId. */
+  promptCollapsed: Record<string, boolean>;
 
   setFilterText: (text: string) => void;
   toggleFilterTag: (tag: string) => void;
@@ -54,6 +86,7 @@ interface UiStore {
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
   setCommentsOpen: (cardId: string, open: boolean) => void;
+  setPromptCollapsed: (cardId: string, collapsed: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -67,7 +100,8 @@ export const useUiStore = create<UiStore>((set) => ({
   externalChange: false,
   cardDialogExpanded: {},
   showArchived: false,
-  commentsOpen: {},
+  commentsOpen: readCommentsOpen(),
+  promptCollapsed: {},
 
   setFilterText: (text) =>
     set((state) => ({ filter: { ...state.filter, text } })),
@@ -96,7 +130,13 @@ export const useUiStore = create<UiStore>((set) => ({
     })),
   setShowArchived: (showArchived) => set({ showArchived }),
   setCommentsOpen: (cardId, open) =>
+    set((state) => {
+      const commentsOpen = { ...state.commentsOpen, [cardId]: open };
+      writeCommentsOpen(commentsOpen);
+      return { commentsOpen };
+    }),
+  setPromptCollapsed: (cardId, collapsed) =>
     set((state) => ({
-      commentsOpen: { ...state.commentsOpen, [cardId]: open },
+      promptCollapsed: { ...state.promptCollapsed, [cardId]: collapsed },
     })),
 }));

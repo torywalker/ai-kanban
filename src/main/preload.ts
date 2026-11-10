@@ -9,9 +9,9 @@ import type {
   SessionSnapshot,
   ApprovalMode,
   ShellStartRequest,
-  TerminalStartRequest,
+  TerminalStartArgs,
 } from '../shared/daemonProtocol';
-import type { UsageTotals } from '../shared/usage';
+import type { DailySpend, UsageTotals } from '../shared/usage';
 import type { AskUserQuestionAnswers } from '../shared/askUserQuestion';
 import type {
   SessionWorktree,
@@ -178,7 +178,7 @@ const api = {
     },
   },
   terminal: {
-    start: (req: Omit<TerminalStartRequest, 'op'>): Promise<void> =>
+    start: (req: TerminalStartArgs): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.terminalStart, req),
     startShell: (req: Omit<ShellStartRequest, 'op'>): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.shellStart, req),
@@ -241,6 +241,13 @@ const api = {
      */
     boardTotals: (cardIds: string[]): Promise<UsageTotals> =>
       ipcRenderer.invoke(CHANNELS.usageBoardTotals, cardIds),
+    /** A board's spend per local day over `from`..`to` (inclusive `YYYY-MM-DD`). */
+    boardDaily: (
+      cardIds: string[],
+      from: string,
+      to: string,
+    ): Promise<DailySpend[]> =>
+      ipcRenderer.invoke(CHANNELS.usageBoardDaily, cardIds, from, to),
   },
   git: {
     ensureWorktree: (
@@ -282,6 +289,19 @@ const api = {
     // Card id only: the path to abort a merge in is main's to remember.
     shipCancel: (cardId: string): Promise<IpcResult<null>> =>
       ipcRenderer.invoke(CHANNELS.gitShipCancel, cardId),
+    onShipConflictAsk: (
+      callback: (ask: { requestId: string; title: string }) => void,
+    ): (() => void) => {
+      const listener = (
+        _e: unknown,
+        ask: { requestId: string; title: string },
+      ) => callback(ask);
+      ipcRenderer.on(CHANNELS.gitShipConflictAsk, listener);
+      return () =>
+        ipcRenderer.removeListener(CHANNELS.gitShipConflictAsk, listener);
+    },
+    answerShipConflict: (requestId: string, autoResolve: boolean): void =>
+      ipcRenderer.send(CHANNELS.gitShipConflictAnswer, requestId, autoResolve),
     onShipStatus: (
       callback: (snapshot: ShipQueueSnapshot) => void,
     ): (() => void) => {

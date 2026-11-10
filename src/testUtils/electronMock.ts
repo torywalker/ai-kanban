@@ -17,6 +17,7 @@ export function installElectronMock(): void {
           activeBoardId: null,
           useWorktrees: false,
           soundEnabled: true,
+          promptDeleteWorktreeOnDone: true,
           sidebarCollapsed: false,
         }),
         write: jest.fn().mockResolvedValue({}),
@@ -97,6 +98,8 @@ export function installElectronMock(): void {
         shipStatusGet: jest.fn().mockResolvedValue(null),
         shipCancel: jest.fn().mockResolvedValue({ ok: true, value: null }),
         onShipStatus: jest.fn().mockReturnValue(() => {}),
+        onShipConflictAsk: jest.fn().mockReturnValue(() => {}),
+        answerShipConflict: jest.fn(),
       },
     },
   });

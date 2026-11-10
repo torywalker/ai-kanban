@@ -2,8 +2,21 @@ import { useState, type KeyboardEvent } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Comment } from '@shared/schema';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { relativeTime } from '@/lib/relativeTime';
+import { useDocStore } from '@/store/docStore';
+import { SlashPromptTextarea } from './SlashPromptTextarea';
+
+/** "Today, 3:12 PM" for the current calendar day, else "Nov 4, 2026, 3:12 PM". */
+export function formatCommentTime(iso: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  if (at.toDateString() === now.toDateString()) {
+    return `Today, ${at.toLocaleTimeString(undefined, { timeStyle: 'short' })}`;
+  }
+  return at.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
 
 /** Cmd/Ctrl+Enter, the app's submit chord for multi-line fields. */
 export const isSubmitChord = (event: KeyboardEvent) =>
@@ -19,6 +32,7 @@ export function CommentItem({
   onDelete: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const commentSnippets = useDocStore((s) => s.commentSnippets);
 
   const save = () => {
     const text = (draft ?? '').trim();
@@ -29,34 +43,41 @@ export function CommentItem({
   };
 
   return (
-    <li className="group flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm shadow-xs">
+    <li className="group relative flex flex-col gap-1 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm shadow-xs">
       {draft === null ? (
         <p className="whitespace-pre-wrap break-words">{comment.text}</p>
       ) : (
-        <Textarea
-          autoFocus
-          data-comment-edit
-          value={draft}
-          className="min-h-12 text-sm"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (isSubmitChord(event)) {
-              event.preventDefault();
-              save();
-            } else if (event.key === 'Escape') {
-              // Cancel the edit, not the whole dialog.
-              event.stopPropagation();
-              setDraft(null);
-            }
-          }}
-        />
+        // The wrapper marks the edit so the dialog's Escape handler skips it.
+        <div data-comment-edit>
+          <SlashPromptTextarea
+            id={`comment-edit-${comment.id}`}
+            rows={2}
+            snippets={commentSnippets}
+            autoFocus
+            value={draft}
+            className="min-h-12 text-sm"
+            placeholder=""
+            onChange={setDraft}
+            onKeyDown={(event) => {
+              if (isSubmitChord(event)) {
+                event.preventDefault();
+                save();
+              } else if (event.key === 'Escape') {
+                // Cancel the edit, not the whole dialog.
+                event.stopPropagation();
+                setDraft(null);
+              }
+            }}
+          />
+        </div>
       )}
       <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-        <span title={new Date(comment.createdAt).toLocaleString()}>
-          {relativeTime(comment.createdAt)}
-        </span>
+        <span>{formatCommentTime(comment.createdAt)}</span>
         {comment.editedAt ? <span>edited</span> : null}
-        <span className="ml-auto flex opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
+        <span className="ml-auto">{relativeTime(comment.createdAt)}</span>
+      </div>
+      {draft === null ? (
+        <span className="absolute top-1 right-1 flex rounded-md bg-card opacity-0 shadow-xs group-focus-within:opacity-100 group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon-xs"
@@ -74,7 +95,7 @@ export function CommentItem({
             <Trash2 />
           </Button>
         </span>
-      </div>
+      ) : null}
     </li>
   );
 }
