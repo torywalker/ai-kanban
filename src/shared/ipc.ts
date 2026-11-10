@@ -57,6 +57,9 @@ export const CHANNELS = {
   gitShipStatus: 'git:ship-status',
   gitShipStatusGet: 'git:ship-status-get',
   gitShipCancel: 'git:ship-cancel',
+  // Main asks the renderer whether Ship may auto-resolve a merge conflict.
+  gitShipConflictAsk: 'git:ship-conflict-ask',
+  gitShipConflictAnswer: 'git:ship-conflict-answer',
   // The floating quick-add panel is a second window. It asks the main
   // window's renderer (which owns the open document) to read and to add.
   quickAddContext: 'quick-add:context',

@@ -8,6 +8,7 @@
  * When running `pnpm run build` or `pnpm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
+import { randomUUID } from 'crypto';
 import path from 'path';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import MenuBuilder from './menu';
@@ -251,6 +252,11 @@ subscribeDaemonEvents((event) => {
       win.webContents.send(channel, ...args),
     );
   if (event.event === 'snapshot') {
+    if (event.snapshot.engine === 'terminal') {
+      if (event.snapshot.terminal?.claudeRunning) {
+        cliRunningCards.add(event.snapshot.cardId);
+      } else cliRunningCards.delete(event.snapshot.cardId);
+    }
     send(CHANNELS.sessionSnapshot, event.snapshot);
   } else if (event.event === 'terminalData') {
     send(CHANNELS.terminalData, event.cardId, event.data);
@@ -261,12 +267,37 @@ subscribeDaemonEvents((event) => {
   }
 });
 
+// Which cards have a live Claude CLI, from the same snapshots the renderer gets.
+const cliRunningCards = new Set<string>();
+const pendingConflictAsks = new Map<string, (autoResolve: boolean) => void>();
+ipcMain.on(
+  CHANNELS.gitShipConflictAnswer,
+  (_e, requestId: string, autoResolve: boolean) =>
+    pendingConflictAsks.get(requestId)?.(autoResolve === true),
+);
+
 const shipService = createShipService({
+  confirmAutoResolve: ({ title }, signal) =>
+    new Promise<boolean>((resolve) => {
+      const requestId = randomUUID();
+      const settle = (answer: boolean) => {
+        pendingConflictAsks.delete(requestId);
+        signal.removeEventListener('abort', onAbort);
+        resolve(answer);
+      };
+      const onAbort = () => settle(false);
+      signal.addEventListener('abort', onAbort, { once: true });
+      pendingConflictAsks.set(requestId, settle);
+      BrowserWindow.getAllWindows().forEach((win) =>
+        win.webContents.send(CHANNELS.gitShipConflictAsk, { requestId, title }),
+      );
+    }),
   // Ship's own turns go through the daemon exactly like a user's reply, so
   // they stream into the card's transcript and cost the same ledger.
   runAgentTurn: createDaemonAgentTurnRunner({
     send: sendDaemonRequest,
     subscribe: subscribeDaemonEvents,
+    cliRunning: (cardId) => cliRunningCards.has(cardId),
   }),
   stopSession: (cardId: string) => sendDaemonRequest({ op: 'stop', cardId }),
   // Broadcast to every window, matching the session snapshot fan-out above.

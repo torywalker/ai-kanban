@@ -278,6 +278,19 @@ const api = {
     // Card id only: the path to abort a merge in is main's to remember.
     shipCancel: (cardId: string): Promise<IpcResult<null>> =>
       ipcRenderer.invoke(CHANNELS.gitShipCancel, cardId),
+    onShipConflictAsk: (
+      callback: (ask: { requestId: string; title: string }) => void,
+    ): (() => void) => {
+      const listener = (
+        _e: unknown,
+        ask: { requestId: string; title: string },
+      ) => callback(ask);
+      ipcRenderer.on(CHANNELS.gitShipConflictAsk, listener);
+      return () =>
+        ipcRenderer.removeListener(CHANNELS.gitShipConflictAsk, listener);
+    },
+    answerShipConflict: (requestId: string, autoResolve: boolean): void =>
+      ipcRenderer.send(CHANNELS.gitShipConflictAnswer, requestId, autoResolve),
     onShipStatus: (
       callback: (snapshot: ShipQueueSnapshot) => void,
     ): (() => void) => {

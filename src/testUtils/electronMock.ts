@@ -97,6 +97,8 @@ export function installElectronMock(): void {
         shipStatusGet: jest.fn().mockResolvedValue(null),
         shipCancel: jest.fn().mockResolvedValue({ ok: true, value: null }),
         onShipStatus: jest.fn().mockReturnValue(() => {}),
+        onShipConflictAsk: jest.fn().mockReturnValue(() => {}),
+        answerShipConflict: jest.fn(),
       },
     },
   });
