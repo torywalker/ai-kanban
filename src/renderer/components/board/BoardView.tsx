@@ -178,9 +178,11 @@ export function BoardView() {
             fireConfettiOnCard(result.draggableId);
             // Work is over, so shut its terminal too (no-op if none is live).
             closeLiveTerminals([result.draggableId]);
-            const moved = destList.cards.find(
-              (c) => c.id === result.draggableId,
-            );
+            // `board` is the pre-drop snapshot, so the card is still in its
+            // source list here, not in `destList`.
+            const moved = board.lists
+              .find((l) => l.id === result.source.droppableId)
+              ?.cards.find((c) => c.id === result.draggableId);
             if (promptDeleteWorktreeOnDone && moved?.sessionWorktree) {
               setWorktreePrompt({
                 listId: destList.id,
