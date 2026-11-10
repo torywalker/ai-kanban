@@ -10,6 +10,8 @@ import { reattachSessions } from '@/lib/reattachSessions';
 import { WelcomeScreen } from './WelcomeScreen';
 import { FileErrorScreen } from './FileErrorScreen';
 import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { BuildStatusBanner } from './BuildStatusBanner';
+import { useBuildStatusSync } from '@/lib/useBuildStatusSync';
 import { BoardView } from '@/components/board/BoardView';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { Toaster } from '@/components/ui/sonner';
@@ -19,6 +21,7 @@ import { ShipConflictPrompt } from './ShipConflictPrompt';
 import { ShortcutsHelpDialog } from './ShortcutsHelpDialog';
 
 export function AppShell() {
+  useBuildStatusSync();
   useTheme();
   const status = useDocStore((s) => s.status);
   const bootstrap = useDocStore((s) => s.bootstrap);
@@ -365,6 +368,7 @@ export function AppShell() {
   return (
     <div className="flex h-full flex-col bg-background">
       <ExternalChangeBanner />
+      <BuildStatusBanner />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-w-0 flex-1">

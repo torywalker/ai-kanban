@@ -108,6 +108,13 @@ export const CardSchema = z.object({
   // it answers "was a worktree used" even once none exists any more. Null
   // until a card's first run has started.
   usedWorktree: z.boolean().nullable().catch(null),
+  // Recorded when Ship merges this card into a branch locally: the merged
+  // commit and where it went. Build monitoring follows that commit onto the
+  // remote, so it must outlive `sessionWorktree` (deleted after Ship).
+  shipRecord: z
+    .object({ sha: z.string(), targetBranch: z.string() })
+    .optional()
+    .catch(undefined),
   // ISO time of the last Ship that landed. Lives on the card, not on
   // `sessionWorktree`, because that is cleared when the worktree is deleted.
   lastShippedAt: z.string().optional().catch(undefined),

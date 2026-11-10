@@ -15,3 +15,13 @@ export default function showTaskFinishedNotification(cardTitle: string): void {
     // Native notifications may be unavailable or denied by the OS.
   }
 }
+
+/** Build-status alert; best-effort for the same reasons as above. */
+export function showBuildNotification(title: string, body: string): void {
+  try {
+    if (!Notification.isSupported()) return;
+    new Notification({ title, body }).show();
+  } catch {
+    // Native notifications may be unavailable or denied by the OS.
+  }
+}

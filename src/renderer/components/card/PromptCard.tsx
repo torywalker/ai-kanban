@@ -20,6 +20,7 @@ import { VariableFillDialog } from './VariableFillDialog';
 import { PriorityButton } from './PriorityButton';
 import { CommentCount } from './CommentCount';
 import { SessionStatusBadge } from './SessionStatusBadge';
+import { BuildStatusBadge } from './BuildStatusBadge';
 import { SessionChecklist } from './SessionChecklist';
 import { PromptBody } from './PromptBody';
 import { TagPickerButton } from './TagPickerButton';
@@ -271,6 +272,7 @@ export function PromptCard({
                   }
                 />
                 <CommentCount count={card.comments.length} />
+                <BuildStatusBadge cardId={cardId} />
                 {/* Always rendered, zero included: hiding it would make "this
                   card hasn't cost anything yet" indistinguishable from "this
                   card doesn't track cost" — same rationale as UsageSummary.

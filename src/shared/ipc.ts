@@ -58,6 +58,9 @@ export const CHANNELS = {
   gitShipStatus: 'git:ship-status',
   gitShipStatusGet: 'git:ship-status-get',
   gitShipCancel: 'git:ship-cancel',
+  buildStatusWatch: 'build-status:watch',
+  buildStatusRetry: 'build-status:retry',
+  buildStatusUpdate: 'build-status:update',
   // Main asks the renderer whether Ship may auto-resolve a merge conflict.
   gitShipConflictAsk: 'git:ship-conflict-ask',
   gitShipConflictAnswer: 'git:ship-conflict-answer',

@@ -47,7 +47,13 @@ import {
   type SessionWorktree,
   type ShipChooserPlan,
 } from '../shared/worktree';
-import { gitHead, gitRefExists } from './services/git';
+import { git, gitHead, gitRefExists } from './services/git';
+import {
+  createBuildStatusService,
+  defaultExec,
+} from './services/buildStatus';
+import { showBuildNotification } from './services/notifications';
+import type { BuildWatchTarget } from '../shared/buildStatus';
 import {
   assertManagedWorktree,
   ensureWorktree,
@@ -384,7 +390,7 @@ ipcMain.handle(
 
 ipcMain.handle(
   CHANNELS.gitShip,
-  (_e, opts: ShipOptions): Promise<IpcResult<null>> =>
+  (_e, opts: ShipOptions): Promise<IpcResult<string>> =>
     attempt(async () => {
       await assertManagedWorktree({
         userDataRoot: app.getPath('userData'),
@@ -404,9 +410,33 @@ ipcMain.handle(
         );
       }
       await shipService.ship(opts);
-      return null;
+      // Ship fast-forwards the destination to the card branch, so the card
+      // branch's tip is the commit that landed. Build monitoring follows it.
+      const tip = await git(opts.primary, [
+        'rev-parse',
+        `refs/heads/${opts.worktree.branch}`,
+      ]);
+      if (!tip.ok) throw new Error(tip.stderr);
+      return tip.stdout.trim();
     }),
 );
+
+const buildStatusService = createBuildStatusService({
+  exec: defaultExec,
+  notify: (notice) => showBuildNotification(notice.title, notice.body),
+  emit: (update) => {
+    BrowserWindow.getAllWindows().forEach((win) =>
+      win.webContents.send(CHANNELS.buildStatusUpdate, update),
+    );
+  },
+});
+buildStatusService.start();
+
+ipcMain.handle(
+  CHANNELS.buildStatusWatch,
+  (_e, targets: BuildWatchTarget[]) => buildStatusService.setTargets(targets),
+);
+ipcMain.handle(CHANNELS.buildStatusRetry, () => buildStatusService.retry());
 
 ipcMain.handle(CHANNELS.gitShipStatusGet, (_e, cardId: string) =>
   shipService.statusFor(cardId),

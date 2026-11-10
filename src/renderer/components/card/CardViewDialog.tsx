@@ -690,6 +690,7 @@ export function CardViewDialog({
       }
       updateCard(boardId, listId, cardId, {
         sessionWorktree: { ...card.sessionWorktree, shipped: true },
+        shipRecord: { sha: result.value, targetBranch: destinationBranch },
         lastShippedAt: new Date().toISOString(),
       });
       setShipQueue(null);

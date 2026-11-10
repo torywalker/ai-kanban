@@ -20,6 +20,10 @@ import type {
 } from '../shared/worktree';
 import type { ShipOptions } from './services/ship';
 import type {
+  BuildStatusUpdate,
+  BuildWatchTarget,
+} from '../shared/buildStatus';
+import type {
   AttachmentMeta,
   AttachmentPickResult,
   AttachmentRef,
@@ -273,7 +277,7 @@ const api = {
      * as the cards ahead of it take — the UI follows `onShipStatus` rather
      * than this promise to know where it stands.
      */
-    ship: (opts: ShipOptions): Promise<IpcResult<null>> =>
+    ship: (opts: ShipOptions): Promise<IpcResult<string>> =>
       ipcRenderer.invoke(CHANNELS.gitShip, opts),
     /**
      * Where a card sits in its repository's ship queue right now, or null
@@ -305,6 +309,18 @@ const api = {
         callback(snapshot);
       ipcRenderer.on(CHANNELS.gitShipStatus, listener);
       return () => ipcRenderer.removeListener(CHANNELS.gitShipStatus, listener);
+    },
+  },
+  buildStatus: {
+    watch: (targets: BuildWatchTarget[]): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.buildStatusWatch, targets),
+    retry: (): Promise<void> => ipcRenderer.invoke(CHANNELS.buildStatusRetry),
+    onUpdate: (callback: (update: BuildStatusUpdate) => void): (() => void) => {
+      const listener = (_e: unknown, update: BuildStatusUpdate) =>
+        callback(update);
+      ipcRenderer.on(CHANNELS.buildStatusUpdate, listener);
+      return () =>
+        ipcRenderer.removeListener(CHANNELS.buildStatusUpdate, listener);
     },
   },
   quickAdd: {
