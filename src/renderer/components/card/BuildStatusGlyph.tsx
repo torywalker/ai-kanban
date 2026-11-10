@@ -1,9 +1,9 @@
 import {
-  CircleCheck,
   CircleX,
   CloudUpload,
   Hourglass,
   PackageX,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { summarizeChecks, type BuildStatus } from '@shared/buildStatus';
@@ -123,7 +123,7 @@ export function describeBuild(status: BuildStatus): BuildView | null {
   }
   if (finished) {
     return {
-      icon: CircleCheck,
+      icon: ShieldCheck,
       color: 'text-emerald-500',
       label: 'Build passed',
       title: 'Build passed',
