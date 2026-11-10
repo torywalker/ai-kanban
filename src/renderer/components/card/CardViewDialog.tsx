@@ -651,6 +651,7 @@ export function CardViewDialog({
       }
       updateCard(boardId, listId, cardId, {
         sessionWorktree: { ...card.sessionWorktree, shipped: true },
+        shipRecord: { sha: result.value, targetBranch: destinationBranch },
       });
       setShipQueue(null);
       toast.success('Shipped');

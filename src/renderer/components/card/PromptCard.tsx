@@ -20,6 +20,7 @@ import { VariableFillDialog } from './VariableFillDialog';
 import { PriorityButton } from './PriorityButton';
 import { CommentCount } from './CommentCount';
 import { SessionStatusBadge } from './SessionStatusBadge';
+import { BuildStatusBadge } from './BuildStatusBadge';
 import { SessionChecklist } from './SessionChecklist';
 import { PromptBody } from './PromptBody';
 import { TagPickerButton } from './TagPickerButton';
@@ -175,6 +176,7 @@ export function PromptCard({
                   />
 
                   <SessionStatusBadge cardId={cardId} paused={card.paused} />
+                  <BuildStatusBadge cardId={cardId} />
                 </div>
 
                 {/*
