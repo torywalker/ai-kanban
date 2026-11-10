@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { Plus, X } from 'lucide-react';
@@ -33,6 +34,7 @@ export function TerminalTabs({
   onClose,
   onMove,
 }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null);
   return (
     <div
       role="tablist"
@@ -54,7 +56,16 @@ export function TerminalTabs({
               {tabs.map((tab, index) => {
                 const active = tab.id === activeId;
                 return (
-                  <Draggable key={tab.id} draggableId={tab.id} index={index}>
+                  <Draggable
+                    key={tab.id}
+                    draggableId={tab.id}
+                    index={index}
+                    // The title is a <button>, which the library otherwise
+                    // refuses to drag from; editing is excluded so the input
+                    // keeps normal text selection.
+                    disableInteractiveElementBlocking
+                    isDragDisabled={editingId === tab.id}
+                  >
                     {(drag, snapshot) => {
                       const node = (
                         <div
@@ -84,6 +95,15 @@ export function TerminalTabs({
                             editOn="doubleClick"
                             onActivate={() => onSelect(tab.id)}
                             onCommit={(next) => onRename(tab.id, next)}
+                            onEditingChange={(editing) =>
+                              setEditingId((cur) =>
+                                editing
+                                  ? tab.id
+                                  : cur === tab.id
+                                    ? null
+                                    : cur,
+                              )
+                            }
                             className="min-w-0"
                           />
                           <button
