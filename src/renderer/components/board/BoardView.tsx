@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { SquareTerminal, StickyNote } from 'lucide-react';
+import { Bell, BellOff, SquareTerminal, StickyNote } from 'lucide-react';
 import { toast } from 'sonner';
 import { WORKTREE_MISSING_ERROR } from '@shared/worktree';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';
@@ -24,6 +24,8 @@ import { ScratchpadDialog } from './ScratchpadDialog';
 export function BoardView() {
   const board = useDocStore(selectActiveBoard);
   const renameBoard = useDocStore((s) => s.renameBoard);
+  const soundEnabled = useDocStore((s) => s.soundEnabled);
+  const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
   const applyDrag = useDocStore((s) => s.applyDrag);
   const setBoardDefaultRepo = useDocStore((s) => s.setBoardDefaultRepo);
   const showArchived = useUiStore((s) => s.showArchived);
@@ -152,6 +154,18 @@ export function BoardView() {
         >
           {formatUsd(totals.costUSD)}
         </span>
+        <Button
+          type="button"
+          variant={soundEnabled ? 'outline' : 'secondary'}
+          size="icon"
+          className="ml-2"
+          aria-pressed={!soundEnabled}
+          aria-label="Mute notifications"
+          title={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
+          onClick={() => setSoundEnabled(!soundEnabled)}
+        >
+          {soundEnabled ? <Bell /> : <BellOff />}
+        </Button>
       </header>
 
       <FilterBar />

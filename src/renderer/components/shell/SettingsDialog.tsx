@@ -370,7 +370,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
               <SettingsCheckboxRow
                 id="sound-enabled"
                 label="Play notification sounds"
-                description="A chime plays when a card finishes, and a different one when it needs your input."
+                description="A chime plays when a card finishes, and a different one when it needs your input. Turning this off also silences desktop notifications."
                 checked={soundEnabled}
                 onChange={setSoundEnabled}
               />
