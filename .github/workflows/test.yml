@@ -7,8 +7,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      # Windows is unsupported: node-pty has no win32 prebuilds here (excluded from packaging)
+      # and compiling it needs a VS toolchain. Don't let one OS cancel the others.
+      fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest]
 
     steps:
       - name: Check out Git repository
