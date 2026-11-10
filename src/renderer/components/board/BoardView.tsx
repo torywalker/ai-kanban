@@ -164,7 +164,7 @@ export function BoardView() {
           title={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
           onClick={() => setSoundEnabled(!soundEnabled)}
         >
-          {soundEnabled ? <Bell /> : <BellOff />}
+          {soundEnabled ? <Bell /> : <BellOff className="text-red-500" />}
         </Button>
       </header>
 
