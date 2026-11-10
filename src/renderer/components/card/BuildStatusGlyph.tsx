@@ -124,7 +124,7 @@ export function describeBuild(status: BuildStatus): BuildView | null {
   if (finished) {
     return {
       icon: ShieldCheck,
-      color: 'text-teal-500',
+      color: 'text-indigo-500',
       label: 'Build passed',
       title: 'Build passed',
       summary: `All ${total} checks passed`,

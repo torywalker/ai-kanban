@@ -18,7 +18,7 @@ function SegmentBar({ checks }: { checks: BuildCheck[] }) {
       aria-hidden
       className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-muted"
     >
-      <div className="bg-teal-500" style={{ width: pct(passed) }} />
+      <div className="bg-indigo-500" style={{ width: pct(passed) }} />
       <div className="bg-destructive" style={{ width: pct(failing.length) }} />
       <div className="bg-sky-500/40" style={{ width: pct(pending) }} />
     </div>
