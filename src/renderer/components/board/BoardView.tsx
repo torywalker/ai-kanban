@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import { SquareTerminal, StickyNote } from 'lucide-react';
+import { toast } from 'sonner';
+import { WORKTREE_MISSING_ERROR } from '@shared/worktree';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';
 import { useUiStore } from '@/store/uiStore';
 import { selectActiveBoard } from '@/store/selectors';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { Button } from '@/components/ui/button';
 import { TerminalsDialog } from '@/components/terminals/TerminalsDialog';
@@ -29,6 +32,15 @@ export function BoardView() {
   const setScratchpadOpen = useUiStore((s) => s.setScratchpadOpen);
   const terminalsOpen = useUiStore((s) => s.terminalsOpen);
   const setTerminalsOpen = useUiStore((s) => s.setTerminalsOpen);
+  const promptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.promptDeleteWorktreeOnDone,
+  );
+  const updateCard = useDocStore((s) => s.updateCard);
+  // The card just moved to a done list whose worktree is still on disk.
+  const [worktreePrompt, setWorktreePrompt] = useState<{
+    listId: string;
+    cardId: string;
+  } | null>(null);
   // True only between a CARD lift and its drop, so every column can offer a
   // droppable-sized target for exactly as long as one is needed.
   const [cardDragActive, setCardDragActive] = useState(false);
@@ -42,6 +54,33 @@ export function BoardView() {
     [board, showArchived],
   );
   const totals = useBoardUsage(cardIds);
+
+  // Same removal the card dialog's "Delete worktree" button performs.
+  const deleteDoneWorktree = async (target: {
+    listId: string;
+    cardId: string;
+  }) => {
+    const card = board?.lists
+      .find((l) => l.id === target.listId)
+      ?.cards.find((c) => c.id === target.cardId);
+    const primary = card?.sessionRepo ?? board?.defaultRepo ?? null;
+    if (!board || !card?.sessionWorktree || !primary) return;
+    try {
+      const result = await api.git.removeWorktree(
+        card.id,
+        primary,
+        card.sessionWorktree,
+      );
+      if (!result.ok && result.error !== WORKTREE_MISSING_ERROR) {
+        toast.error(result.error);
+        return;
+      }
+      updateCard(board.id, target.listId, card.id, { sessionWorktree: null });
+      toast.success('Worktree deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   if (!board) {
     return (
@@ -139,6 +178,15 @@ export function BoardView() {
             fireConfettiOnCard(result.draggableId);
             // Work is over, so shut its terminal too (no-op if none is live).
             closeLiveTerminals([result.draggableId]);
+            const moved = destList.cards.find(
+              (c) => c.id === result.draggableId,
+            );
+            if (promptDeleteWorktreeOnDone && moved?.sessionWorktree) {
+              setWorktreePrompt({
+                listId: destList.id,
+                cardId: moved.id,
+              });
+            }
           }
         }}
       >
@@ -168,6 +216,19 @@ export function BoardView() {
           )}
         </Droppable>
       </DragDropContext>
+      <ConfirmDialog
+        open={worktreePrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setWorktreePrompt(null);
+        }}
+        title="Delete this card's worktree?"
+        body="The card is done. Its git worktree is still on disk. Anything not shipped yet will be lost."
+        confirmLabel="Delete worktree"
+        destructive
+        onConfirm={() => {
+          if (worktreePrompt) void deleteDoneWorktree(worktreePrompt);
+        }}
+      />
     </div>
   );
 }

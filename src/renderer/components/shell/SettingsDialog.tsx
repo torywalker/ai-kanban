@@ -95,6 +95,12 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
   const setClaudeCliPath = useDocStore((s) => s.setClaudeCliPath);
   const soundEnabled = useDocStore((s) => s.soundEnabled);
   const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
+  const promptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.promptDeleteWorktreeOnDone,
+  );
+  const setPromptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.setPromptDeleteWorktreeOnDone,
+  );
   const [recents, setRecents] = useState<string[]>([]);
   // Set only when the picked move target already has a file at it — the
   // confirm dialog below gates `performMove` on the user explicitly
@@ -294,6 +300,14 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
                 description="Each Run gets its own git worktree. Ship merges it back."
                 checked={useWorktrees}
                 onChange={setUseWorktrees}
+              />
+
+              <SettingsCheckboxRow
+                id="prompt-delete-worktree-on-done"
+                label="Offer to delete the worktree when a card is done"
+                description="Moving a card to a done list asks whether to delete its worktree."
+                checked={promptDeleteWorktreeOnDone}
+                onChange={setPromptDeleteWorktreeOnDone}
               />
 
               <div className="flex flex-col gap-1.5">

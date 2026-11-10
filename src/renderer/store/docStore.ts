@@ -139,6 +139,7 @@ interface DocStore {
   sessionEngine: SessionEngine;
   claudeCliPath: string | null;
   soundEnabled: boolean;
+  promptDeleteWorktreeOnDone: boolean;
   sidebarCollapsed: boolean;
   slashSnippets: SlashSnippet[];
 
@@ -211,6 +212,7 @@ interface DocStore {
   setSessionEngine: (engine: SessionEngine) => void;
   setClaudeCliPath: (path: string | null) => void;
   setSoundEnabled: (enabled: boolean) => void;
+  setPromptDeleteWorktreeOnDone: (enabled: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   addSlashSnippet: (
     trigger: string,
@@ -294,6 +296,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   sessionEngine: 'sdk',
   claudeCliPath: null,
   soundEnabled: true,
+  promptDeleteWorktreeOnDone: true,
   sidebarCollapsed: false,
   slashSnippets: [],
 
@@ -310,6 +313,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
       sessionEngine: settings.sessionEngine ?? 'sdk',
       claudeCliPath: settings.claudeCliPath ?? null,
       soundEnabled: settings.soundEnabled,
+      promptDeleteWorktreeOnDone: settings.promptDeleteWorktreeOnDone ?? true,
       sidebarCollapsed: settings.sidebarCollapsed,
       slashSnippets: settings.slashSnippets ?? [],
     });
@@ -922,6 +926,11 @@ export const useDocStore = create<DocStore>((set, get) => ({
   setSoundEnabled: (enabled) => {
     set({ soundEnabled: enabled });
     void api.settings.write({ soundEnabled: enabled });
+  },
+
+  setPromptDeleteWorktreeOnDone: (enabled) => {
+    set({ promptDeleteWorktreeOnDone: enabled });
+    void api.settings.write({ promptDeleteWorktreeOnDone: enabled });
   },
 
   setSidebarCollapsed: (collapsed) => {

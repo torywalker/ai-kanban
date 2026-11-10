@@ -103,6 +103,9 @@ export interface Settings {
   // only — there is no per-card override, the same reasoning as
   // `approvalMode` above.
   soundEnabled: boolean;
+  // Whether moving a card to a "done" list offers to delete its leftover
+  // worktree. Global only, like `soundEnabled`.
+  promptDeleteWorktreeOnDone: boolean;
   // Whether the boards/settings sidebar is collapsed to a narrow rail. A
   // layout preference, not document data — persisted the same way as
   // `activeBoardId` above.

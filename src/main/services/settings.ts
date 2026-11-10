@@ -14,6 +14,7 @@ const DEFAULTS: Settings = {
   sessionEngine: 'sdk',
   claudeCliPath: null,
   soundEnabled: true,
+  promptDeleteWorktreeOnDone: true,
   sidebarCollapsed: false,
   slashSnippets: [],
 };

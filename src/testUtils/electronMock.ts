@@ -17,6 +17,7 @@ export function installElectronMock(): void {
           activeBoardId: null,
           useWorktrees: false,
           soundEnabled: true,
+          promptDeleteWorktreeOnDone: true,
           sidebarCollapsed: false,
         }),
         write: jest.fn().mockResolvedValue({}),
