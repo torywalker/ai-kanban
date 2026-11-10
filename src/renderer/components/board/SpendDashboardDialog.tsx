@@ -127,7 +127,7 @@ export function SpendDashboardDialog({
             {emptyMessage}
           </p>
         ) : (
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-2 pt-8">
             <span className="text-xs text-muted-foreground [writing-mode:vertical-rl] rotate-180 self-center">
               Spend per day (USD)
             </span>
