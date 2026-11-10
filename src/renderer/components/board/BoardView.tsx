@@ -140,20 +140,20 @@ export function BoardView() {
           variant="outline"
           size="sm"
           className="ml-2"
-          onClick={() => setTerminalsOpen(true)}
+          onClick={() => setSpendOpen(true)}
         >
-          <SquareTerminal />
-          Terminals
+          <ChartColumn />
+          Spend
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="ml-2"
-          onClick={() => setSpendOpen(true)}
+          onClick={() => setTerminalsOpen(true)}
         >
-          <ChartColumn />
-          Spend
+          <SquareTerminal />
+          Terminals
         </Button>
         {/* `ml-auto` right-aligns it on the name's line, the same trick
             `UsageSummary` uses for a card's badge row. Always rendered,
