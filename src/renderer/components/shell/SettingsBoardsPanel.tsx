@@ -1,7 +1,6 @@
 import type { Board } from '@shared/schema';
-import { SHIP_CONFLICT_PROMPT } from '@shared/worktree';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { ShipConflictPromptEditor } from '@/components/shell/ShipConflictPromptEditor';
 import { useDocStore } from '@/store/docStore';
 
 const NO_BOARDS: Board[] = [];
@@ -13,9 +12,6 @@ const NO_BOARDS: Board[] = [];
 export function SettingsBoardsPanel() {
   const boards = useDocStore((s) => s.doc?.boards ?? NO_BOARDS);
   const unarchiveBoard = useDocStore((s) => s.unarchiveBoard);
-  const setShipConflictPrompt = useDocStore(
-    (s) => s.setBoardShipConflictPrompt,
-  );
 
   if (boards.length === 0) {
     return <p className="text-sm text-muted-foreground">No boards yet.</p>;
@@ -49,34 +45,11 @@ export function SettingsBoardsPanel() {
             ) : null}
           </div>
           {board.archived ? null : (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor={`ship-conflict-${board.id}`}
-                  className="text-xs text-muted-foreground"
-                >
-                  Ship merge-conflict prompt
-                </label>
-                {board.shipConflictPrompt ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`Reset ${board.name} conflict prompt`}
-                    onClick={() => setShipConflictPrompt(board.id, '')}
-                  >
-                    Reset to default
-                  </Button>
-                ) : null}
-              </div>
-              <Textarea
-                id={`ship-conflict-${board.id}`}
-                rows={5}
-                value={board.shipConflictPrompt ?? SHIP_CONFLICT_PROMPT}
-                onChange={(e) =>
-                  setShipConflictPrompt(board.id, e.target.value)
-                }
-              />
-            </div>
+            <ShipConflictPromptEditor
+              boardId={board.id}
+              boardName={board.name}
+              prompt={board.shipConflictPrompt}
+            />
           )}
         </li>
       ))}
