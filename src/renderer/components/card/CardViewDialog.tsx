@@ -73,6 +73,7 @@ import { relativeTime } from '@/lib/relativeTime';
 import { formatCommentTime } from './CommentItem';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
+import { BuildStatusBadge } from './BuildStatusBadge';
 import { EMPTY_PROMPT_PLACEHOLDER, PromptBody } from './PromptBody';
 import { CardComposerDialog } from './CardComposerDialog';
 import { ImageAttachmentStrip } from './ImageAttachmentStrip';
@@ -1009,6 +1010,7 @@ export function CardViewDialog({
                   }
                 />
               </div>
+              <BuildStatusBadge cardId={cardId} />
               <WorktreeBadge
                 usedWorktree={card.usedWorktree}
                 sessionWorktree={card.sessionWorktree}
