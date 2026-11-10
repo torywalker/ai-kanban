@@ -301,6 +301,24 @@ describe('ship orchestrator', () => {
     expect(gitExec(primary, ['rev-parse', 'main']).trim()).toBe(destination);
   });
 
+  it("asks the agent with the board's custom conflict prompt when set", async () => {
+    const worktree = await worktreeFor('crd_custom');
+    commitInWorktree(worktree, { 'result.txt': 'feature\n' }, 'feature');
+    advanceMain('destination\n');
+    const runAgentTurn = turnMock();
+
+    await expect(
+      serviceWith(runAgentTurn).ship({
+        ...shipOptions('crd_custom', worktree),
+        conflictPrompt: 'Prefer the destination side.',
+      }),
+    ).rejects.toThrow('Could not resolve merge conflicts automatically.');
+
+    expect(runAgentTurn.mock.calls[0][0].prompt).toBe(
+      'Prefer the destination side.',
+    );
+  });
+
   it('gives up after two conflict turns and aborts the merge', async () => {
     const worktree = await worktreeFor('crd_conflict');
     commitInWorktree(worktree, { 'result.txt': 'feature\n' }, 'feature');

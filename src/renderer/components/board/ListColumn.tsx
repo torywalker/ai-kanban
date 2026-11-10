@@ -69,6 +69,7 @@ export function ListColumn({
           {...listProvided.draggableProps}
           role="group"
           aria-label={`List: ${list.name}`}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable so the list receives paste/keyboard shortcuts
           tabIndex={0}
           onPaste={pasteAsCard}
           className="flex max-h-full w-72 shrink-0 flex-col rounded-lg bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"

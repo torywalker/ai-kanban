@@ -62,6 +62,7 @@ import {
   type ShipQueueSnapshot,
 } from '@shared/worktree';
 import { TagPicker } from '@/components/tags/TagPicker';
+import { relativeTime } from '@/lib/relativeTime';
 import { PriorityButton } from './PriorityButton';
 import { CardColorButton } from './CardColorButton';
 import { SessionLastError } from './SessionLastError';
@@ -69,7 +70,6 @@ import { CommentsPanel } from './CommentsPanel';
 import { SessionTranscript } from './SessionTranscript';
 import { TerminalPanel } from './TerminalPanel';
 import { BackgroundTasksIndicator } from './BackgroundTasksIndicator';
-import { relativeTime } from '@/lib/relativeTime';
 import { formatCommentTime } from './CommentItem';
 import { UsageSummary } from './UsageSummary';
 import { WorktreeBadge } from './WorktreeBadge';
@@ -356,6 +356,7 @@ export function CardViewDialog({
     cardId,
   ]);
 
+  const recordedTargetBranch = card?.sessionWorktree?.recordedTargetBranch;
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
     if (
@@ -363,30 +364,22 @@ export function CardViewDialog({
       !canShowShip ||
       claudeTurnActive ||
       !primary ||
-      !card?.sessionWorktree
+      recordedTargetBranch === undefined
     ) {
       setShipPlan(null);
       return undefined;
     }
 
     let disposed = false;
-    void api.git
-      .shipPlan(primary, card.sessionWorktree.recordedTargetBranch)
-      .then((result) => {
-        if (!disposed && requestId === shipPlanRequestId.current) {
-          setShipPlan(result.ok ? result.value : null);
-        }
-      });
+    void api.git.shipPlan(primary, recordedTargetBranch).then((result) => {
+      if (!disposed && requestId === shipPlanRequestId.current) {
+        setShipPlan(result.ok ? result.value : null);
+      }
+    });
     return () => {
       disposed = true;
     };
-  }, [
-    open,
-    canShowShip,
-    claudeTurnActive,
-    primary,
-    card?.sessionWorktree?.recordedTargetBranch,
-  ]);
+  }, [open, canShowShip, claudeTurnActive, primary, recordedTargetBranch]);
 
   // Cmd+W closes a terminal card's dialog, even from inside the terminal.
   // Capture phase, so xterm never sees it. The window menu no longer binds
@@ -464,6 +457,8 @@ export function CardViewDialog({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
+
+  const { confirm, dialog: archiveDialog } = useConfirm();
 
   if (!card) return null;
   /**
@@ -668,6 +663,7 @@ export function CardViewDialog({
         sessionId: card.sessionId,
         approvalMode,
         model,
+        conflictPrompt: board?.shipConflictPrompt,
       });
       if (!result.ok) {
         if (result.error === WORKTREE_MISSING_ERROR) {
@@ -798,7 +794,6 @@ export function CardViewDialog({
     if (closing) closing.catch(() => undefined);
   };
 
-  const { confirm, dialog: archiveDialog } = useConfirm();
   const archive = () => {
     if (card.archived) {
       unarchiveCard(boardId, listId, cardId);

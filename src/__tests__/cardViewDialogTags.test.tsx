@@ -11,7 +11,9 @@ import { installElectronMock } from '../testUtils/electronMock';
 
 class ResizeObserverStub {
   observe() {}
+
   unobserve() {}
+
   disconnect() {}
 }
 

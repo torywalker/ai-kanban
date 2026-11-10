@@ -25,7 +25,6 @@ import { installElectronMock } from '../testUtils/electronMock';
 
 const REPO = '/tmp/some-repo';
 
-
 describe('CardViewDialog: expanding the AI chat', () => {
   let boardId: string;
   let listId: string;

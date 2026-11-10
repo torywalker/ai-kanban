@@ -104,6 +104,15 @@ describe('applyHookEvent (spec §4.3)', () => {
     expect(next.terminal).toEqual({ shellAlive: true, claudeRunning: true });
   });
 
+  it('SessionStart on resume: done, since no turn follows', () => {
+    const next = applyHookEvent(
+      snapshot({ status: 'interrupted' }),
+      hook('SessionStart', 's', { source: 'resume' }),
+    );
+    expect(next.status).toBe('done');
+    expect(next.terminal?.claudeRunning).toBe(true);
+  });
+
   it('UserPromptSubmit: working', () => {
     const next = applyHookEvent(
       snapshot({ status: 'done' }),
@@ -193,9 +202,7 @@ describe('applyPtyExit', () => {
 
 describe('applyInterrupt', () => {
   it('settles a working turn as done', () => {
-    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe(
-      'done',
-    );
+    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe('done');
   });
 
   it('leaves any other status alone', () => {

@@ -7,9 +7,7 @@ export type GitExecResult =
   | { ok: true; stdout: string }
   | { ok: false; stderr: string; code: number | null };
 
-export type HeadState =
-  | { kind: 'branch'; name: string }
-  | { kind: 'detached' };
+export type HeadState = { kind: 'branch'; name: string } | { kind: 'detached' };
 
 export async function git(cwd: string, args: string[]): Promise<GitExecResult> {
   try {
@@ -23,8 +21,7 @@ export async function git(cwd: string, args: string[]): Promise<GitExecResult> {
       stderr?: string;
       code?: number | string;
     };
-    const code =
-      typeof execError.code === 'number' ? execError.code : null;
+    const code = typeof execError.code === 'number' ? execError.code : null;
     return {
       ok: false,
       stderr: execError.stderr ?? String(error),

@@ -58,7 +58,7 @@ export function parseAskUserQuestionInput(
   input: unknown,
 ): AskUserQuestionItem[] | null {
   if (typeof input !== 'object' || input === null) return null;
-  const questions = (input as Record<string, unknown>).questions;
+  const { questions } = input as Record<string, unknown>;
   if (!Array.isArray(questions) || questions.length === 0) return null;
   return questions.every(isQuestion)
     ? (questions as AskUserQuestionItem[])

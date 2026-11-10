@@ -114,7 +114,9 @@ export function applyHookEvent(
     case 'SessionStart':
       return {
         ...snapshot,
-        status: 'working',
+        // A resume launches Claude with no prompt, so no turn follows to
+        // reach Stop: staying `working` would spin until the next message.
+        status: event.source === 'resume' ? 'done' : 'working',
         sessionId: event.sessionId ?? snapshot.sessionId,
         terminal: { ...terminal, claudeRunning: true },
       };

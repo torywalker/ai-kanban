@@ -1,7 +1,4 @@
-import {
-  encodeFrame,
-  createFrameDecoder,
-} from '../main/daemon/framing';
+import { encodeFrame, createFrameDecoder } from '../main/daemon/framing';
 
 describe('daemon framing', () => {
   it('round-trips a single object', () => {
@@ -31,7 +28,9 @@ describe('daemon framing', () => {
   it('drops a malformed line without throwing', () => {
     const received: unknown[] = [];
     const decode = createFrameDecoder((obj) => received.push(obj));
-    expect(() => decode(`not json\n${encodeFrame({ ok: true })}`)).not.toThrow();
+    expect(() =>
+      decode(`not json\n${encodeFrame({ ok: true })}`),
+    ).not.toThrow();
     expect(received).toEqual([{ ok: true }]);
   });
 });

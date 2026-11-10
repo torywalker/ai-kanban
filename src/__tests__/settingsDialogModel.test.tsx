@@ -25,7 +25,9 @@ describe('SettingsDialog default model', () => {
     expect(
       screen.getByRole('button', { name: /Uses your Claude Code CLI default/ }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /default model/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('textbox', { name: /default model/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows a pinned custom model id as the current selection, same as the card override picker', () => {

@@ -76,9 +76,11 @@ describe('addCard with an ID that already exists', () => {
     if (!parsed.ok) throw new Error(parsed.error);
     useDocStore.setState({ doc: parsed.doc, past: [], future: [] });
 
-    useDocStore
-      .getState()
-      .addCard('brd_a1b2c3', 'lst_j0k1l2', { id: 'crd_g7h8i9', title: 'x', prompt: '' });
+    useDocStore.getState().addCard('brd_a1b2c3', 'lst_j0k1l2', {
+      id: 'crd_g7h8i9',
+      title: 'x',
+      prompt: '',
+    });
 
     const doc = useDocStore.getState().doc as KanbanDoc;
     expect(cardIds(doc)).toEqual([['crd_g7h8i9'], []]);

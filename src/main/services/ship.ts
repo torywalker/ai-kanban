@@ -56,6 +56,8 @@ export interface ShipOptions {
   sessionId: string | null;
   approvalMode: ApprovalMode;
   model: string | null;
+  /** The board's custom conflict prompt; blank or absent uses the default. */
+  conflictPrompt?: string;
 }
 
 export interface AgentTurnRequest {
@@ -196,7 +198,11 @@ export function createShipService(deps: {
     for (let attempt = 0; attempt < MAX_CONFLICT_TURNS; attempt += 1) {
       throwIfCancelled(signal);
       // eslint-disable-next-line no-await-in-loop
-      await runTurn(opts, SHIP_CONFLICT_PROMPT, signal);
+      await runTurn(
+        opts,
+        opts.conflictPrompt?.trim() || SHIP_CONFLICT_PROMPT,
+        signal,
+      );
       throwIfCancelled(signal);
       // An agent allowed to commit may have finished the merge outright.
       // eslint-disable-next-line no-await-in-loop
@@ -436,7 +442,12 @@ export function createDaemonAgentTurnRunner(deps: {
               cardId: request.cardId,
               data: request.prompt,
             })
-            .then(() => new Promise((r) => setTimeout(r, CLI_SUBMIT_DELAY_MS)))
+            .then(
+              () =>
+                new Promise((_resolve) => {
+                  setTimeout(_resolve, CLI_SUBMIT_DELAY_MS);
+                }),
+            )
             .then(() =>
               deps.send({
                 op: 'terminalInput',

@@ -42,9 +42,7 @@ ${chalk.whiteBright.bgGreen.bold('pnpm remove your-package')}
  )}
 ${chalk.whiteBright.bgRed.bold('pnpm add your-package')}
  ${chalk.bold('Install the package to "./release/app/package.json"')}
-${chalk.whiteBright.bgGreen.bold(
-  'pnpm --dir release/app add your-package',
-)}
+${chalk.whiteBright.bgGreen.bold('pnpm --dir release/app add your-package')}
  Read more about native dependencies at:
 ${chalk.bold(
   'https://electron-react-boilerplate.js.org/docs/adding-dependencies/#module-structure',

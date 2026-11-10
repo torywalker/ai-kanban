@@ -167,7 +167,9 @@ describe('build status service', () => {
       return ok(
         JSON.stringify({
           url: 'https://github.com/o/r/actions/runs/2',
-          jobs: [{ name: 'deploy', status: 'completed', conclusion: 'success' }],
+          jobs: [
+            { name: 'deploy', status: 'completed', conclusion: 'success' },
+          ],
         }),
       );
     });

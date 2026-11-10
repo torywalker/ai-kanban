@@ -5,7 +5,11 @@
  * "this was free" rather than "this was small" — so the formatter has to
  * change precision with magnitude.
  */
-import { formatTokens, formatUsageBreakdown, formatUsd } from '@/lib/formatUsage';
+import {
+  formatTokens,
+  formatUsageBreakdown,
+  formatUsd,
+} from '@/lib/formatUsage';
 import { EMPTY_USAGE_TOTALS, type UsageTotals } from '@shared/usage';
 
 describe('formatUsd', () => {

@@ -39,7 +39,9 @@ function seededDoc(): KanbanDoc {
 // existing stub in cardViewDialogTags.test.tsx.
 class ResizeObserverStub {
   observe() {}
+
   unobserve() {}
+
   disconnect() {}
 }
 

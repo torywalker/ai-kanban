@@ -147,6 +147,9 @@ export const BoardSchema = z.object({
   // General-terminal tabs for this board. `.catch([])` covers files written
   // before they existed.
   terminals: z.array(BoardTerminalSchema).catch([]),
+  // Per-board override of the prompt Ship gives the agent to resolve merge
+  // conflicts. Absent means the built-in SHIP_CONFLICT_PROMPT.
+  shipConflictPrompt: z.string().optional().catch(undefined),
 });
 
 export const KanbanDocSchema = z.object({

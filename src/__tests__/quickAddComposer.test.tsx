@@ -135,9 +135,9 @@ describe('CardComposerDialog board picker', () => {
     expect(onCreate).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'from the panel' }),
     );
-    expect(
-      useDocStore.getState().doc!.boards[0].lists[0].cards.length,
-    ).toBe(before);
+    expect(useDocStore.getState().doc!.boards[0].lists[0].cards.length).toBe(
+      before,
+    );
     await Promise.resolve();
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });

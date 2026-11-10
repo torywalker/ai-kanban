@@ -558,6 +558,7 @@ describe('CardViewDialog session controls', () => {
         },
       );
       renderDialog();
+      await screen.findByRole('button', { name: 'Ship' });
 
       act(() => {
         onStatus?.({
@@ -567,7 +568,8 @@ describe('CardViewDialog session controls', () => {
         });
       });
 
-      expect(screen.getByRole('button', { name: 'Ship' })).toBeDisabled();
+      // Queued cards show the in-progress spinner (aria-label "Shipping").
+      expect(screen.getByRole('button', { name: 'Shipping' })).toBeDisabled();
       expect(
         screen.getByText('Waiting to ship (behind “First card”)'),
       ).toBeInTheDocument();

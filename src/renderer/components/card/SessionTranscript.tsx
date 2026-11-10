@@ -95,6 +95,7 @@ type FeedEntry =
  * approval JSON) is styled directly with Tailwind utilities rather than a
  * prose wrapper.
  */
+/* eslint-disable jsx-a11y/anchor-has-content, jsx-a11y/heading-has-content -- react-markdown supplies children via the spread props */
 const MARKDOWN_COMPONENTS = {
   p: (props: React.ComponentProps<'p'>) => (
     <p className="mb-1.5 last:mb-0" {...props} />
@@ -148,6 +149,7 @@ const MARKDOWN_COMPONENTS = {
     <h3 className="mb-1 text-sm font-semibold" {...props} />
   ),
 };
+/* eslint-enable jsx-a11y/anchor-has-content, jsx-a11y/heading-has-content */
 
 const ToolFeedRow = React.memo(function ToolFeedRow({
   item,
@@ -327,9 +329,11 @@ export function SessionTranscript({ cardId, expanded = false }: Props) {
   useEffect(() => {
     if (!hasMessages) return;
     let cancelled = false;
-    markdownModulePromise.then((mod) => {
-      if (!cancelled) setMarkdown(mod);
-    });
+    markdownModulePromise
+      .then((mod) => {
+        if (!cancelled) setMarkdown(mod);
+      })
+      .catch(() => undefined); // stay on the plain-text fallback
     return () => {
       cancelled = true;
     };

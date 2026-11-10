@@ -42,13 +42,9 @@ export function useBuildStatusSync(): void {
     return out;
   }, [doc]);
 
-
   // Subscribe before registering targets: main answers `watch` with the full
   // current state, and the reply must have somewhere to land.
-  useEffect(
-    () => window.electron?.buildStatus?.onUpdate(apply),
-    [apply],
-  );
+  useEffect(() => window.electron?.buildStatus?.onUpdate(apply), [apply]);
 
   const key = JSON.stringify(targets);
   useEffect(() => {

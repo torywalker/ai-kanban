@@ -22,7 +22,9 @@ import { EMPTY_USAGE_TOTALS } from '../shared/usage';
 // existing stub in quickAddCard.test.tsx.
 class ResizeObserverStub {
   observe() {}
+
   unobserve() {}
+
   disconnect() {}
 }
 
