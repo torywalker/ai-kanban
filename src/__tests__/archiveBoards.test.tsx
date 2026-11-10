@@ -25,6 +25,7 @@ const SETTINGS: Settings = {
   soundEnabled: true,
   sidebarCollapsed: false,
   slashSnippets: [],
+  commentSnippets: [],
 };
 
 function boardNamed(name: string) {

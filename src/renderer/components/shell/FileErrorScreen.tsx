@@ -30,8 +30,8 @@ export function FileErrorScreen({ file, message }: Props) {
         </pre>
 
         <p className="mt-4 text-sm text-muted-foreground">
-          Your file has not been modified. AI Kanban will not write to a file
-          it could not read.
+          Your file has not been modified. AI Kanban will not write to a file it
+          could not read.
         </p>
 
         <div className="mt-6 flex gap-2">

@@ -17,6 +17,7 @@ const DEFAULTS: Settings = {
   promptDeleteWorktreeOnDone: true,
   sidebarCollapsed: false,
   slashSnippets: [],
+  commentSnippets: [],
 };
 
 const MAX_RECENTS = 8;
@@ -37,6 +38,7 @@ export async function readSettings(): Promise<Settings> {
       ...DEFAULTS,
       ...parsed,
       slashSnippets: sanitizeSlashSnippets(parsed?.slashSnippets),
+      commentSnippets: sanitizeSlashSnippets(parsed?.commentSnippets),
     };
   } catch {
     // Missing or corrupt settings are not an error worth surfacing:

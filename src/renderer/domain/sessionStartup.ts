@@ -1,4 +1,7 @@
-import type { SessionSnapshot, TranscriptMessage } from '@shared/daemonProtocol';
+import type {
+  SessionSnapshot,
+  TranscriptMessage,
+} from '@shared/daemonProtocol';
 
 /**
  * Which "nothing has come back yet" notice the transcript should show, if

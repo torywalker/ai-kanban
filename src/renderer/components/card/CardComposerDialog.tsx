@@ -100,6 +100,7 @@ export function CardComposerDialog({
   const unarchiveCard = useDocStore((s) => s.unarchiveCard);
   const defaultModel = useDocStore((s) => s.defaultModel);
   const useWorktrees = useDocStore((s) => s.useWorktrees);
+  const slashSnippets = useDocStore((s) => s.slashSnippets);
   const globalSessionEngine = useDocStore((s) => s.sessionEngine);
 
   const [title, setTitle] = useState('');
@@ -484,6 +485,7 @@ export function CardComposerDialog({
             <Label htmlFor="card-prompt">Prompt</Label>
             <SlashPromptTextarea
               id="card-prompt"
+              snippets={slashSnippets}
               value={prompt}
               onChange={setPrompt}
               rows={12}

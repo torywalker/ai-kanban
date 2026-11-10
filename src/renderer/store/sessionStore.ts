@@ -67,7 +67,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // apply the status silently, with no chime.
     if (pendingReattachCardIds.delete(snapshot.cardId)) return;
     if (snapshot.status === 'done' || snapshot.status === 'waiting') {
-      set((state) => ({ unread: { ...state.unread, [snapshot.cardId]: true } }));
+      set((state) => ({
+        unread: { ...state.unread, [snapshot.cardId]: true },
+      }));
     }
     if (snapshot.status === 'done') {
       // `done` is emitted only after the SDK iterator has closed, so any

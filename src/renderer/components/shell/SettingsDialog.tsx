@@ -229,6 +229,7 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
             <TabsTrigger value="tags">Tags</TabsTrigger>
             <TabsTrigger value="boards">Boards</TabsTrigger>
             <TabsTrigger value="snippets">Snippets</TabsTrigger>
+            <TabsTrigger value="comment-snippets">Comment snippets</TabsTrigger>
           </TabsList>
 
           <TabsContent value="data" className={PANEL_CLASS}>
@@ -420,6 +421,10 @@ export function SettingsDialog({ open, onOpenChange }: Props) {
 
           <TabsContent value="snippets" className={PANEL_CLASS}>
             <SettingsSnippetsPanel />
+          </TabsContent>
+
+          <TabsContent value="comment-snippets" className={PANEL_CLASS}>
+            <SettingsSnippetsPanel target="comment" />
           </TabsContent>
         </Tabs>
       </DialogContent>

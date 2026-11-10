@@ -36,11 +36,10 @@ export function ModelPicker({ value, onChange, inheritLabel }: Props) {
   // text input must be shown for it. Kept as state (not derived) so clicking
   // "Custom model id…" can reveal an EMPTY input: at that moment `value` is
   // still the previous selection, and deriving would hide the input again.
-  const [custom, setCustom] = useState(
-    value !== null && !isModelAlias(value),
-  );
+  const [custom, setCustom] = useState(value !== null && !isModelAlias(value));
 
-  const selection = value === null ? '' : isModelAlias(value) ? value : MODEL_CUSTOM;
+  const selection =
+    value === null ? '' : isModelAlias(value) ? value : MODEL_CUSTOM;
 
   const triggerLabel =
     value === null
@@ -78,7 +77,9 @@ export function ModelPicker({ value, onChange, inheritLabel }: Props) {
                 onChange(next === '' ? null : next);
               }}
             >
-              <DropdownMenuRadioItem value="">{inheritLabel}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="">
+                {inheritLabel}
+              </DropdownMenuRadioItem>
               <DropdownMenuSeparator />
               {MODEL_ALIASES.map((alias) => (
                 <DropdownMenuRadioItem key={alias} value={alias}>
