@@ -46,7 +46,8 @@ import {
   type SessionWorktree,
   type ShipChooserPlan,
 } from '../shared/worktree';
-import { git, gitHead, gitRefExists } from './services/git';
+import { git, gitHead, gitIsDirty, gitRefExists } from './services/git';
+import { countCommitsAhead } from './services/shipMerge';
 import { createBuildStatusService, defaultExec } from './services/buildStatus';
 import { showBuildNotification } from './services/notifications';
 import type { BuildWatchTarget } from '../shared/buildStatus';
@@ -382,6 +383,51 @@ ipcMain.handle(
     recorded: string,
   ): Promise<IpcResult<ShipChooserPlan>> =>
     attempt(() => inspectShipPlan(primary, recorded)),
+);
+
+// Whether Ship would land anything: uncommitted edits, or a branch tip that
+// is not the commit the last Ship landed (or, never shipped, commits that
+// some destination lacks). Errors reject, and the UI then keeps Ship visible.
+ipcMain.handle(
+  CHANNELS.gitShipPending,
+  (
+    _e,
+    cardId: string,
+    primary: string,
+    worktree: SessionWorktree,
+    lastShippedSha: string | null,
+  ): Promise<IpcResult<boolean>> =>
+    attempt(async () => {
+      await assertManagedWorktree({
+        userDataRoot: app.getPath('userData'),
+        primary,
+        cardId,
+        worktree,
+      });
+      if (await gitIsDirty(worktree.path)) return true;
+      if (lastShippedSha) {
+        const tip = await git(primary, [
+          'rev-parse',
+          `refs/heads/${worktree.branch}`,
+        ]);
+        if (!tip.ok) throw new Error(tip.stderr);
+        return tip.stdout.trim() !== lastShippedSha;
+      }
+      const plan = await inspectShipPlan(
+        primary,
+        worktree.recordedTargetBranch,
+      );
+      const destinations = destinationsForShipPlan(plan);
+      // A blocked plan has no destination; Ship must stay reachable to say why.
+      if (destinations.length === 0) return true;
+      for (const destination of destinations) {
+        if (
+          (await countCommitsAhead(primary, destination, worktree.branch)) > 0
+        )
+          return true;
+      }
+      return false;
+    }),
 );
 
 ipcMain.handle(

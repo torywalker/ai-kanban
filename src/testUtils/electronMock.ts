@@ -90,6 +90,7 @@ export function installElectronMock(): void {
           },
         }),
         removeWorktree: jest.fn().mockResolvedValue({ ok: true, value: null }),
+        shipPending: jest.fn().mockResolvedValue({ ok: true, value: true }),
         shipPlan: jest.fn().mockResolvedValue({
           ok: true,
           value: { kind: 'direct', destination: 'main' },

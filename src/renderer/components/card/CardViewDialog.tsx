@@ -196,6 +196,8 @@ export function CardViewDialog({
     [],
   );
   const [shipPlan, setShipPlan] = useState<ShipChooserPlan | null>(null);
+  // null = unknown (loading or the check failed); unknown never hides Ship.
+  const [hasNewWork, setHasNewWork] = useState<boolean | null>(null);
   const [shipTargetOpen, setShipTargetOpen] = useState(false);
   const [shipQueue, setShipQueue] = useState<ShipQueueSnapshot | null>(null);
   const [shipPending, setShipPending] = useState(false);
@@ -357,6 +359,43 @@ export function CardViewDialog({
   ]);
 
   const recordedTargetBranch = card?.sessionWorktree?.recordedTargetBranch;
+  const worktreeForPending = card?.sessionWorktree;
+  const lastShippedSha = card?.shipRecord?.sha ?? null;
+  useEffect(() => {
+    if (
+      !open ||
+      !canShowShip ||
+      claudeTurnActive ||
+      shipBusy ||
+      !primary ||
+      !worktreeForPending
+    ) {
+      return undefined;
+    }
+    let disposed = false;
+    void api.git
+      .shipPending(cardId, primary, worktreeForPending, lastShippedSha)
+      .then((result) => {
+        if (!disposed) setHasNewWork(result.ok ? result.value : null);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [
+    open,
+    canShowShip,
+    claudeTurnActive,
+    shipBusy,
+    primary,
+    worktreeForPending,
+    lastShippedSha,
+    cardId,
+  ]);
+  // Ship only when there is something to land. Before the check answers, fall
+  // back to the recorded flag so a shipped card does not flash a Ship button.
+  const showDelete =
+    hasNewWork === false || (hasNewWork === null && worktreeShipped);
+
   useEffect(() => {
     const requestId = ++shipPlanRequestId.current;
     if (
@@ -1265,25 +1304,21 @@ export function CardViewDialog({
             {canShowShip ? (
               <div className="flex min-w-0 flex-col items-end gap-0.5">
                 <Button
-                  onClick={
-                    card.sessionWorktree?.shipped ? deleteWorktree : requestShip
-                  }
+                  onClick={showDelete ? deleteWorktree : requestShip}
                   disabled={shipBusy || paused}
                 >
                   {shipBusy ? (
                     <Loader2
-                      aria-label={
-                        card.sessionWorktree?.shipped ? 'Deleting' : 'Shipping'
-                      }
+                      aria-label={showDelete ? 'Deleting' : 'Shipping'}
                       className="size-4 animate-spin"
                     />
-                  ) : card.sessionWorktree?.shipped ? (
+                  ) : showDelete ? (
                     'Delete worktree'
                   ) : (
                     'Ship'
                   )}
                 </Button>
-                {shipHelper && !card.sessionWorktree?.shipped ? (
+                {shipHelper && !showDelete ? (
                   <span
                     className="max-w-56 text-right text-[11px] text-muted-foreground"
                     title={

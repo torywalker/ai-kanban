@@ -54,6 +54,7 @@ export const CHANNELS = {
   gitEnsureWorktree: 'git:ensure-worktree',
   gitRemoveWorktree: 'git:remove-worktree',
   gitShipPlan: 'git:ship-plan',
+  gitShipPending: 'git:ship-pending',
   gitShip: 'git:ship',
   gitShipStatus: 'git:ship-status',
   gitShipStatusGet: 'git:ship-status-get',

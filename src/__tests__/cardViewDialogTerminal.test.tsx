@@ -213,6 +213,10 @@ describe('CardViewDialog terminal controls', () => {
   });
 
   it('reconnects a shipped worktree instead of offering Run again', async () => {
+    (window.electron.git.shipPending as jest.Mock).mockResolvedValue({
+      ok: true,
+      value: false,
+    });
     useDocStore.setState({ useWorktrees: true });
     useDocStore.getState().updateCard(boardId, listId, cardId, {
       sessionWorktree: {

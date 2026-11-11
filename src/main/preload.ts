@@ -271,6 +271,20 @@ const api = {
       recorded: string,
     ): Promise<IpcResult<ShipChooserPlan>> =>
       ipcRenderer.invoke(CHANNELS.gitShipPlan, primary, recorded),
+    /** Whether Ship would land anything right now. Read-only. */
+    shipPending: (
+      cardId: string,
+      primary: string,
+      worktree: SessionWorktree,
+      lastShippedSha: string | null,
+    ): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(
+        CHANNELS.gitShipPending,
+        cardId,
+        primary,
+        worktree,
+        lastShippedSha,
+      ),
     /**
      * Resolves when the card has landed and its worktree is gone. Ships for
      * one repository run one at a time, so this can sit queued for as long

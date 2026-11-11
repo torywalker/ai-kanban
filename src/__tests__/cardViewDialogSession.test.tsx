@@ -285,6 +285,40 @@ describe('CardViewDialog session controls', () => {
       ).not.toBeInTheDocument();
     });
 
+    it('offers Delete worktree instead of Ship when there is nothing new to ship', async () => {
+      useDocStore.setState({ useWorktrees: true });
+      attachWorktree();
+      act(() => seedSnapshot('done'));
+      (window.electron.git.shipPending as jest.Mock).mockResolvedValue({
+        ok: true,
+        value: false,
+      });
+      renderDialog();
+
+      expect(
+        await screen.findByRole('button', { name: 'Delete worktree' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Ship' })).toBeNull();
+    });
+
+    it('keeps offering Ship when the pending check fails', async () => {
+      useDocStore.setState({ useWorktrees: true });
+      attachWorktree();
+      act(() => seedSnapshot('done'));
+      (window.electron.git.shipPending as jest.Mock).mockResolvedValue({
+        ok: false,
+        error: 'boom',
+      });
+      renderDialog();
+
+      expect(
+        await screen.findByRole('button', { name: 'Ship' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Delete worktree' }),
+      ).toBeNull();
+    });
+
     it('asks between full recorded and current branch names before shipping', async () => {
       useDocStore.setState({ useWorktrees: true });
       const worktree = attachWorktree();
@@ -316,6 +350,11 @@ describe('CardViewDialog session controls', () => {
         }),
       ).toBeInTheDocument();
 
+      // Once the ship lands, the branch has nothing new left to ship.
+      (window.electron.git.shipPending as jest.Mock).mockResolvedValue({
+        ok: true,
+        value: false,
+      });
       fireEvent.click(
         screen.getByRole('button', {
           name: 'Ship into feature/the-original-very-long-branch-name',
