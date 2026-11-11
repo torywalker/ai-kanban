@@ -12,6 +12,7 @@ import { useBuildStatusStore } from '@/store/buildStatusStore';
 export function useBuildStatusSync(): void {
   const doc = useDocStore((s) => s.doc);
   const apply = useBuildStatusStore((s) => s.apply);
+  const soundEnabled = useDocStore((s) => s.soundEnabled);
 
   const targets = useMemo(() => {
     const out: BuildWatchTarget[] = [];
@@ -41,6 +42,12 @@ export function useBuildStatusSync(): void {
     );
     return out;
   }, [doc]);
+
+  // Main raises its own notifications (build status), so it needs the mute
+  // toggle too. Sent before `watch` so the first poll already honours it.
+  useEffect(() => {
+    window.electron?.notifications?.setMuted(!soundEnabled);
+  }, [soundEnabled]);
 
   // Subscribe before registering targets: main answers `watch` with the full
   // current state, and the reply must have somewhere to land.

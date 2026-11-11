@@ -33,7 +33,9 @@ import {
   previewAttachment,
   removeAttachment,
 } from './assets';
-import showTaskFinishedNotification from './notifications';
+import showTaskFinishedNotification, {
+  setNotificationsMuted,
+} from './notifications';
 
 function fail(error: unknown): IpcResult<never> {
   return {
@@ -245,6 +247,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (/^https?:\/\//i.test(url)) return shell.openExternal(url);
     return undefined;
   });
+
+  ipcMain.handle(CHANNELS.notificationSetMuted, (_e, value: boolean) =>
+    setNotificationsMuted(value),
+  );
 
   ipcMain.handle(
     CHANNELS.notificationTaskFinished,

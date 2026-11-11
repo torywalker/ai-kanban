@@ -24,6 +24,7 @@ export const CHANNELS = {
   openExternal: 'shell:open-external',
   notificationTaskFinished: 'notification:task-finished',
   notificationOpenCard: 'notification:open-card',
+  notificationSetMuted: 'notification:set-muted',
   sessionRun: 'session:run',
   sessionReply: 'session:reply',
   sessionApprove: 'session:approve',

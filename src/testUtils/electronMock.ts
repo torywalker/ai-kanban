@@ -61,6 +61,7 @@ export function installElectronMock(): void {
       shell: { openExternal: jest.fn() },
       notifications: {
         taskFinished: jest.fn().mockResolvedValue(undefined),
+        setMuted: jest.fn().mockResolvedValue(undefined),
         onOpenCard: jest.fn(() => jest.fn()),
       },
       session: {

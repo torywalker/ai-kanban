@@ -1,9 +1,13 @@
 import { Notification } from 'electron';
-import showTaskFinishedNotification from '../main/services/notifications';
+import showTaskFinishedNotification, {
+  setNotificationsMuted,
+  showBuildNotification,
+} from '../main/services/notifications';
 
 jest.mock('electron', () => {
   const show = jest.fn();
-  const NotificationMock = jest.fn(() => ({ show }));
+  const on = jest.fn();
+  const NotificationMock = jest.fn(() => ({ show, on }));
   Object.assign(NotificationMock, {
     isSupported: jest.fn(() => true),
     show,
@@ -31,6 +35,30 @@ describe('showTaskFinishedNotification', () => {
       body: 'Fix the flaky tests',
     });
     expect(notificationMock.show).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes the click callback when the notification is clicked', () => {
+    const onClick = jest.fn();
+    showTaskFinishedNotification('Fix the flaky tests', onClick);
+
+    const instance = notificationMock.mock.results[0].value as {
+      on: jest.Mock;
+    };
+    const clickHandler = instance.on.mock.calls.find(
+      ([event]) => event === 'click',
+    )?.[1] as () => void;
+    clickHandler();
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows nothing while muted, including build notifications', () => {
+    setNotificationsMuted(true);
+    showTaskFinishedNotification('Fix the flaky tests');
+    showBuildNotification('Build failed', 'main');
+    setNotificationsMuted(false);
+
+    expect(notificationMock).not.toHaveBeenCalled();
   });
 
   it('does nothing when native notifications are unsupported', () => {

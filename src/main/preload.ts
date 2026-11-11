@@ -108,6 +108,8 @@ const api = {
   notifications: {
     taskFinished: (cardId: string, cardTitle: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.notificationTaskFinished, cardId, cardTitle),
+    setMuted: (muted: boolean): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.notificationSetMuted, muted),
     onOpenCard: (callback: (cardId: string) => void): (() => void) => {
       const listener = (_e: unknown, cardId: string) => callback(cardId);
       ipcRenderer.on(CHANNELS.notificationOpenCard, listener);
