@@ -74,6 +74,7 @@ function cmdT(target: HTMLElement): KeyboardEvent {
   const event = new KeyboardEvent('keydown', {
     key: 't',
     metaKey: true,
+    shiftKey: true,
     bubbles: true,
     cancelable: true,
   });
@@ -108,7 +109,7 @@ beforeEach(() => {
   });
 });
 
-describe('Cmd+T', () => {
+describe('Cmd+Shift+T', () => {
   it('opens the dialog when no dialog is open', async () => {
     install(seededDoc(), 'brd_seed01');
     render(<AppShell />);

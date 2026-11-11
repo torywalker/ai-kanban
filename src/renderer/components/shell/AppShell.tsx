@@ -193,12 +193,12 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setScratchpadOpen]);
 
-  // Cmd/Ctrl+T: open the active board's terminals. Same guards as the
-  // scratchpad shortcut; while the dialog itself is open it handles the key.
+  // Cmd/Ctrl+Shift+T: open the active board's terminals. Same guards as the
+  // scratchpad shortcut; while the dialog itself is open it handles Cmd+T.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() !== 't') return;
-      if (event.shiftKey || event.altKey) return;
+      if (!event.shiftKey || event.altKey) return;
       if (!event.metaKey && !event.ctrlKey) return;
 
       const target = event.target as HTMLElement | null;

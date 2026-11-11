@@ -73,8 +73,13 @@ export const SHORTCUTS: ShortcutEntry[] = [
     section: CARD_VIEW_SECTION,
   },
   {
+    keys: ['⌘', '⇧', 'T'],
+    description: 'Open terminals',
+    section: TERMINALS_SECTION,
+  },
+  {
     keys: ['⌘', 'T'],
-    description: 'Open terminals, or add a terminal tab',
+    description: 'Add a terminal tab (while terminals are open)',
     section: TERMINALS_SECTION,
   },
   {
