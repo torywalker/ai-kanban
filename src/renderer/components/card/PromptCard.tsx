@@ -68,6 +68,14 @@ export function PromptCard({
     if (viewOpen && unread) markRead(cardId);
   }, [viewOpen, unread, cardId, markRead]);
 
+  const openCardId = useUiStore((s) => s.openCardId);
+  const setOpenCardId = useUiStore((s) => s.setOpenCardId);
+  useEffect(() => {
+    if (openCardId !== cardId) return;
+    setViewOpen(true);
+    setOpenCardId(null);
+  }, [openCardId, cardId, setOpenCardId]);
+
   useEffect(() => {
     if (focusCardId !== cardId) return;
     scrollRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });

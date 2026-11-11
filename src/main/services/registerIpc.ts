@@ -246,7 +246,16 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return undefined;
   });
 
-  ipcMain.handle(CHANNELS.notificationTaskFinished, (_e, cardTitle: string) =>
-    showTaskFinishedNotification(cardTitle),
+  ipcMain.handle(
+    CHANNELS.notificationTaskFinished,
+    (_e, cardId: string, cardTitle: string) =>
+      showTaskFinishedNotification(cardTitle, () => {
+        const window = getWindow();
+        if (!window) return;
+        if (window.isMinimized()) window.restore();
+        window.show();
+        window.focus();
+        window.webContents.send(CHANNELS.notificationOpenCard, cardId);
+      }),
   );
 }

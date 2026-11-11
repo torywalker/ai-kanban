@@ -23,6 +23,7 @@ export const CHANNELS = {
   clipboardWrite: 'clipboard:write',
   openExternal: 'shell:open-external',
   notificationTaskFinished: 'notification:task-finished',
+  notificationOpenCard: 'notification:open-card',
   sessionRun: 'session:run',
   sessionReply: 'session:reply',
   sessionApprove: 'session:approve',

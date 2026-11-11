@@ -106,8 +106,14 @@ const api = {
       ipcRenderer.invoke(CHANNELS.openExternal, url),
   },
   notifications: {
-    taskFinished: (cardTitle: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.notificationTaskFinished, cardTitle),
+    taskFinished: (cardId: string, cardTitle: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.notificationTaskFinished, cardId, cardTitle),
+    onOpenCard: (callback: (cardId: string) => void): (() => void) => {
+      const listener = (_e: unknown, cardId: string) => callback(cardId);
+      ipcRenderer.on(CHANNELS.notificationOpenCard, listener);
+      return () =>
+        ipcRenderer.removeListener(CHANNELS.notificationOpenCard, listener);
+    },
   },
   session: {
     run: (

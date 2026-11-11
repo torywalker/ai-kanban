@@ -18,7 +18,7 @@ function cardTitle(cardId: string): string {
 export default function showTaskFinishedNotification(cardId: string): void {
   // Same global mute as the chimes (the top-right bell toggle).
   if (!useDocStore.getState().soundEnabled) return;
-  api.notifications.taskFinished(cardTitle(cardId)).catch(() => {
+  api.notifications.taskFinished(cardId, cardTitle(cardId)).catch(() => {
     // Notification delivery is best-effort and controlled by the OS.
   });
 }

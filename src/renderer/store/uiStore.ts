@@ -42,6 +42,8 @@ interface UiStore {
   /** Whether the settings dialog is open. */
   settingsOpen: boolean;
   focusCardId: string | null;
+  /** Card whose view dialog should open (e.g. from a native notification click). */
+  openCardId: string | null;
   externalChange: boolean;
   /**
    * Whether each card's view dialog renders at its near-fullscreen size, to
@@ -82,6 +84,7 @@ interface UiStore {
   setTerminalsOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setFocusCardId: (cardId: string | null) => void;
+  setOpenCardId: (cardId: string | null) => void;
   setExternalChange: (value: boolean) => void;
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
@@ -97,6 +100,7 @@ export const useUiStore = create<UiStore>((set) => ({
   terminalsOpen: false,
   settingsOpen: false,
   focusCardId: null,
+  openCardId: null,
   externalChange: false,
   cardDialogExpanded: {},
   showArchived: false,
@@ -123,6 +127,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setTerminalsOpen: (terminalsOpen) => set({ terminalsOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFocusCardId: (focusCardId) => set({ focusCardId }),
+  setOpenCardId: (openCardId) => set({ openCardId }),
   setExternalChange: (externalChange) => set({ externalChange }),
   setCardDialogExpanded: (cardId, expanded) =>
     set((state) => ({

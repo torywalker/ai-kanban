@@ -54,6 +54,21 @@ export function AppShell() {
     };
   }, []);
 
+  useEffect(
+    () =>
+      api.notifications.onOpenCard((cardId) => {
+        const board = useDocStore
+          .getState()
+          .doc?.boards.find((b) =>
+            b.lists.some((l) => l.cards.some((c) => c.id === cardId)),
+          );
+        if (!board) return;
+        useDocStore.getState().setActiveBoard(board.id);
+        useUiStore.getState().setOpenCardId(cardId);
+      }),
+    [],
+  );
+
   useEffect(() => {
     return startSessionSubscription();
   }, []);
