@@ -1159,7 +1159,9 @@ export function CardViewDialog({
               <>
                 <TerminalPanel
                   cardId={cardId}
-                  acceptInput={!shipBusy}
+                  // A Ship conflict turn runs in this CLI and may need an
+                  // approval typed here.
+                  acceptInput={!shipBusy || claudeTurnActive}
                   autoFocus
                 />
                 {sessionStatus === 'failed' && lastError ? (

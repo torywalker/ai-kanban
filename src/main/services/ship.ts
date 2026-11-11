@@ -44,9 +44,6 @@ const MAX_CONFLICT_TURNS = 2;
 /** Ten minutes: long enough for a real conflict-resolution turn. */
 const TURN_TIMEOUT_MS = 10 * 60 * 1000;
 
-/** Lets the CLI take the pasted prompt in before Enter submits it. */
-const CLI_SUBMIT_DELAY_MS = 150;
-
 export interface ShipOptions {
   cardId: string;
   title: string;
@@ -434,27 +431,14 @@ export function createDaemonAgentTurnRunner(deps: {
 
       const delivery = deps.cliRunning?.(request.cardId)
         ? // The card's own CLI answers, so the SDK never competes with it.
-          // Enter goes separately: a newline inside one write reads as part
-          // of a paste, not as submit.
-          deps
-            .send({
-              op: 'terminalInput',
-              cardId: request.cardId,
-              data: request.prompt,
-            })
-            .then(
-              () =>
-                new Promise((_resolve) => {
-                  setTimeout(_resolve, CLI_SUBMIT_DELAY_MS);
-                }),
-            )
-            .then(() =>
-              deps.send({
-                op: 'terminalInput',
-                cardId: request.cardId,
-                data: '\r',
-              }),
-            )
+          // Bracketed paste plus Enter in ONE write: bare text followed by
+          // Enter in the same read is itself taken as a paste, and Enter
+          // then becomes a newline instead of submitting.
+          deps.send({
+            op: 'terminalInput',
+            cardId: request.cardId,
+            data: `\x1b[200~${request.prompt}\x1b[201~\r`,
+          })
         : deps.send({
             op: 'reply',
             cardId: request.cardId,

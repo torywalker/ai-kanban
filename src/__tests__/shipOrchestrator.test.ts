@@ -592,10 +592,12 @@ describe('daemon agent turn runner', () => {
     const harness = runnerHarness(undefined, true);
     const pending = harness.runner(request(new AbortController().signal));
 
-    await waitFor(() => harness.sent.length === 2, 'prompt and Enter');
     expect(harness.sent).toEqual([
-      { op: 'terminalInput', cardId: 'crd_1', data: SHIP_CONFLICT_PROMPT },
-      { op: 'terminalInput', cardId: 'crd_1', data: '\r' },
+      {
+        op: 'terminalInput',
+        cardId: 'crd_1',
+        data: `\x1b[200~${SHIP_CONFLICT_PROMPT}\x1b[201~\r`,
+      },
     ]);
 
     harness.emit(snapshotEvent('crd_1', 'working'));
