@@ -96,7 +96,11 @@ function tabInComposerOrder(event: KeyboardEvent<HTMLElement>) {
   if (index === -1) return; // portaled popup or non-field target: default Tab
   event.preventDefault();
   const step = event.shiftKey ? -1 : 1;
-  order[(index + step + order.length) % order.length].focus();
+  const next = order[(index + step + order.length) % order.length];
+  // Deferred: Radix's focus trap handles this same keydown right after us and
+  // wraps focus if activeElement is already its first/last tabbable (which Title
+  // is), so moving focus synchronously sends Shift+Tab from Prompt to the X.
+  queueMicrotask(() => next.focus());
 }
 
 export function CardComposerDialog({
