@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { CardColor, Priority } from '@shared/schema';
 import { terminalSupported, type SessionEngine } from '@shared/sessionEngine';
 import type { AttachmentMeta } from '@shared/attachments';
@@ -70,6 +70,33 @@ interface Props {
    */
   // eslint-disable-next-line react/require-default-props
   onCreate?: (fields: NewCardFields) => boolean | Promise<boolean>;
+}
+
+
+const TABBABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+// Fields Tab visits first, in this order; everything else follows in DOM order.
+const TAB_FIRST = ['card-title', 'card-prompt', 'card-notes'];
+
+/**
+ * Tab goes Title -> Prompt -> Notes -> the remaining fields. Done here rather
+ * than with positive tabIndex, which would send Tab out of the dialog after
+ * Notes and into the focus trap.
+ */
+function tabInComposerOrder(event: KeyboardEvent<HTMLElement>) {
+  if (event.defaultPrevented) return; // e.g. slash menu consumed the Tab
+  const all = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>(TABBABLE),
+  ).filter((el) => !el.closest('[hidden]'));
+  const first = TAB_FIRST.map((id) => all.find((el) => el.id === id)).filter(
+    (el): el is HTMLElement => !!el,
+  );
+  const order = [...first, ...all.filter((el) => !first.includes(el))];
+  const index = order.indexOf(event.target as HTMLElement);
+  if (index === -1) return; // portaled popup or non-field target: default Tab
+  event.preventDefault();
+  const step = event.shiftKey ? -1 : 1;
+  order[(index + step + order.length) % order.length].focus();
 }
 
 export function CardComposerDialog({
@@ -362,7 +389,7 @@ export function CardComposerDialog({
         className="flex max-h-[85vh] flex-col sm:max-w-2xl"
         onOpenAutoFocus={(event) => {
           // Always start in Title (the board picker on new prompts would
-          // otherwise be first in DOM order). Tab order is set by tabIndex.
+          // otherwise be first in DOM order). Tab order: see tabInComposerOrder.
           event.preventDefault();
           document.getElementById('card-title')?.focus();
         }}
@@ -396,6 +423,10 @@ export function CardComposerDialog({
           // whichever field is focused. Guarded against IME composition the
           // same way CardViewDialog's reply textarea is: Enter there confirms
           // the composed candidate, it isn't a request to save.
+          if (event.key === 'Tab') {
+            tabInComposerOrder(event);
+            return;
+          }
           if (event.key !== 'Enter') return;
           if (!event.metaKey && !event.ctrlKey) return;
           if (
@@ -438,8 +469,6 @@ export function CardComposerDialog({
             <Label htmlFor="card-title">Title</Label>
             <Input
               id="card-title"
-              // Title → Prompt → Notes, then the rest in DOM order.
-              tabIndex={1}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="What this prompt does"
@@ -486,7 +515,6 @@ export function CardComposerDialog({
             <Label htmlFor="card-prompt">Prompt</Label>
             <SlashPromptTextarea
               id="card-prompt"
-              tabIndex={2}
               snippets={slashSnippets}
               value={prompt}
               onChange={setPrompt}
@@ -533,7 +561,6 @@ export function CardComposerDialog({
             <Label htmlFor="card-notes">Notes</Label>
             <Textarea
               id="card-notes"
-              tabIndex={3}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
