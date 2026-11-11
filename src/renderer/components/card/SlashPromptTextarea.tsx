@@ -19,6 +19,7 @@ interface Props {
   /** The shortcut library this field expands. */
   snippets: SlashSnippet[];
   autoFocus?: boolean;
+  tabIndex?: number;
   /** Runs for keys the suggestion menu did not handle. */
   onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
 }
@@ -36,6 +37,7 @@ export function SlashPromptTextarea({
   placeholder,
   snippets,
   autoFocus,
+  tabIndex,
   onKeyDown,
 }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -74,6 +76,7 @@ export function SlashPromptTextarea({
         className={className}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        tabIndex={tabIndex}
         aria-autocomplete="list"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? `${id}-slash-options` : undefined}

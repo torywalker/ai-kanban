@@ -361,11 +361,10 @@ export function CardComposerDialog({
       <DialogContent
         className="flex max-h-[85vh] flex-col sm:max-w-2xl"
         onOpenAutoFocus={(event) => {
-          // New prompts start in the prompt field instead of Radix's default
-          // first-focusable (Title). Editing keeps the default.
-          if (cardId) return;
+          // Always start in Title (the board picker on new prompts would
+          // otherwise be first in DOM order). Tab order is set by tabIndex.
           event.preventDefault();
-          document.getElementById('card-prompt')?.focus();
+          document.getElementById('card-title')?.focus();
         }}
         onPaste={(event) => {
           if (!attachmentTarget) return;
@@ -439,6 +438,8 @@ export function CardComposerDialog({
             <Label htmlFor="card-title">Title</Label>
             <Input
               id="card-title"
+              // Title → Prompt → Notes, then the rest in DOM order.
+              tabIndex={1}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="What this prompt does"
@@ -485,6 +486,7 @@ export function CardComposerDialog({
             <Label htmlFor="card-prompt">Prompt</Label>
             <SlashPromptTextarea
               id="card-prompt"
+              tabIndex={2}
               snippets={slashSnippets}
               value={prompt}
               onChange={setPrompt}
@@ -531,6 +533,7 @@ export function CardComposerDialog({
             <Label htmlFor="card-notes">Notes</Label>
             <Textarea
               id="card-notes"
+              tabIndex={3}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               rows={3}
