@@ -24,6 +24,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: 'lst_left', name: 'Backlog', cards: [] },
           { id: 'lst_right', name: 'Doing', cards: [] },
@@ -38,7 +39,9 @@ function seededDoc(): KanbanDoc {
 // existing stub in cardViewDialogTags.test.tsx.
 class ResizeObserverStub {
   observe() {}
+
   unobserve() {}
+
   disconnect() {}
 }
 
@@ -241,6 +244,7 @@ describe('Cmd/Ctrl+N: active board with zero lists', () => {
           defaultRepo: null,
           archived: false,
           scratchpad: '',
+          terminals: [],
           lists: [],
         },
       ],

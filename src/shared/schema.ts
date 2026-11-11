@@ -35,6 +35,14 @@ export const CARD_COLOR_VALUES = [
 export const CardColorSchema = z.enum(CARD_COLOR_VALUES);
 export type CardColor = z.infer<typeof CardColorSchema>;
 
+export const CommentSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  createdAt: z.string(),
+  editedAt: z.string().optional(),
+});
+export type Comment = z.infer<typeof CommentSchema>;
+
 export const CardSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -43,6 +51,9 @@ export const CardSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   notes: z.string().catch(''),
+  // The user's own timestamped status log for the card. `.catch([])` covers
+  // files written before comments existed and any malformed value.
+  comments: z.array(CommentSchema).catch([]),
   link: z.string().catch(''),
   variables: z.record(z.string(), z.string()).catch({}),
   copyCount: z.number().catch(0),
@@ -97,12 +108,27 @@ export const CardSchema = z.object({
   // it answers "was a worktree used" even once none exists any more. Null
   // until a card's first run has started.
   usedWorktree: z.boolean().nullable().catch(null),
+  // Recorded when Ship merges this card into a branch locally: the merged
+  // commit and where it went. Build monitoring follows that commit onto the
+  // remote, so it must outlive `sessionWorktree` (deleted after Ship).
+  shipRecord: z
+    .object({ sha: z.string(), targetBranch: z.string() })
+    .optional()
+    .catch(undefined),
+  // ISO time of the last Ship that landed. Lives on the card, not on
+  // `sessionWorktree`, because that is cleared when the worktree is deleted.
+  lastShippedAt: z.string().optional().catch(undefined),
 });
 
 export const ListSchema = z.object({
   id: z.string(),
   name: z.string(),
   cards: z.array(CardSchema),
+});
+
+export const BoardTerminalSchema = z.object({
+  id: z.string(),
+  name: z.string(),
 });
 
 export const BoardSchema = z.object({
@@ -118,6 +144,12 @@ export const BoardSchema = z.object({
   // Free-form notes for this board only. `.catch('')` keeps files written
   // before scratchpads existed opening with an empty pad.
   scratchpad: z.string().catch(''),
+  // General-terminal tabs for this board. `.catch([])` covers files written
+  // before they existed.
+  terminals: z.array(BoardTerminalSchema).catch([]),
+  // Per-board override of the prompt Ship gives the agent to resolve merge
+  // conflicts. Absent means the built-in SHIP_CONFLICT_PROMPT.
+  shipConflictPrompt: z.string().optional().catch(undefined),
 });
 
 export const KanbanDocSchema = z.object({
@@ -129,6 +161,7 @@ export const KanbanDocSchema = z.object({
 export type Tag = z.infer<typeof TagSchema>;
 export type Card = z.infer<typeof CardSchema>;
 export type List = z.infer<typeof ListSchema>;
+export type BoardTerminal = z.infer<typeof BoardTerminalSchema>;
 export type Board = z.infer<typeof BoardSchema>;
 export type KanbanDoc = z.infer<typeof KanbanDocSchema>;
 

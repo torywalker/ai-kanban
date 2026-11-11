@@ -52,6 +52,7 @@ function seededDoc(): KanbanDoc {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     createdAt: now,
     updatedAt: now,
   });
@@ -66,6 +67,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: '/tmp',
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_seed01',

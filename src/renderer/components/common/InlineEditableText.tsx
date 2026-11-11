@@ -16,6 +16,8 @@ interface Props {
   editOn?: 'click' | 'doubleClick';
   /** Called on single click when editOn is 'doubleClick'. */
   onActivate?: () => void;
+  /** Notified when the text enters or leaves edit mode. */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export function InlineEditableText({
@@ -26,11 +28,16 @@ export function InlineEditableText({
   inputClassName,
   editOn = 'click',
   onActivate,
+  onEditingChange,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const cancelled = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    onEditingChange?.(editing);
+  }, [editing, onEditingChange]);
 
   useEffect(() => {
     if (editing) {

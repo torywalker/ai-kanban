@@ -25,6 +25,8 @@ const SETTINGS: Settings = {
   soundEnabled: true,
   sidebarCollapsed: false,
   slashSnippets: [],
+  commentSnippets: [],
+  promptDeleteWorktreeOnDone: true,
 };
 
 function boardNamed(name: string) {

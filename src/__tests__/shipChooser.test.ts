@@ -1,7 +1,4 @@
-import {
-  destinationsForShipPlan,
-  planShipChooser,
-} from '../shared/worktree';
+import { destinationsForShipPlan, planShipChooser } from '../shared/worktree';
 
 describe('planShipChooser', () => {
   it('ships directly when current branch equals recorded target', () => {
@@ -64,8 +61,7 @@ describe('planShipChooser', () => {
       }),
     ).toEqual({
       kind: 'blocked',
-      message:
-        'Cannot ship: the original branch is gone and HEAD is detached.',
+      message: 'Cannot ship: the original branch is gone and HEAD is detached.',
     });
   });
 });

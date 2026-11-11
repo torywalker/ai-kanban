@@ -84,6 +84,8 @@ describe('CardViewDialog terminal controls', () => {
     window.electron.platform = 'darwin';
     window.electron.terminal = {
       start: jest.fn().mockResolvedValue(undefined),
+      startShell: jest.fn().mockResolvedValue(undefined),
+      onShellState: jest.fn().mockReturnValue(() => {}),
       input: jest.fn(),
       resize: jest.fn(),
       interrupt: jest.fn().mockResolvedValue(undefined),
@@ -174,7 +176,9 @@ describe('CardViewDialog terminal controls', () => {
       );
     await renderDialog();
 
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
 
     await waitFor(() => {
@@ -203,7 +207,45 @@ describe('CardViewDialog terminal controls', () => {
         expect.objectContaining({ cardId, sessionId: 'sess_term' }),
       );
     });
-    expect(screen.queryByRole('button', { name: /^Run/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('reconnects a shipped worktree instead of offering Run again', async () => {
+    useDocStore.setState({ useWorktrees: true });
+    useDocStore.getState().updateCard(boardId, listId, cardId, {
+      sessionWorktree: {
+        path: '/tmp/some-repo-wt',
+        branch: 'kanban/card',
+        recordedTargetBranch: 'main',
+        shipped: true,
+      },
+    });
+    useSessionStore
+      .getState()
+      .applySnapshot(
+        terminalSnapshot(
+          cardId,
+          { shellAlive: false, claudeRunning: false },
+          'done',
+        ),
+      );
+    await renderDialog();
+
+    expect(
+      screen.getByRole('button', { name: 'Delete worktree' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Run/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Re-connect' }));
+
+    await waitFor(() => {
+      expect(window.electron.terminal.start).toHaveBeenCalledWith(
+        expect.objectContaining({ cardId, sessionId: 'sess_term' }),
+      );
+    });
   });
 
   it('replaces Run and the reply box while a terminal is open', async () => {
@@ -221,10 +263,10 @@ describe('CardViewDialog terminal controls', () => {
       screen.queryByPlaceholderText('Reply to the agent…'),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="dialog-content"]')?.className,
     ).toContain('h-[92vh]');
@@ -522,10 +564,10 @@ describe('CardViewDialog terminal controls', () => {
     await renderDialog();
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Approve' }),
     ).not.toBeInTheDocument();
@@ -584,7 +626,7 @@ describe('CardViewDialog terminal controls', () => {
         );
     });
 
-    it('closes when Escape is pressed inside the terminal', async () => {
+    it('does not close when Escape is pressed inside the terminal', async () => {
       const onOpenChange = await renderWithClose();
       const input = document.createElement('textarea');
       document.querySelector('[data-terminal-host]')!.appendChild(input);
@@ -592,7 +634,27 @@ describe('CardViewDialog terminal controls', () => {
 
       fireEvent.keyDown(input, { key: 'Escape' });
 
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it('closes on Cmd+W, including from inside the terminal', async () => {
+      const onOpenChange = await renderWithClose();
+      const input = document.createElement('textarea');
+      document.querySelector('[data-terminal-host]')!.appendChild(input);
+      input.focus();
+
+      fireEvent.keyDown(input, { key: 'w', metaKey: true });
+
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('ignores Ctrl+W and Cmd+Shift+W', async () => {
+      const onOpenChange = await renderWithClose();
+
+      fireEvent.keyDown(window, { key: 'w', ctrlKey: true });
+      fireEvent.keyDown(window, { key: 'w', metaKey: true, shiftKey: true });
+
+      expect(onOpenChange).not.toHaveBeenCalled();
     });
 
     it('still closes when Escape is pressed outside the terminal', async () => {
@@ -625,10 +687,10 @@ describe('CardViewDialog terminal controls', () => {
     const box = screen.getByText('Working directory does not exist: /nope');
     expect(box.className).toMatch(/destructive/);
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Cost is estimated from token counts for terminal sessions.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it('opens large and collapses to the narrow dialog', async () => {

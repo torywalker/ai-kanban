@@ -7,17 +7,21 @@ import { startSessionSubscription } from '@/store/sessionStore';
 import { useTheme } from '@/lib/useTheme';
 import { api } from '@/lib/api';
 import { reattachSessions } from '@/lib/reattachSessions';
-import { WelcomeScreen } from './WelcomeScreen';
-import { FileErrorScreen } from './FileErrorScreen';
-import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { useBuildStatusSync } from '@/lib/useBuildStatusSync';
 import { BoardView } from '@/components/board/BoardView';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { Toaster } from '@/components/ui/sonner';
 import { CommandPalette } from '@/components/search/CommandPalette';
 import { CardComposerDialog } from '@/components/card/CardComposerDialog';
+import { BuildStatusBanner } from './BuildStatusBanner';
+import { ExternalChangeBanner } from './ExternalChangeBanner';
+import { FileErrorScreen } from './FileErrorScreen';
+import { WelcomeScreen } from './WelcomeScreen';
+import { ShipConflictPrompt } from './ShipConflictPrompt';
 import { ShortcutsHelpDialog } from './ShortcutsHelpDialog';
 
 export function AppShell() {
+  useBuildStatusSync();
   useTheme();
   const status = useDocStore((s) => s.status);
   const bootstrap = useDocStore((s) => s.bootstrap);
@@ -32,6 +36,7 @@ export function AppShell() {
   const setShortcutsHelpOpen = useUiStore((s) => s.setShortcutsHelpOpen);
   const setScratchpadOpen = useUiStore((s) => s.setScratchpadOpen);
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
+  const setTerminalsOpen = useUiStore((s) => s.setTerminalsOpen);
 
   useEffect(() => {
     void bootstrap();
@@ -188,6 +193,30 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setScratchpadOpen]);
 
+  // Cmd/Ctrl+Shift+T: open the active board's terminals. Same guards as the
+  // scratchpad shortcut; while the dialog itself is open it handles Cmd+T.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 't') return;
+      if (!event.shiftKey || event.altKey) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+      if (document.querySelector('[role="dialog"]')) return;
+
+      const { doc: currentDoc, activeBoardId: currentBoardId } =
+        useDocStore.getState();
+      const board = currentDoc?.boards.find((b) => b.id === currentBoardId);
+      if (!board || board.archived) return;
+
+      event.preventDefault();
+      setTerminalsOpen(true);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [setTerminalsOpen]);
+
   // Cmd/Ctrl+Shift+S: open Settings. macOS reports this as key 's' with
   // shiftKey still set, the same Command-drops-Shift-transform quirk as the
   // scratchpad shortcut above.
@@ -339,6 +368,7 @@ export function AppShell() {
   return (
     <div className="flex h-full flex-col bg-background">
       <ExternalChangeBanner />
+      <BuildStatusBanner />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="min-w-0 flex-1">
@@ -346,6 +376,7 @@ export function AppShell() {
         </main>
       </div>
       <Toaster />
+      <ShipConflictPrompt />
       <CommandPalette />
       <ShortcutsHelpDialog
         open={shortcutsHelpOpen}

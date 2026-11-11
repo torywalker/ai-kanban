@@ -19,7 +19,6 @@ import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { installElectronMock } from '../testUtils/electronMock';
 
-
 describe('PromptBody', () => {
   it('renders the prompt verbatim when there is one', () => {
     render(<PromptBody prompt="Fix the thing." />);

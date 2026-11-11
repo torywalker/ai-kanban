@@ -16,6 +16,7 @@ function twoBoardDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
       {
@@ -24,6 +25,7 @@ function twoBoardDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [],
       },
     ],
@@ -125,6 +127,7 @@ describe('Sidebar collapse', () => {
             defaultRepo: null,
             archived: false,
             scratchpad: '',
+            terminals: [],
             lists: [],
           },
           {
@@ -133,6 +136,7 @@ describe('Sidebar collapse', () => {
             defaultRepo: null,
             archived: false,
             scratchpad: '',
+            terminals: [],
             lists: [],
           },
         ],

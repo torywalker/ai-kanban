@@ -156,7 +156,7 @@ describe('persistence', () => {
     const stop = startPersistence();
     await useDocStore.getState().createAt('/tmp/kanban.json');
 
-    const doc = useDocStore.getState().doc;
+    const { doc } = useDocStore.getState();
     const externallyEdited = JSON.stringify({
       ...doc,
       boards: doc!.boards.map((b, i) =>
@@ -201,6 +201,7 @@ describe('persistence', () => {
           defaultRepo: null,
           archived: false,
           scratchpad: '',
+          terminals: [],
           lists: [{ id: 'lst_1', name: 'Waiting', cards: [] }],
         },
       ],

@@ -1,7 +1,7 @@
 // Type-only, so nothing from `attachments.ts` (zod included) is pulled into
 // the daemon bundle at runtime — this module is shared by the renderer, the
 // main process and the daemon, and only the daemon's bundle is size-tuned.
-import type { AllowedImageMime } from './attachments';
+import type { AllowedImageMime, AttachmentRef } from './attachments';
 import type { AskUserQuestionAnswers } from './askUserQuestion';
 
 /**
@@ -134,6 +134,12 @@ export interface LiveTokenUsage {
 export interface TerminalState {
   shellAlive: boolean;
   claudeRunning: boolean;
+  /**
+   * Something other than the shell holds the pty's foreground while no hook
+   * has reported Claude (e.g. a `claude --resume` typed by hand, which lacks
+   * the app's hooks). Omitted when false.
+   */
+  foregroundBusy?: boolean;
   /** Ids of background subagents that have started and not yet stopped. */
   subagents?: string[];
   /**
@@ -183,6 +189,15 @@ export interface SessionSnapshot {
   terminal?: TerminalState;
 }
 
+/** Opens a plain login shell, independent of any card. */
+export interface ShellStartRequest {
+  op: 'shellStart';
+  id: string;
+  cwd: string;
+  cols: number;
+  rows: number;
+}
+
 /**
  * Opens a pty running the user's own `claude` CLI. A null `sessionId`
  * starts a new conversation under a daemon-generated id; otherwise that
@@ -200,6 +215,15 @@ export interface TerminalStartRequest {
   cols: number;
   rows: number;
 }
+
+/**
+ * What the renderer sends to start a terminal session. `images` are the
+ * card's attachments by reference; main resolves them to file paths and folds
+ * them into `prompt`, so the daemon never sees them.
+ */
+export type TerminalStartArgs = Omit<TerminalStartRequest, 'op'> & {
+  images?: AttachmentRef[];
+};
 
 export type DaemonRequest =
   | {
@@ -268,6 +292,7 @@ export type DaemonRequest =
   | { op: 'getState'; cardId: string }
   | { op: 'ping' }
   | TerminalStartRequest
+  | ShellStartRequest
   | { op: 'terminalInput'; cardId: string; data: string }
   | { op: 'terminalResize'; cardId: string; cols: number; rows: number }
   | { op: 'terminalInterrupt'; cardId: string }
@@ -287,6 +312,8 @@ export type DaemonEvent =
   | { event: 'terminalData'; cardId: string; data: string }
   /** The card's whole buffered output, answering `terminalAttach`. */
   | { event: 'terminalReplay'; cardId: string; data: string }
+  /** A general shell's liveness and whether a command is running in it. */
+  | { event: 'shellState'; id: string; alive: boolean; busy: boolean }
   /**
    * `buildId` is the content hash of the daemon bundle this process is
    * running (see `daemonIdentity.ts`). It is how the app detects that the

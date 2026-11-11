@@ -16,11 +16,7 @@ export function PriorityIcon({ priority, className }: Props) {
         role="img"
         aria-label={label}
         fill="currentColor"
-        className={cn(
-          'size-3.5 shrink-0',
-          PRIORITY_COLOR[priority],
-          className,
-        )}
+        className={cn('size-3.5 shrink-0', PRIORITY_COLOR[priority], className)}
       />
     </span>
   );

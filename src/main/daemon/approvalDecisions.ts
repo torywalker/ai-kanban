@@ -40,7 +40,7 @@ export function computeApprovalResolution(
   // renderer sent, since the renderer already had to parse it from there
   // to build the form in the first place.
   if (request.answers) {
-    const input = pendingApproval.input;
+    const { input } = pendingApproval;
     const questions =
       typeof input === 'object' && input !== null && 'questions' in input
         ? (input as { questions: unknown }).questions

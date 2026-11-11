@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
  * falls back to an "Untitled prompt" title — and rendering the empty string
  * left a blank, indistinguishable-from-broken slab where the prompt goes.
  */
-export const EMPTY_PROMPT_PLACEHOLDER = 'No prompt yet — edit this card to add one.';
+export const EMPTY_PROMPT_PLACEHOLDER =
+  'No prompt yet — edit this card to add one.';
 
 interface Props {
   prompt: string;

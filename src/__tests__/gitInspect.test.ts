@@ -32,19 +32,14 @@ describe('git', () => {
 
   it('returns ok with stdout on success', async () => {
     const result = await git(repo, ['rev-parse', '--show-toplevel']);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.stdout.trim()).toBe(fs.realpathSync(repo));
-    }
+    expect(result).toMatchObject({ ok: true });
+    expect(result.ok && result.stdout.trim()).toBe(fs.realpathSync(repo));
   });
 
   it('returns ok false with stderr and code on failure', async () => {
     const result = await git(repo, ['rev-parse', '--verify', 'NOT_A_REF']);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.stderr.length).toBeGreaterThan(0);
-      expect(typeof result.code).toBe('number');
-    }
+    expect(result).toMatchObject({ ok: false, code: expect.any(Number) });
+    expect(!result.ok && result.stderr.length).toBeGreaterThan(0);
   });
 });
 

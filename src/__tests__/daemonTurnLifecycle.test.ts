@@ -72,7 +72,11 @@ describe('I1: in-flight turn guard', () => {
   it('reports the refusal on lastError without disturbing the live turn', () => {
     const live = snapshot({
       status: 'waiting',
-      pendingApproval: { requestId: 'r1', toolName: 'Bash', input: { command: 'ls' } },
+      pendingApproval: {
+        requestId: 'r1',
+        toolName: 'Bash',
+        input: { command: 'ls' },
+      },
       checklist: [{ id: 'tu_1', label: 'Bash: ls', done: false, seq: 0 }],
     });
     const rejected = rejectTurnSnapshot(live);
@@ -92,7 +96,9 @@ describe('I1: in-flight turn guard', () => {
 
 describe('I2: stop writes a terminal status itself', () => {
   it('moves a still-working card to failed with a "Stopped by user" reason', () => {
-    const stopped = stopSnapshot(snapshot({ status: 'working', lastError: null }));
+    const stopped = stopSnapshot(
+      snapshot({ status: 'working', lastError: null }),
+    );
     expect(stopped.status).toBe('failed');
     expect(stopped.lastError).toBe(STOPPED_BY_USER_ERROR);
   });
@@ -142,7 +148,14 @@ describe('M2: a fresh run does not inherit stale state', () => {
       { id: 'tu_old_1', label: 'Read: old.py', done: true, seq: 0 },
       { id: 'tu_old_2', label: 'Bash: npm test', done: true, seq: 1 },
     ],
-    messages: [{ id: 'msg_old_1:0', kind: 'text', text: 'Done with the old run.', seq: 2 }],
+    messages: [
+      {
+        id: 'msg_old_1:0',
+        kind: 'text',
+        text: 'Done with the old run.',
+        seq: 2,
+      },
+    ],
     pendingApproval: { requestId: 'stale', toolName: 'Write', input: {} },
     lastError: 'something earlier',
   });
@@ -201,11 +214,22 @@ describe('startTurnSnapshot records the reply text as a user message', () => {
   const finished = snapshot({
     status: 'done',
     checklist: [{ id: 'tu_old_1', label: 'Read: old.py', done: true, seq: 0 }],
-    messages: [{ id: 'msg_old_1:0', kind: 'text', text: 'Done with the old run.', seq: 1 }],
+    messages: [
+      {
+        id: 'msg_old_1:0',
+        kind: 'text',
+        text: 'Done with the old run.',
+        seq: 1,
+      },
+    ],
   });
 
   it('appends a user-kind message with the reply text', () => {
-    const next = startTurnSnapshot(finished, 'reply', 'please also check the tests');
+    const next = startTurnSnapshot(
+      finished,
+      'reply',
+      'please also check the tests',
+    );
     expect(next.messages).toHaveLength(2);
     const added = next.messages[1];
     expect(added.kind).toBe('user');
@@ -294,15 +318,21 @@ describe('startTurnSnapshot records the reply text as a user message', () => {
 
 describe('turn-scoped snapshot writes', () => {
   it('applies writes from the turn that owns the entry', () => {
-    expect(shouldApplyTurnWrite({ turnActive: true, stopped: false }, true)).toBe(true);
+    expect(
+      shouldApplyTurnWrite({ turnActive: true, stopped: false }, true),
+    ).toBe(true);
   });
 
   it('drops writes from a turn whose entry was taken over by a newer turn', () => {
-    expect(shouldApplyTurnWrite({ turnActive: true, stopped: false }, false)).toBe(false);
+    expect(
+      shouldApplyTurnWrite({ turnActive: true, stopped: false }, false),
+    ).toBe(false);
   });
 
   it('drops writes from an aborted turn winding down after a stop, so "Stopped by user" survives', () => {
-    expect(shouldApplyTurnWrite({ turnActive: false, stopped: true }, true)).toBe(false);
+    expect(
+      shouldApplyTurnWrite({ turnActive: false, stopped: true }, true),
+    ).toBe(false);
   });
 
   it('drops writes for a card with no entry at all', () => {
@@ -321,12 +351,18 @@ describe('turn-scoped snapshot writes', () => {
  */
 describe('resolveResumeSessionId', () => {
   it('prefers the live in-memory session id when the daemon has one', () => {
-    expect(resolveResumeSessionId('sess_live', 'sess_persisted')).toBe('sess_live');
+    expect(resolveResumeSessionId('sess_live', 'sess_persisted')).toBe(
+      'sess_live',
+    );
   });
 
   it('falls back to the persisted session id when the daemon has no live record', () => {
-    expect(resolveResumeSessionId(undefined, 'sess_persisted')).toBe('sess_persisted');
-    expect(resolveResumeSessionId(null, 'sess_persisted')).toBe('sess_persisted');
+    expect(resolveResumeSessionId(undefined, 'sess_persisted')).toBe(
+      'sess_persisted',
+    );
+    expect(resolveResumeSessionId(null, 'sess_persisted')).toBe(
+      'sess_persisted',
+    );
   });
 
   it('resolves to undefined (a genuinely fresh conversation) when neither exists', () => {
@@ -366,7 +402,10 @@ describe('normalizeHydratedSnapshot', () => {
 
   it('leaves an already-terminal cached snapshot completely untouched', () => {
     (['done', 'failed', 'interrupted'] as const).forEach((status) => {
-      const cached = snapshot({ status, lastError: status === 'failed' ? 'boom' : null });
+      const cached = snapshot({
+        status,
+        lastError: status === 'failed' ? 'boom' : null,
+      });
       expect(normalizeHydratedSnapshot(cached)).toEqual(cached);
     });
   });

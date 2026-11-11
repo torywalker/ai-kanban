@@ -28,11 +28,15 @@ function themeForDocument(): ITheme {
 export function TerminalPanel({
   cardId,
   acceptInput = true,
+  autoFocus = false,
 }: {
   cardId: string;
   /** False while Ship is running, so a keystroke can't edit the worktree. */
   // eslint-disable-next-line react/require-default-props
   acceptInput?: boolean;
+  /** Focuses the terminal once it has mounted. */
+  // eslint-disable-next-line react/require-default-props
+  autoFocus?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const acceptInputRef = useRef(acceptInput);
@@ -51,6 +55,7 @@ export function TerminalPanel({
     const fit = new FitAddon();
     term.open(host);
     term.loadAddon(fit);
+    if (autoFocus) term.focus();
 
     // Chunks that arrive before the replay would paint, then get wiped.
     // The replay itself waits for the fit to settle: Claude's bottom area
@@ -68,7 +73,13 @@ export function TerminalPanel({
     const paintReplay = (data: string) => {
       term.reset();
       term.write(data);
-      if (data === '') return;
+      // A fresh shell has nothing to repaint, but it still needs the real
+      // size: the first fit's resize reached the daemon before the shell
+      // existed, and a respawn restarts at 80x24.
+      if (data === '') {
+        bridge.resize(cardId, term.cols, term.rows);
+        return;
+      }
       clearTimeout(nudgeTimer);
       bridge.resize(cardId, Math.max(term.cols - 1, 1), term.rows);
       nudgeTimer = setTimeout(() => {
@@ -92,14 +103,12 @@ export function TerminalPanel({
       }
       paintReplay(data);
     });
-    // Escape closes the dialog; the Stop button is the interrupt. Returning
-    // false keeps xterm from sending it to the pty while the event still
-    // bubbles up to the dialog's Escape handler.
+    // Escape goes to the pty (Claude's interrupt, vim, fzf). The dialogs
+    // that host this panel ignore an Escape that starts inside it.
     // Cmd+Left/Right jump to line start/end (Ctrl+A / Ctrl+E), and
     // Shift+Enter inserts a newline like Option+Enter (ESC + CR) instead of
     // submitting.
     term.attachCustomKeyEventHandler((event) => {
-      if (event.key === 'Escape') return false;
       if (event.type !== 'keydown') return true;
       let seq: string | null = null;
       if (event.metaKey && !event.altKey && !event.ctrlKey) {
@@ -182,6 +191,8 @@ export function TerminalPanel({
       unsubscribeReplay();
       term.dispose();
     };
+    // autoFocus only matters at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cardId]);
 
   return (

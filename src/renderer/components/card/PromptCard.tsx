@@ -18,7 +18,9 @@ import { CardContextMenu } from './CardContextMenu';
 import { CardViewDialog } from './CardViewDialog';
 import { VariableFillDialog } from './VariableFillDialog';
 import { PriorityButton } from './PriorityButton';
+import { CommentCount } from './CommentCount';
 import { SessionStatusBadge } from './SessionStatusBadge';
+import { BuildStatusBadge } from './BuildStatusBadge';
 import { SessionChecklist } from './SessionChecklist';
 import { PromptBody } from './PromptBody';
 import { TagPickerButton } from './TagPickerButton';
@@ -134,6 +136,7 @@ export function PromptCard({
               overdue && 'border-destructive ring-2 ring-destructive',
             )}
           >
+            {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- pointer-only open; keyboard access is a known gap */}
             <div
               ref={scrollRef}
               onClick={() => setViewOpen(true)}
@@ -269,6 +272,8 @@ export function PromptCard({
                     setCardTags(boardId, listId, cardId, next)
                   }
                 />
+                <CommentCount count={card.comments.length} />
+                <BuildStatusBadge cardId={cardId} />
                 {/* Always rendered, zero included: hiding it would make "this
                   card hasn't cost anything yet" indistinguishable from "this
                   card doesn't track cost" — same rationale as UsageSummary.

@@ -22,7 +22,9 @@ import { EMPTY_USAGE_TOTALS } from '../shared/usage';
 // existing stub in quickAddCard.test.tsx.
 class ResizeObserverStub {
   observe() {}
+
   unobserve() {}
+
   disconnect() {}
 }
 
@@ -41,6 +43,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_left', name: 'Backlog', cards: [] }],
       },
     ],
@@ -116,6 +119,12 @@ describe('ShortcutsHelpDialog', () => {
     SHORTCUTS.forEach((shortcut) => {
       expect(screen.getByText(shortcut.description)).toBeInTheDocument();
     });
+  });
+
+  it('lists the Terminals section', () => {
+    render(<ShortcutsHelpDialog open onOpenChange={() => {}} />);
+
+    expect(screen.getByText('Terminals')).toBeInTheDocument();
   });
 
   it('renders no dialog when closed', () => {

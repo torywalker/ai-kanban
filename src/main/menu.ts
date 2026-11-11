@@ -1,9 +1,4 @@
-import {
-  app,
-  Menu,
-  BrowserWindow,
-  MenuItemConstructorOptions,
-} from 'electron';
+import { app, Menu, BrowserWindow, MenuItemConstructorOptions } from 'electron';
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
   selector?: string;
@@ -145,7 +140,8 @@ export default class MenuBuilder {
           accelerator: 'Command+M',
           selector: 'performMiniaturize:',
         },
-        { label: 'Close', accelerator: 'Command+W', selector: 'performClose:' },
+        // No accelerator: the renderer owns Cmd+W (closes a terminal tab).
+        { label: 'Close', selector: 'performClose:' },
         { type: 'separator' },
         { label: 'Bring All to Front', selector: 'arrangeInFront:' },
       ],

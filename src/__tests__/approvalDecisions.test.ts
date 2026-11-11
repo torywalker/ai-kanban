@@ -66,9 +66,13 @@ describe('computeApprovalResolution', () => {
       },
     ];
 
-    it('builds updatedInput from the pending approval\'s own questions plus the answers', () => {
+    it("builds updatedInput from the pending approval's own questions plus the answers", () => {
       const resolution = computeApprovalResolution(
-        { requestId: 'req_1', toolName: 'AskUserQuestion', input: { questions } },
+        {
+          requestId: 'req_1',
+          toolName: 'AskUserQuestion',
+          input: { questions },
+        },
         {
           requestId: 'req_1',
           decision: 'allow',
@@ -94,7 +98,11 @@ describe('computeApprovalResolution', () => {
 
     it('ignores answers on a deny — deny always wins regardless', () => {
       const resolution = computeApprovalResolution(
-        { requestId: 'req_1', toolName: 'AskUserQuestion', input: { questions } },
+        {
+          requestId: 'req_1',
+          toolName: 'AskUserQuestion',
+          input: { questions },
+        },
         {
           requestId: 'req_1',
           decision: 'deny',

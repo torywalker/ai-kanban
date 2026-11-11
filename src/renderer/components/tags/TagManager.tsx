@@ -20,7 +20,7 @@ export function TagManager() {
   if (entries.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        No tags yet. Tags are created from a prompt's editor.
+        No tags yet. Tags are created from a prompt&apos;s editor.
       </p>
     );
   }

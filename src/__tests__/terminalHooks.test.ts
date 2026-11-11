@@ -107,6 +107,15 @@ describe('applyHookEvent (spec §4.3)', () => {
     expect(next.terminal).toEqual({ shellAlive: true, claudeRunning: true });
   });
 
+  it('SessionStart on resume: done, since no turn follows', () => {
+    const next = applyHookEvent(
+      snapshot({ status: 'interrupted' }),
+      hook('SessionStart', 's', { source: 'resume' }),
+    );
+    expect(next.status).toBe('done');
+    expect(next.terminal?.claudeRunning).toBe(true);
+  });
+
   it('UserPromptSubmit: working', () => {
     const next = applyHookEvent(
       snapshot({ status: 'done' }),
@@ -195,10 +204,8 @@ describe('applyPtyExit', () => {
 });
 
 describe('applyInterrupt', () => {
-  it('marks a working turn interrupted', () => {
-    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe(
-      'interrupted',
-    );
+  it('settles a working turn as done', () => {
+    expect(applyInterrupt(snapshot({ status: 'working' })).status).toBe('done');
   });
 
   it('leaves any other status alone', () => {
@@ -234,6 +241,20 @@ describe('isIdleTerminal', () => {
     expect(isIdleTerminal(snapshot({ status: 'waiting' }))).toBe(true);
     expect(isIdleTerminal(snapshot({ status: 'done' }))).toBe(true);
     expect(isIdleTerminal(snapshot({ status: 'interrupted' }))).toBe(true);
+  });
+
+  it('is not idle while a foreground program runs outside the hooks', () => {
+    expect(
+      isIdleTerminal(
+        snapshot({
+          terminal: {
+            shellAlive: true,
+            claudeRunning: false,
+            foregroundBusy: true,
+          },
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('is busy while claude is working', () => {

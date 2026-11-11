@@ -1,5 +1,6 @@
 import fs from 'fs';
 import {
+  NOTHING_TO_SHIP_ERROR,
   SHIP_CONFLICT_PROMPT,
   shipCommitMessage,
   type SessionWorktree,
@@ -23,10 +24,11 @@ import { createShipQueue, type ShipQueueSnapshot } from './shipQueue';
 
 export const COMMIT_FAILED_ERROR =
   'Could not commit the worktree for Ship. Uncommitted changes remain.';
-export const NOTHING_TO_SHIP_ERROR =
-  'Nothing to ship: this card made no commits in its worktree.';
+export { NOTHING_TO_SHIP_ERROR };
 export const CONFLICT_FAILED_ERROR =
   'Could not resolve merge conflicts automatically.';
+export const CONFLICT_DECLINED_ERROR =
+  'Merge conflicts were left unresolved in the worktree.';
 export const CANCELLED_ERROR = 'Ship cancelled.';
 export const TURN_TIMEOUT_ERROR =
   'Timed out waiting for the agent to finish the Ship turn.';
@@ -42,6 +44,9 @@ const MAX_CONFLICT_TURNS = 2;
 /** Ten minutes: long enough for a real conflict-resolution turn. */
 const TURN_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** Lets the CLI take the pasted prompt in before Enter submits it. */
+const CLI_SUBMIT_DELAY_MS = 150;
+
 export interface ShipOptions {
   cardId: string;
   title: string;
@@ -51,6 +56,8 @@ export interface ShipOptions {
   sessionId: string | null;
   approvalMode: ApprovalMode;
   model: string | null;
+  /** The board's custom conflict prompt; blank or absent uses the default. */
+  conflictPrompt?: string;
 }
 
 export interface AgentTurnRequest {
@@ -137,6 +144,14 @@ export function createShipService(deps: {
   runAgentTurn: AgentTurnRunner;
   stopSession: (cardId: string) => Promise<void>;
   onStatus: (snapshot: ShipQueueSnapshot) => void;
+  /**
+   * Asks the user whether the agent may try to resolve a conflict. Must
+   * resolve false when `signal` aborts or the user declines.
+   */
+  confirmAutoResolve: (
+    card: { cardId: string; title: string },
+    signal: AbortSignal,
+  ) => Promise<boolean>;
   git?: ShipGit;
 }): ShipService {
   const git = deps.git ?? defaultShipGit;
@@ -183,7 +198,11 @@ export function createShipService(deps: {
     for (let attempt = 0; attempt < MAX_CONFLICT_TURNS; attempt += 1) {
       throwIfCancelled(signal);
       // eslint-disable-next-line no-await-in-loop
-      await runTurn(opts, SHIP_CONFLICT_PROMPT, signal);
+      await runTurn(
+        opts,
+        opts.conflictPrompt?.trim() || SHIP_CONFLICT_PROMPT,
+        signal,
+      );
       throwIfCancelled(signal);
       // An agent allowed to commit may have finished the merge outright.
       // eslint-disable-next-line no-await-in-loop
@@ -206,6 +225,9 @@ export function createShipService(deps: {
 
   async function runJob(opts: ShipOptions, signal: AbortSignal): Promise<void> {
     const worktreePath = opts.worktree.path;
+    // The user chose to resolve the conflicts themselves, so the merge must
+    // survive this job's cleanup below.
+    let keepConflictedMerge = false;
     activeWorktrees.set(opts.cardId, {
       path: worktreePath,
       cancellable: true,
@@ -255,6 +277,15 @@ export function createShipService(deps: {
         throw new Error(merged.failed.trim() || 'Git merge failed.');
       }
       if (merged === 'conflict') {
+        const approved = await deps.confirmAutoResolve(
+          { cardId: opts.cardId, title: opts.title },
+          signal,
+        );
+        throwIfCancelled(signal);
+        if (!approved) {
+          keepConflictedMerge = true;
+          throw new Error(CONFLICT_DECLINED_ERROR);
+        }
         await resolveConflicts(opts, signal);
       }
       throwIfCancelled(signal);
@@ -268,7 +299,7 @@ export function createShipService(deps: {
       // The queue slot is about to be handed to another card in this same
       // repository; releasing it with a merge still in flight would leave
       // that card's first `git merge` refusing for reasons of our making.
-      await abortQuietly(worktreePath);
+      if (!keepConflictedMerge) await abortQuietly(worktreePath);
       throw error;
     } finally {
       activeWorktrees.delete(opts.cardId);
@@ -336,6 +367,8 @@ export function createShipService(deps: {
 export function createDaemonAgentTurnRunner(deps: {
   send: (request: DaemonRequest) => Promise<void>;
   subscribe: (listener: (event: DaemonEvent) => void) => () => void;
+  /** Whether the card has a live Claude CLI to take the prompt instead. */
+  cliRunning?: (cardId: string) => boolean;
   timeoutMs?: number;
 }): AgentTurnRunner {
   const timeoutMs = deps.timeoutMs ?? TURN_TIMEOUT_MS;
@@ -399,16 +432,38 @@ export function createDaemonAgentTurnRunner(deps: {
       request.signal.addEventListener('abort', onAbort, { once: true });
       cleanups.push(() => request.signal.removeEventListener('abort', onAbort));
 
-      deps
-        .send({
-          op: 'reply',
-          cardId: request.cardId,
-          text: request.prompt,
-          cwd: request.cwd,
-          approvalMode: request.approvalMode,
-          model: request.model,
-          sessionId: request.sessionId,
-        })
-        .catch((error: Error) => finish(error));
+      const delivery = deps.cliRunning?.(request.cardId)
+        ? // The card's own CLI answers, so the SDK never competes with it.
+          // Enter goes separately: a newline inside one write reads as part
+          // of a paste, not as submit.
+          deps
+            .send({
+              op: 'terminalInput',
+              cardId: request.cardId,
+              data: request.prompt,
+            })
+            .then(
+              () =>
+                new Promise((_resolve) => {
+                  setTimeout(_resolve, CLI_SUBMIT_DELAY_MS);
+                }),
+            )
+            .then(() =>
+              deps.send({
+                op: 'terminalInput',
+                cardId: request.cardId,
+                data: '\r',
+              }),
+            )
+        : deps.send({
+            op: 'reply',
+            cardId: request.cardId,
+            text: request.prompt,
+            cwd: request.cwd,
+            approvalMode: request.approvalMode,
+            model: request.model,
+            sessionId: request.sessionId,
+          });
+      delivery.catch((error: Error) => finish(error));
     });
 }

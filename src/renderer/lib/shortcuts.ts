@@ -15,6 +15,7 @@ export interface ShortcutEntry {
 }
 
 export const GENERAL_SECTION = 'General';
+export const TERMINALS_SECTION = 'Terminals';
 export const CARD_VIEW_SECTION = 'While viewing a card';
 
 export const SHORTCUTS: ShortcutEntry[] = [
@@ -51,14 +52,49 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['⌘', '⏎'], description: 'Save card', section: GENERAL_SECTION },
   { keys: ['⌘', 'E'], description: 'Edit card', section: CARD_VIEW_SECTION },
   {
-    keys: ['⌘', 'X'],
+    keys: ['⌘', '⇧', 'R'],
     description: 'Run, or re-connect the terminal',
     section: CARD_VIEW_SECTION,
   },
   { keys: ['⌘', 'C'], description: 'Copy prompt', section: CARD_VIEW_SECTION },
   {
+    keys: ['⌘', 'J'],
+    description: 'Show or hide comments',
+    section: CARD_VIEW_SECTION,
+  },
+  {
+    keys: ['⌘', 'W'],
+    description: 'Close a terminal card',
+    section: CARD_VIEW_SECTION,
+  },
+  {
     keys: ['⌘', 'A'],
     description: 'Archive or restore card',
     section: CARD_VIEW_SECTION,
+  },
+  {
+    keys: ['⌘', '⇧', 'T'],
+    description: 'Open terminals',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', 'T'],
+    description: 'Add a terminal tab (while terminals are open)',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', 'W'],
+    description: 'Hide terminals',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', '1–9'],
+    description: 'Jump to a terminal tab',
+    section: TERMINALS_SECTION,
+  },
+  {
+    keys: ['⌘', '⌥', '←/→'],
+    description: 'Previous / next terminal tab',
+    section: TERMINALS_SECTION,
   },
 ];

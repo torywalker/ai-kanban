@@ -122,6 +122,8 @@ interface Props {
   onChange: (next: AttachmentMeta[]) => void;
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  /** Hides the attach button, for surfaces that only display existing attachments. */
+  hidePicker?: boolean;
 }
 
 /**
@@ -136,6 +138,7 @@ export function ImageAttachmentStrip({
   onChange,
   disabled = false,
   onBusyChange,
+  hidePicker = false,
 }: Props) {
   /**
    * The list as of the last thing that happened, which is not the same as
@@ -210,16 +213,18 @@ export function ImageAttachmentStrip({
           </Button>
         </div>
       ))}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Attach images"
-        disabled={disabled}
-        onClick={() => void pick()}
-      >
-        <Paperclip />
-      </Button>
+      {hidePicker ? null : (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Attach images"
+          disabled={disabled}
+          onClick={() => void pick()}
+        >
+          <Paperclip />
+        </Button>
+      )}
     </div>
   );
 }

@@ -26,6 +26,17 @@ export class Terminal {
 
   dispose = jest.fn();
 
+  focus = jest.fn();
+
+  /** The handler TerminalPanel registers; tests call it directly. */
+  keyHandler: ((event: KeyboardEvent) => boolean) | null = null;
+
+  attachCustomKeyEventHandler = jest.fn(
+    (handler: (event: KeyboardEvent) => boolean) => {
+      this.keyHandler = handler;
+    },
+  );
+
   onData = jest.fn((handler: (data: string) => void) => ({
     dispose: jest.fn(),
     listener: handler,

@@ -39,6 +39,8 @@ export const CHANNELS = {
   terminalCloseIdle: 'terminal:close-idle',
   terminalData: 'terminal:data',
   terminalReplay: 'terminal:replay',
+  shellStart: 'shell:start',
+  shellState: 'shell:state',
   // The ledger behind both of these is a single file of timestamped
   // per-turn rows covering every card, so a card's total and a board's
   // total are two filtered reads of the same data rather than separate
@@ -46,6 +48,7 @@ export const CHANNELS = {
   // the same file.
   usageCardTotals: 'usage:card-totals',
   usageBoardTotals: 'usage:board-totals',
+  usageBoardDaily: 'usage:board-daily',
   // Every git operation lives in main: the renderer never runs git, and
   // never names a worktree path main did not give it.
   gitEnsureWorktree: 'git:ensure-worktree',
@@ -55,6 +58,12 @@ export const CHANNELS = {
   gitShipStatus: 'git:ship-status',
   gitShipStatusGet: 'git:ship-status-get',
   gitShipCancel: 'git:ship-cancel',
+  buildStatusWatch: 'build-status:watch',
+  buildStatusRetry: 'build-status:retry',
+  buildStatusUpdate: 'build-status:update',
+  // Main asks the renderer whether Ship may auto-resolve a merge conflict.
+  gitShipConflictAsk: 'git:ship-conflict-ask',
+  gitShipConflictAnswer: 'git:ship-conflict-answer',
   // The floating quick-add panel is a second window. It asks the main
   // window's renderer (which owns the open document) to read and to add.
   quickAddContext: 'quick-add:context',
@@ -98,6 +107,9 @@ export interface Settings {
   // only — there is no per-card override, the same reasoning as
   // `approvalMode` above.
   soundEnabled: boolean;
+  // Whether moving a card to a "done" list offers to delete its leftover
+  // worktree. Global only, like `soundEnabled`.
+  promptDeleteWorktreeOnDone: boolean;
   // Whether the boards/settings sidebar is collapsed to a narrow rail. A
   // layout preference, not document data — persisted the same way as
   // `activeBoardId` above.
@@ -106,4 +118,6 @@ export interface Settings {
   // immediately. App-level, like the other settings, so the library stays
   // when a different kanban file is opened.
   slashSnippets: SlashSnippet[];
+  // Same idea for the comment box; a separate library from the prompt one.
+  commentSnippets: SlashSnippet[];
 }

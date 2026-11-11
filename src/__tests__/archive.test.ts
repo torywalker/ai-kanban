@@ -39,6 +39,7 @@ function boardOf(lists: Board['lists']): Board {
     defaultRepo: null,
     archived: false,
     scratchpad: '',
+    terminals: [],
     lists,
   };
 }
@@ -72,6 +73,7 @@ function usageBoard() {
           usedWorktree: null,
           archived: false,
           attachments: [],
+          comments: [],
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-01T00:00:00.000Z',
         },
@@ -98,6 +100,7 @@ function usageBoard() {
           usedWorktree: null,
           archived: true,
           attachments: [],
+          comments: [],
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-01T00:00:00.000Z',
         },

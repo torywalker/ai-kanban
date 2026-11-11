@@ -25,6 +25,7 @@ function card(id: string) {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
@@ -41,6 +42,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst_a',
@@ -56,6 +58,7 @@ function doc(): KanbanDoc {
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [{ id: 'lst_c', name: 'C', cards: [card('c4')] }],
       },
     ],

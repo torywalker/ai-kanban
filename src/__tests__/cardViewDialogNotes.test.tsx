@@ -12,7 +12,6 @@ import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { installElectronMock } from '../testUtils/electronMock';
 
-
 describe('CardViewDialog notes', () => {
   let boardId: string;
   let listId: string;

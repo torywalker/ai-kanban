@@ -34,6 +34,11 @@ const HOOK_EVENTS = [
 
 const HOOK_COMMAND = `cat >> "$AI_KANBAN_HOOK_FILE"; printf '\\n\\036\\n' >> "$AI_KANBAN_HOOK_FILE"`;
 
+// The CLI pipes its status JSON (with `cost.total_cost_usd`) to the statusLine
+// command; keep the latest copy for the daemon to bill from. Replaces any
+// statusLine the user configured, for this session only.
+const STATUS_COMMAND = `cat > "$AI_KANBAN_HOOK_FILE.cost.tmp" && mv "$AI_KANBAN_HOOK_FILE.cost.tmp" "$AI_KANBAN_HOOK_FILE.cost"`;
+
 const PERMISSION_MODES: Record<ApprovalMode, string> = {
   ask: 'manual',
   auto: 'auto',
@@ -50,6 +55,11 @@ const NON_POSIX_RUNNERS: Record<string, string> = {
   elvish: 'exec /bin/sh -c $E:AI_KANBAN_SCRIPT',
   pwsh: '& /bin/sh -c $env:AI_KANBAN_SCRIPT; exit $LASTEXITCODE',
 };
+
+/** A pty process title as a comparable name: no directory, no login dash. */
+export function processBaseName(proc: string): string {
+  return proc.slice(proc.lastIndexOf('/') + 1).replace(/^-/, '');
+}
 
 function shellName(shell: string): string {
   return shell.slice(shell.lastIndexOf('/') + 1);
@@ -80,7 +90,10 @@ export function buildHookSettings(): string {
       [{ hooks: [{ type: 'command', command: HOOK_COMMAND }] }],
     ]),
   );
-  return JSON.stringify({ hooks });
+  return JSON.stringify({
+    hooks,
+    statusLine: { type: 'command', command: STATUS_COMMAND },
+  });
 }
 
 function claudeCommand(input: TerminalLaunchInput): string {

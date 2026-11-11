@@ -7,15 +7,18 @@ import type {
   SessionSnapshot,
   TerminalStartRequest,
 } from '@shared/daemonProtocol';
+import { cliCostPathFor } from './cliCost';
 import {
   buildTerminalLaunch,
   claudeResumeLine,
   defaultShell,
+  processBaseName,
 } from './terminalLaunch';
 import {
   appendCapped,
   applyHookEvent,
   applyInterrupt,
+  applyForeground,
   applyPtyExit,
   applySettle,
   holdTimeoutMs,
@@ -30,6 +33,8 @@ export interface PtyLike {
   write(d: string): void;
   resize(c: number, r: number): void;
   kill(): void;
+  /** The foreground process name; node-pty provides it, test fakes may not. */
+  readonly process?: string;
 }
 
 export interface TerminalHostDeps {
@@ -116,6 +121,7 @@ function killQuietly(pty: PtyLike): void {
 export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
   const terminals = new Map<string, Terminal>();
   const lastSnapshots = new Map<string, SessionSnapshot>();
+  const shellFile = (): string => defaultShell(deps.platform, deps.envShell);
 
   const readNewHookText = (terminal: Terminal): string => {
     let fd: number;
@@ -189,8 +195,27 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
     return billedSessionEnd;
   };
 
+  /** True when something other than the login shell owns the foreground. */
+  const foregroundBusy = (terminal: Terminal): boolean | null => {
+    try {
+      const proc = terminal.pty.process;
+      if (!proc) return null;
+      return processBaseName(proc) !== processBaseName(shellFile());
+    } catch {
+      return null;
+    }
+  };
+
   const tick = (terminal: Terminal): void => {
     pollHooks(terminal);
+    const busy = foregroundBusy(terminal);
+    if (busy !== null) {
+      const next = applyForeground(terminal.snapshot, busy);
+      if (next !== terminal.snapshot) {
+        terminal.snapshot = next;
+        deps.publishSnapshot(next);
+      }
+    }
     if (terminal.settleAt !== null && deps.now() >= terminal.settleAt) {
       terminal.settleAt = null;
       terminal.snapshot = applySettle(terminal.snapshot);
@@ -217,7 +242,9 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         const claudeUp = running.snapshot.terminal?.claudeRunning === true;
         // The shell is still open after Claude exited. Typing the resume
         // command brings that session back without a new pty or a new prompt.
-        if (!claudeUp && req.sessionId && !running.resumeSent) {
+        // Typing into a foreground program would feed it the command as input.
+        const busy = foregroundBusy(running) === true;
+        if (!claudeUp && !busy && req.sessionId && !running.resumeSent) {
           running.resumeSent = true;
           running.pty.write(
             claudeResumeLine({
@@ -258,6 +285,7 @@ export function createTerminalHost(deps: TerminalHostDeps): TerminalHost {
         }
         fs.mkdirSync(deps.hookDir, { recursive: true });
         fs.writeFileSync(hookFile, '');
+        fs.rmSync(cliCostPathFor(hookFile), { force: true });
         const launch = buildTerminalLaunch({
           shell: defaultShell(deps.platform, deps.envShell),
           claudeCliPath: req.claudeCliPath,

@@ -35,6 +35,7 @@ function seededDoc(): KanbanDoc {
         defaultRepo: '/tmp',
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           {
             id: 'lst1',
@@ -63,6 +64,7 @@ function seededDoc(): KanbanDoc {
                 usedWorktree: null,
                 archived: false,
                 attachments: [],
+                comments: [],
                 createdAt: now,
                 updatedAt: now,
               },
@@ -170,6 +172,8 @@ describe('SettingsDialog open terminals', () => {
     installElectronMock();
     window.electron.terminal = {
       start: jest.fn().mockResolvedValue(undefined),
+      startShell: jest.fn().mockResolvedValue(undefined),
+      onShellState: jest.fn().mockReturnValue(() => {}),
       input: jest.fn(),
       resize: jest.fn(),
       interrupt: jest.fn().mockResolvedValue(undefined),

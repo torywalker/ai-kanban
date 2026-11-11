@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   applySlashSnippet,
   expandSlashAtCaret,
@@ -7,7 +7,6 @@ import {
   type SlashSnippet,
 } from '@shared/slashSnippets';
 import { Textarea } from '@/components/ui/textarea';
-import { useDocStore } from '@/store/docStore';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -17,6 +16,11 @@ interface Props {
   rows: number;
   className: string;
   placeholder: string;
+  /** The shortcut library this field expands. */
+  snippets: SlashSnippet[];
+  autoFocus?: boolean;
+  /** Runs for keys the suggestion menu did not handle. */
+  onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 /**
@@ -30,8 +34,10 @@ export function SlashPromptTextarea({
   rows,
   className,
   placeholder,
+  snippets,
+  autoFocus,
+  onKeyDown,
 }: Props) {
-  const snippets = useDocStore((s) => s.slashSnippets);
   const ref = useRef<HTMLTextAreaElement>(null);
   const caret = useRef<number | null>(null);
   const [query, setQuery] = useState<SlashQuery | null>(null);
@@ -67,6 +73,7 @@ export function SlashPromptTextarea({
         rows={rows}
         className={className}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         aria-autocomplete="list"
         aria-expanded={menuOpen}
         aria-controls={menuOpen ? `${id}-slash-options` : undefined}
@@ -101,7 +108,10 @@ export function SlashPromptTextarea({
           setSelectedIndex(0);
         }}
         onKeyDown={(event) => {
-          if (!menuOpen || event.nativeEvent.isComposing) return;
+          if (!menuOpen || event.nativeEvent.isComposing) {
+            onKeyDown?.(event);
+            return;
+          }
           if (event.key === 'ArrowDown') {
             event.preventDefault();
             setSelectedIndex((selectedIndex + 1) % options.length);
@@ -128,7 +138,9 @@ export function SlashPromptTextarea({
           if (event.key === 'Escape') {
             event.preventDefault();
             setQuery(null);
+            return;
           }
+          onKeyDown?.(event);
         }}
       />
 

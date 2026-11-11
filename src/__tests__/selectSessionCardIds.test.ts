@@ -29,6 +29,7 @@ function card(id: string, sessionId: string | null) {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -45,6 +46,7 @@ function docWith(cards: ReturnType<typeof card>[][]): KanbanDoc {
         defaultRepo: '/tmp',
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: cards.map((listCards, i) => ({
           id: `lst${i}`,
           name: `List ${i}`,

@@ -27,7 +27,11 @@ describe('parseAskUserQuestionInput', () => {
           question: 'Which layout?',
           header: 'Layout',
           options: [
-            { label: 'Compact', description: 'Dense', preview: '<div>compact</div>' },
+            {
+              label: 'Compact',
+              description: 'Dense',
+              preview: '<div>compact</div>',
+            },
             { label: 'Spacious', description: 'Airy' },
           ],
           multiSelect: true,
@@ -91,7 +95,10 @@ describe('parseAskUserQuestionInput', () => {
         {
           question: 'Which library?',
           header: 'Library',
-          options: [{ label: 'date-fns' }, { label: 'moment', description: 'Legacy' }],
+          options: [
+            { label: 'date-fns' },
+            { label: 'moment', description: 'Legacy' },
+          ],
           multiSelect: false,
         },
       ],

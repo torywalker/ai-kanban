@@ -2,6 +2,8 @@ import { useDocStore } from '@/store/docStore';
 import { selectBoardName } from '@/store/selectors';
 import { Button } from '@/components/ui/button';
 import { BoardContextMenu } from './BoardContextMenu';
+import { UnreadDot } from './UnreadDot';
+import { useBoardHasUnread } from './useBoardHasUnread';
 
 interface Props {
   boardId: string;
@@ -15,6 +17,7 @@ interface Props {
 export function SidebarCollapsedBoardButton({ boardId }: Props) {
   const name = useDocStore(selectBoardName(boardId));
   const isActive = useDocStore((s) => s.activeBoardId === boardId);
+  const hasUnread = useBoardHasUnread(boardId);
   const setActiveBoard = useDocStore((s) => s.setActiveBoard);
   // `.charAt(0)` grabs a single UTF-16 code unit, which splits any board
   // name starting with an emoji outside the Basic Multilingual Plane (e.g.
@@ -28,6 +31,7 @@ export function SidebarCollapsedBoardButton({ boardId }: Props) {
     <BoardContextMenu boardId={boardId}>
       <Button
         size="icon-sm"
+        className="relative"
         variant={isActive ? 'secondary' : 'ghost'}
         aria-label={`Switch to board: ${name}`}
         aria-pressed={isActive}
@@ -35,6 +39,7 @@ export function SidebarCollapsedBoardButton({ boardId }: Props) {
         onClick={() => setActiveBoard(boardId)}
       >
         {initial}
+        {hasUnread && <UnreadDot className="absolute right-0.5 top-0.5" />}
       </Button>
     </BoardContextMenu>
   );

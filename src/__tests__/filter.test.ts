@@ -32,6 +32,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     usedWorktree: null,
     archived: false,
     attachments: [],
+    comments: [],
     ...overrides,
   };
 }

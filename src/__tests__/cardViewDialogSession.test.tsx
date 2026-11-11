@@ -558,6 +558,7 @@ describe('CardViewDialog session controls', () => {
         },
       );
       renderDialog();
+      await screen.findByRole('button', { name: 'Ship' });
 
       act(() => {
         onStatus?.({
@@ -567,7 +568,8 @@ describe('CardViewDialog session controls', () => {
         });
       });
 
-      expect(screen.getByRole('button', { name: 'Ship' })).toBeDisabled();
+      // Queued cards show the in-progress spinner (aria-label "Shipping").
+      expect(screen.getByRole('button', { name: 'Shipping' })).toBeDisabled();
       expect(
         screen.getByText('Waiting to ship (behind “First card”)'),
       ).toBeInTheDocument();
@@ -1025,7 +1027,7 @@ describe('CardViewDialog session controls', () => {
       });
       renderDialog();
 
-      fireEvent.click(screen.getAllByLabelText('Attach images')[1]);
+      fireEvent.click(screen.getByLabelText('Attach images'));
       expect(await screen.findByAltText('reply.png')).toBeInTheDocument();
       fireEvent.change(screen.getByPlaceholderText(/reply to the agent/i), {
         target: { value: 'look at this' },
@@ -1061,7 +1063,7 @@ describe('CardViewDialog session controls', () => {
       });
       renderDialog();
 
-      fireEvent.click(screen.getAllByLabelText('Attach images')[1]);
+      fireEvent.click(screen.getByLabelText('Attach images'));
       expect(await screen.findByAltText('reply.png')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });

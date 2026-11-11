@@ -86,6 +86,21 @@ function clearSubagents(terminal: TerminalState): TerminalState {
   return {
     shellAlive: terminal.shellAlive,
     claudeRunning: terminal.claudeRunning,
+    ...(terminal.foregroundBusy ? { foregroundBusy: true } : {}),
+  };
+}
+
+/** Records whether a non-shell process holds the pty's foreground. */
+export function applyForeground(
+  snapshot: SessionSnapshot,
+  busy: boolean,
+): SessionSnapshot {
+  const terminal = terminalOf(snapshot);
+  if ((terminal.foregroundBusy === true) === busy) return snapshot;
+  const { foregroundBusy, ...rest } = terminal;
+  return {
+    ...snapshot,
+    terminal: busy ? { ...rest, foregroundBusy: true } : rest,
   };
 }
 
@@ -107,7 +122,9 @@ export function applyHookEvent(
     case 'SessionStart':
       return {
         ...snapshot,
-        status: 'working',
+        // A resume launches Claude with no prompt, so no turn follows to
+        // reach Stop: staying `working` would spin until the next message.
+        status: event.source === 'resume' ? 'done' : 'working',
         sessionId: event.sessionId ?? snapshot.sessionId,
         terminal: { ...terminal, claudeRunning: true },
       };
@@ -200,12 +217,16 @@ export function applySettle(snapshot: SessionSnapshot): SessionSnapshot {
   };
 }
 
-/** Claude fires no hook when Escape interrupts it mid-turn. */
+/**
+ * Claude fires no hook when Escape interrupts it mid-turn. The user did it on
+ * purpose, so settle on `done` (check mark) rather than `interrupted`
+ * (the "disconnected" icon, reserved for a daemon that lost the session).
+ */
 export function applyInterrupt(snapshot: SessionSnapshot): SessionSnapshot {
   return snapshot.status === 'working'
     ? {
         ...snapshot,
-        status: 'interrupted',
+        status: 'done',
         terminal: clearSubagents(terminalOf(snapshot)),
       }
     : snapshot;
@@ -235,6 +256,8 @@ export function appendCapped(
  */
 export function isIdleTerminal(snapshot: SessionSnapshot): boolean {
   const terminal = terminalOf(snapshot);
+  // A foreground process the hooks cannot see may be a hand-attached Claude.
+  if (terminal.foregroundBusy) return false;
   if (terminal.shellAlive && !terminal.claudeRunning) return true;
   return (
     snapshot.status === 'waiting' ||

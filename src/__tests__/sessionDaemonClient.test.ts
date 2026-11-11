@@ -440,7 +440,9 @@ describe('sessionDaemonClient build-id handshake', () => {
     const killSpy = jest.spyOn(process, 'kill').mockImplementation(() => true);
 
     // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-    const { ensureDaemonRunning } = require('../main/services/sessionDaemonClient');
+    const {
+      ensureDaemonRunning,
+    } = require('../main/services/sessionDaemonClient');
 
     const call = ensureDaemonRunning();
     sockets[0].emit('connect');
@@ -459,7 +461,9 @@ describe('sessionDaemonClient build-id handshake', () => {
     const killSpy = jest.spyOn(process, 'kill').mockImplementation(() => true);
 
     // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-    const { ensureDaemonRunning } = require('../main/services/sessionDaemonClient');
+    const {
+      ensureDaemonRunning,
+    } = require('../main/services/sessionDaemonClient');
 
     const call = ensureDaemonRunning();
     sockets[0].emit('connect');
@@ -469,7 +473,10 @@ describe('sessionDaemonClient build-id handshake', () => {
     await jest.advanceTimersByTimeAsync(0);
     expect(killSpy).toHaveBeenCalledWith(4242, 'SIGTERM');
 
-    sockets[1].emit('error', new Error('ECONNREFUSED (test) — socket released'));
+    sockets[1].emit(
+      'error',
+      new Error('ECONNREFUSED (test) — socket released'),
+    );
     await jest.advanceTimersByTimeAsync(0);
     expect(spawnMock).toHaveBeenCalledTimes(1);
     sockets[2].emit('connect');

@@ -96,7 +96,9 @@ import type { ApprovalMode } from '@shared/daemonProtocol';
  * every call itself — see the module doc comment above for why this is
  * intentional, not a shadowing bug).
  */
-export function sessionPermissionMode(approvalMode: ApprovalMode): PermissionMode {
+export function sessionPermissionMode(
+  approvalMode: ApprovalMode,
+): PermissionMode {
   return approvalMode === 'auto' ? 'auto' : 'default';
 }
 

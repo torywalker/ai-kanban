@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
-import { StickyNote } from 'lucide-react';
+import {
+  Bell,
+  BellOff,
+  ChartColumn,
+  SquareTerminal,
+  StickyNote,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { WORKTREE_MISSING_ERROR } from '@shared/worktree';
 import { closeLiveTerminals, useDocStore } from '@/store/docStore';
 import { useUiStore } from '@/store/uiStore';
 import { selectActiveBoard } from '@/store/selectors';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { Button } from '@/components/ui/button';
+import { TerminalsDialog } from '@/components/terminals/TerminalsDialog';
 import { cardDropDestinationList, DND_TYPES } from '@/domain/dragEnd';
 import { boardUsageCardIds } from '@/domain/archive';
 import { api } from '@/lib/api';
@@ -16,19 +26,34 @@ import { ListColumn } from './ListColumn';
 import { AddListColumn } from './AddListColumn';
 import { FilterBar } from './FilterBar';
 import { ScratchpadDialog } from './ScratchpadDialog';
+import { SpendDashboardDialog } from './SpendDashboardDialog';
 
 export function BoardView() {
   const board = useDocStore(selectActiveBoard);
   const renameBoard = useDocStore((s) => s.renameBoard);
+  const soundEnabled = useDocStore((s) => s.soundEnabled);
+  const setSoundEnabled = useDocStore((s) => s.setSoundEnabled);
   const applyDrag = useDocStore((s) => s.applyDrag);
   const setBoardDefaultRepo = useDocStore((s) => s.setBoardDefaultRepo);
   const showArchived = useUiStore((s) => s.showArchived);
   const setShowArchived = useUiStore((s) => s.setShowArchived);
   const scratchpadOpen = useUiStore((s) => s.scratchpadOpen);
   const setScratchpadOpen = useUiStore((s) => s.setScratchpadOpen);
+  const terminalsOpen = useUiStore((s) => s.terminalsOpen);
+  const setTerminalsOpen = useUiStore((s) => s.setTerminalsOpen);
+  const promptDeleteWorktreeOnDone = useDocStore(
+    (s) => s.promptDeleteWorktreeOnDone,
+  );
+  const updateCard = useDocStore((s) => s.updateCard);
+  // The card just moved to a done list whose worktree is still on disk.
+  const [worktreePrompt, setWorktreePrompt] = useState<{
+    listId: string;
+    cardId: string;
+  } | null>(null);
   // True only between a CARD lift and its drop, so every column can offer a
   // droppable-sized target for exactly as long as one is needed.
   const [cardDragActive, setCardDragActive] = useState(false);
+  const [spendOpen, setSpendOpen] = useState(false);
 
   // Recomputed only when the board's own card set changes shape, not on
   // every render — `useBoardUsage` in turn collapses this to a content key,
@@ -39,6 +64,33 @@ export function BoardView() {
     [board, showArchived],
   );
   const totals = useBoardUsage(cardIds);
+
+  // Same removal the card dialog's "Delete worktree" button performs.
+  const deleteDoneWorktree = async (target: {
+    listId: string;
+    cardId: string;
+  }) => {
+    const card = board?.lists
+      .find((l) => l.id === target.listId)
+      ?.cards.find((c) => c.id === target.cardId);
+    const primary = card?.sessionRepo ?? board?.defaultRepo ?? null;
+    if (!board || !card?.sessionWorktree || !primary) return;
+    try {
+      const result = await api.git.removeWorktree(
+        card.id,
+        primary,
+        card.sessionWorktree,
+      );
+      if (!result.ok && result.error !== WORKTREE_MISSING_ERROR) {
+        toast.error(result.error);
+        return;
+      }
+      updateCard(board.id, target.listId, card.id, { sessionWorktree: null });
+      toast.success('Worktree deleted');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   if (!board) {
     return (
@@ -89,6 +141,26 @@ export function BoardView() {
           <StickyNote />
           Scratchpad
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-2"
+          onClick={() => setSpendOpen(true)}
+        >
+          <ChartColumn />
+          Spend
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="ml-2"
+          onClick={() => setTerminalsOpen(true)}
+        >
+          <SquareTerminal />
+          Terminals
+        </Button>
         {/* `ml-auto` right-aligns it on the name's line, the same trick
             `UsageSummary` uses for a card's badge row. Always rendered,
             zero included — see that component for why hiding a zero total
@@ -100,6 +172,22 @@ export function BoardView() {
         >
           {formatUsd(totals.costUSD)}
         </span>
+        <Button
+          type="button"
+          variant={soundEnabled ? 'outline' : 'secondary'}
+          size="icon"
+          className={
+            soundEnabled
+              ? 'ml-2'
+              : 'ml-2 bg-red-900 text-white hover:bg-red-800 hover:text-white'
+          }
+          aria-pressed={!soundEnabled}
+          aria-label="Mute notifications"
+          title={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
+          onClick={() => setSoundEnabled(!soundEnabled)}
+        >
+          {soundEnabled ? <Bell /> : <BellOff />}
+        </Button>
       </header>
 
       <FilterBar />
@@ -107,6 +195,8 @@ export function BoardView() {
         open={scratchpadOpen}
         onOpenChange={setScratchpadOpen}
       />
+      <SpendDashboardDialog open={spendOpen} onOpenChange={setSpendOpen} />
+      <TerminalsDialog open={terminalsOpen} onOpenChange={setTerminalsOpen} />
 
       {/* The indices a drop reports are positions among the cards on
           screen, so which view is active decides how they are read. */}
@@ -125,6 +215,17 @@ export function BoardView() {
             fireConfettiOnCard(result.draggableId);
             // Work is over, so shut its terminal too (no-op if none is live).
             closeLiveTerminals([result.draggableId]);
+            // `board` is the pre-drop snapshot, so the card is still in its
+            // source list here, not in `destList`.
+            const moved = board.lists
+              .find((l) => l.id === result.source.droppableId)
+              ?.cards.find((c) => c.id === result.draggableId);
+            if (promptDeleteWorktreeOnDone && moved?.sessionWorktree) {
+              setWorktreePrompt({
+                listId: destList.id,
+                cardId: moved.id,
+              });
+            }
           }
         }}
       >
@@ -154,6 +255,19 @@ export function BoardView() {
           )}
         </Droppable>
       </DragDropContext>
+      <ConfirmDialog
+        open={worktreePrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setWorktreePrompt(null);
+        }}
+        title="Delete this card's worktree?"
+        body="The card is done. Its git worktree is still on disk. Anything not shipped yet will be lost."
+        confirmLabel="Delete worktree"
+        destructive
+        onConfirm={() => {
+          if (worktreePrompt) void deleteDoneWorktree(worktreePrompt);
+        }}
+      />
     </div>
   );
 }

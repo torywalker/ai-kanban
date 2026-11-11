@@ -101,9 +101,11 @@ describe('ship orchestrator', () => {
   function serviceWith(
     runAgentTurn: (request: AgentTurnRequest) => Promise<void>,
     git?: ShipGit,
+    confirmAutoResolve: () => Promise<boolean> = async () => true,
   ) {
     return createShipService({
       runAgentTurn,
+      confirmAutoResolve,
       stopSession,
       onStatus: (snapshot: ShipQueueSnapshot) => {
         statuses.push(snapshot);
@@ -280,6 +282,41 @@ describe('ship orchestrator', () => {
     expect(runAgentTurn).not.toHaveBeenCalled();
     expect(gitExec(primary, ['rev-parse', 'main']).trim()).toBe(feature);
     expect(fs.existsSync(worktree.path)).toBe(true);
+  });
+
+  it('leaves the conflicted merge untouched when the user declines', async () => {
+    const worktree = await worktreeFor('crd_declined');
+    commitInWorktree(worktree, { 'result.txt': 'feature\n' }, 'feature');
+    const destination = advanceMain('destination\n');
+    const runAgentTurn = turnMock();
+
+    await expect(
+      serviceWith(runAgentTurn, undefined, async () => false).ship(
+        shipOptions('crd_declined', worktree),
+      ),
+    ).rejects.toThrow('Merge conflicts were left unresolved');
+
+    expect(runAgentTurn).not.toHaveBeenCalled();
+    await expect(gitMergeInProgress(worktree.path)).resolves.toBe(true);
+    expect(gitExec(primary, ['rev-parse', 'main']).trim()).toBe(destination);
+  });
+
+  it("asks the agent with the board's custom conflict prompt when set", async () => {
+    const worktree = await worktreeFor('crd_custom');
+    commitInWorktree(worktree, { 'result.txt': 'feature\n' }, 'feature');
+    advanceMain('destination\n');
+    const runAgentTurn = turnMock();
+
+    await expect(
+      serviceWith(runAgentTurn).ship({
+        ...shipOptions('crd_custom', worktree),
+        conflictPrompt: 'Prefer the destination side.',
+      }),
+    ).rejects.toThrow('Could not resolve merge conflicts automatically.');
+
+    expect(runAgentTurn.mock.calls[0][0].prompt).toBe(
+      'Prefer the destination side.',
+    );
   });
 
   it('gives up after two conflict turns and aborts the merge', async () => {
@@ -488,7 +525,7 @@ describe('daemon agent turn runner', () => {
     };
   }
 
-  function runnerHarness(timeoutMs?: number) {
+  function runnerHarness(timeoutMs?: number, cliRunning = false) {
     const order: string[] = [];
     const sent: DaemonRequest[] = [];
     const unsubscribe = jest.fn();
@@ -503,6 +540,7 @@ describe('daemon agent turn runner', () => {
         listener = onEvent;
         return unsubscribe;
       },
+      cliRunning: () => cliRunning,
       ...(timeoutMs === undefined ? {} : { timeoutMs }),
     });
     return {
@@ -548,6 +586,21 @@ describe('daemon agent turn runner', () => {
 
     await expect(pending).resolves.toBeUndefined();
     expect(harness.unsubscribe).toHaveBeenCalled();
+  });
+
+  it("types the prompt into the card's live CLI instead of replying", async () => {
+    const harness = runnerHarness(undefined, true);
+    const pending = harness.runner(request(new AbortController().signal));
+
+    await waitFor(() => harness.sent.length === 2, 'prompt and Enter');
+    expect(harness.sent).toEqual([
+      { op: 'terminalInput', cardId: 'crd_1', data: SHIP_CONFLICT_PROMPT },
+      { op: 'terminalInput', cardId: 'crd_1', data: '\r' },
+    ]);
+
+    harness.emit(snapshotEvent('crd_1', 'working'));
+    harness.emit(snapshotEvent('crd_1', 'done'));
+    await expect(pending).resolves.toBeUndefined();
   });
 
   it('ignores other cards and a stale finished snapshot', async () => {

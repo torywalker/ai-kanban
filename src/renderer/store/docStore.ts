@@ -74,22 +74,118 @@ function newSnippetId(): string {
   return `snp_${suffix}`;
 }
 
-/**
- * Scratchpad text is document data, but it is not an undo checkpoint.
- * Restoring an older snapshot would otherwise throw away notes typed after
- * that snapshot was taken.
- */
-function withLiveScratchpads(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
-  const pads = new Map(
-    live.boards.map((board) => [board.id, board.scratchpad]),
+type SnippetKey = 'slashSnippets' | 'commentSnippets';
+type SnippetResult = { ok: true } | { ok: false; error: string };
+type SnippetSet = (patch: Partial<Record<SnippetKey, SlashSnippet[]>>) => void;
+type SnippetGet = () => Record<SnippetKey, SlashSnippet[]>;
+
+function saveSnippets(set: SnippetSet, key: SnippetKey, list: SlashSnippet[]) {
+  set({ [key]: list });
+  void api.settings.write({ [key]: list });
+}
+
+function addSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  triggerRaw: string,
+  expansionRaw: string,
+): SnippetResult {
+  const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
+  if (!parsed.ok) return parsed;
+  const list = get()[key];
+  if (list.some((snippet) => snippet.trigger === parsed.trigger)) {
+    return { ok: false, error: `/${parsed.trigger} already exists.` };
+  }
+  saveSnippets(set, key, [
+    ...list,
+    {
+      id: newSnippetId(),
+      trigger: parsed.trigger,
+      expansion: parsed.expansion,
+    },
+  ]);
+  return { ok: true };
+}
+
+function updateSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  id: string,
+  triggerRaw: string,
+  expansionRaw: string,
+): SnippetResult {
+  const list = get()[key];
+  if (!list.some((snippet) => snippet.id === id)) {
+    return { ok: false, error: 'That command no longer exists.' };
+  }
+  const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
+  if (!parsed.ok) return parsed;
+  if (
+    list.some(
+      (snippet) => snippet.id !== id && snippet.trigger === parsed.trigger,
+    )
+  ) {
+    return { ok: false, error: `/${parsed.trigger} already exists.` };
+  }
+  saveSnippets(
+    set,
+    key,
+    list.map((snippet) =>
+      snippet.id === id
+        ? { ...snippet, trigger: parsed.trigger, expansion: parsed.expansion }
+        : snippet,
+    ),
   );
+  return { ok: true };
+}
+
+function deleteSnippet(
+  set: SnippetSet,
+  get: SnippetGet,
+  key: SnippetKey,
+  id: string,
+) {
+  saveSnippets(
+    set,
+    key,
+    get()[key].filter((snippet) => snippet.id !== id),
+  );
+}
+
+/** Lowest positive N such that no tab is already named `Terminal N`. */
+function nextTerminalName(tabs: { name: string }[]): string {
+  const used = new Set(tabs.map((t) => t.name));
+  let n = 1;
+  while (used.has(`Terminal ${n}`)) n += 1;
+  return `Terminal ${n}`;
+}
+
+/**
+ * Scratchpad text and terminal tabs are document data, but not undo
+ * checkpoints. Restoring an older snapshot would otherwise throw away notes
+ * typed, or resurrect tabs closed, after that snapshot was taken.
+ */
+function withLiveBoardFields(restored: KanbanDoc, live: KanbanDoc): KanbanDoc {
+  const liveBoards = new Map(live.boards.map((board) => [board.id, board]));
   let changed = false;
   const boards = restored.boards.map((board) => {
-    const scratchpad = pads.get(board.id);
-    if (scratchpad === undefined || scratchpad === board.scratchpad)
+    const source = liveBoards.get(board.id);
+    if (
+      !source ||
+      (source.scratchpad === board.scratchpad &&
+        source.terminals === board.terminals &&
+        source.shipConflictPrompt === board.shipConflictPrompt)
+    )
       return board;
     changed = true;
-    return { ...board, scratchpad };
+    return {
+      ...board,
+      scratchpad: source.scratchpad,
+      terminals: source.terminals,
+      shipConflictPrompt: source.shipConflictPrompt,
+    };
   });
   return changed ? { ...restored, boards } : restored;
 }
@@ -125,8 +221,10 @@ interface DocStore {
   sessionEngine: SessionEngine;
   claudeCliPath: string | null;
   soundEnabled: boolean;
+  promptDeleteWorktreeOnDone: boolean;
   sidebarCollapsed: boolean;
   slashSnippets: SlashSnippet[];
+  commentSnippets: SlashSnippet[];
 
   bootstrap: () => Promise<void>;
   createAt: (file: string) => Promise<void>;
@@ -187,12 +285,19 @@ interface DocStore {
   ) => void;
   setBoardDefaultRepo: (boardId: string, repo: string | null) => void;
   setBoardScratchpad: (boardId: string, text: string) => void;
+  /** Blank restores the built-in Ship conflict prompt. */
+  setBoardShipConflictPrompt: (boardId: string, text: string) => void;
+  addBoardTerminal: (boardId: string) => string;
+  renameBoardTerminal: (boardId: string, id: string, name: string) => void;
+  removeBoardTerminal: (boardId: string, id: string) => void;
+  moveBoardTerminal: (boardId: string, id: string, toIndex: number) => void;
   setApprovalMode: (mode: ApprovalMode) => void;
   setDefaultModel: (model: string | null) => void;
   setUseWorktrees: (enabled: boolean) => void;
   setSessionEngine: (engine: SessionEngine) => void;
   setClaudeCliPath: (path: string | null) => void;
   setSoundEnabled: (enabled: boolean) => void;
+  setPromptDeleteWorktreeOnDone: (enabled: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   addSlashSnippet: (
     trigger: string,
@@ -204,6 +309,16 @@ interface DocStore {
     expansion: string,
   ) => { ok: true } | { ok: false; error: string };
   deleteSlashSnippet: (id: string) => void;
+  addCommentSnippet: (
+    trigger: string,
+    expansion: string,
+  ) => { ok: true } | { ok: false; error: string };
+  updateCommentSnippet: (
+    id: string,
+    trigger: string,
+    expansion: string,
+  ) => { ok: true } | { ok: false; error: string };
+  deleteCommentSnippet: (id: string) => void;
   ensureTag: (name: string) => string;
   setCardTags: (
     boardId: string,
@@ -244,6 +359,22 @@ export function closeLiveTerminals(ids: readonly string[]): void {
   });
 }
 
+/** Applies `edit` to a board's tabs without creating an undo step. */
+function editBoardTerminals(
+  get: () => DocStore,
+  set: (partial: Partial<DocStore>) => void,
+  boardId: string,
+  edit: (tabs: { id: string; name: string }[]) => void,
+): void {
+  const current = get().doc;
+  if (!current) return;
+  const next = produce(current, (draft) => {
+    const board = draft.boards.find((b) => b.id === boardId);
+    if (board) edit(board.terminals);
+  });
+  if (next !== current) set({ doc: next });
+}
+
 export const useDocStore = create<DocStore>((set, get) => ({
   status: { kind: 'loading' },
   doc: null,
@@ -260,8 +391,10 @@ export const useDocStore = create<DocStore>((set, get) => ({
   sessionEngine: 'sdk',
   claudeCliPath: null,
   soundEnabled: true,
+  promptDeleteWorktreeOnDone: true,
   sidebarCollapsed: false,
   slashSnippets: [],
+  commentSnippets: [],
 
   /**
    * Decides the opening screen. No stored path, or a stored path whose file
@@ -276,8 +409,10 @@ export const useDocStore = create<DocStore>((set, get) => ({
       sessionEngine: settings.sessionEngine ?? 'sdk',
       claudeCliPath: settings.claudeCliPath ?? null,
       soundEnabled: settings.soundEnabled,
+      promptDeleteWorktreeOnDone: settings.promptDeleteWorktreeOnDone ?? true,
       sidebarCollapsed: settings.sidebarCollapsed,
       slashSnippets: settings.slashSnippets ?? [],
+      commentSnippets: settings.commentSnippets ?? [],
     });
     if (!settings.dataFilePath) {
       set({ status: { kind: 'welcome' } });
@@ -436,7 +571,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
     const nextPast = past.slice(0, -1);
     const nextFuture = [doc, ...get().future].slice(0, MAX_HISTORY);
     set({
-      doc: withLiveScratchpads(previous, doc),
+      doc: withLiveBoardFields(previous, doc),
       past: nextPast,
       future: nextFuture,
       canUndo: nextPast.length > 0,
@@ -451,7 +586,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
     const nextPast = [...get().past, doc].slice(-MAX_HISTORY);
     const nextFuture = future.slice(1);
     set({
-      doc: withLiveScratchpads(next, doc),
+      doc: withLiveBoardFields(next, doc),
       past: nextPast,
       future: nextFuture,
       canUndo: nextPast.length > 0,
@@ -468,6 +603,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         defaultRepo: null,
         archived: false,
         scratchpad: '',
+        terminals: [],
         lists: [
           { id: newId('lst'), name: 'Waiting', cards: [] },
           { id: newId('lst'), name: 'In Flight', cards: [] },
@@ -488,6 +624,11 @@ export const useDocStore = create<DocStore>((set, get) => ({
 
   deleteBoard: (boardId) => {
     closeLiveTerminals(cardIds(get().doc, boardId));
+    get()
+      .doc?.boards.find((b) => b.id === boardId)
+      ?.terminals.forEach((tab) => {
+        window.electron?.terminal?.close?.(tab.id)?.catch(() => undefined);
+      });
     const remaining = (get().doc?.boards ?? []).filter((b) => b.id !== boardId);
     get().mutate((draft) => {
       draft.boards = draft.boards.filter((b) => b.id !== boardId);
@@ -611,6 +752,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
         usedWorktree: null,
         archived: false,
         attachments: fields.attachments ?? [],
+        comments: [],
         variables: {},
         copyCount: 0,
         lastCopiedAt: null,
@@ -805,6 +947,61 @@ export const useDocStore = create<DocStore>((set, get) => ({
     set({ doc: next });
   },
 
+  // Same bypass as `setBoardScratchpad`: typed in Settings, never an undo step.
+  setBoardShipConflictPrompt: (boardId, text) => {
+    const current = get().doc;
+    if (!current) return;
+    const next = produce(current, (draft) => {
+      const board = draft.boards.find((candidate) => candidate.id === boardId);
+      if (board) board.shipConflictPrompt = text.trim() ? text : undefined;
+    });
+    if (next === current) return;
+    set({ doc: next });
+  },
+
+  // Like `setBoardScratchpad`: tab edits bypass `commit`, so they are not
+  // undo steps and leave the redo stack alone.
+  addBoardTerminal: (boardId) => {
+    const taken = new Set(
+      get()
+        .doc?.boards.find((b) => b.id === boardId)
+        ?.terminals.map((t) => t.id),
+    );
+    let id = newId('trm');
+    while (taken.has(id)) id = newId('trm');
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      tabs.push({ id, name: nextTerminalName(tabs) });
+    });
+    return id;
+  },
+
+  renameBoardTerminal: (boardId, id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (tab) tab.name = trimmed;
+    });
+  },
+
+  moveBoardTerminal: (boardId, id, toIndex) => {
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const from = tabs.findIndex((t) => t.id === id);
+      if (from === -1 || toIndex < 0 || toIndex >= tabs.length) return;
+      tabs.splice(toIndex, 0, ...tabs.splice(from, 1));
+    });
+  },
+
+  removeBoardTerminal: (boardId, id) => {
+    editBoardTerminals(get, set, boardId, (tabs) => {
+      const index = tabs.findIndex((t) => t.id === id);
+      if (index === -1) return;
+      tabs.splice(index, 1);
+      if (tabs.length === 0)
+        tabs.push({ id: newId('trm'), name: 'Terminal 1' });
+    });
+  },
+
   // These three are app Settings (settings.json, main-process), not document
   // fields — they never go through `mutate`/undo, the same reasoning as
   // `activeBoardId` above.
@@ -840,61 +1037,24 @@ export const useDocStore = create<DocStore>((set, get) => ({
     void api.settings.write({ soundEnabled: enabled });
   },
 
+  setPromptDeleteWorktreeOnDone: (enabled) => {
+    set({ promptDeleteWorktreeOnDone: enabled });
+    void api.settings.write({ promptDeleteWorktreeOnDone: enabled });
+  },
+
   setSidebarCollapsed: (collapsed) => {
     set({ sidebarCollapsed: collapsed });
     void api.settings.write({ sidebarCollapsed: collapsed });
   },
 
-  addSlashSnippet: (triggerRaw, expansionRaw) => {
-    const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
-    if (!parsed.ok) return parsed;
-    if (
-      get().slashSnippets.some((snippet) => snippet.trigger === parsed.trigger)
-    ) {
-      return { ok: false, error: `/${parsed.trigger} already exists.` };
-    }
-    const slashSnippets = [
-      ...get().slashSnippets,
-      {
-        id: newSnippetId(),
-        trigger: parsed.trigger,
-        expansion: parsed.expansion,
-      },
-    ];
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-    return { ok: true };
-  },
-
-  updateSlashSnippet: (id, triggerRaw, expansionRaw) => {
-    const current = get().slashSnippets.find((snippet) => snippet.id === id);
-    if (!current) return { ok: false, error: 'That command no longer exists.' };
-    const parsed = parseSlashSnippet(triggerRaw, expansionRaw);
-    if (!parsed.ok) return parsed;
-    if (
-      get().slashSnippets.some(
-        (snippet) => snippet.id !== id && snippet.trigger === parsed.trigger,
-      )
-    ) {
-      return { ok: false, error: `/${parsed.trigger} already exists.` };
-    }
-    const slashSnippets = get().slashSnippets.map((snippet) =>
-      snippet.id === id
-        ? { ...snippet, trigger: parsed.trigger, expansion: parsed.expansion }
-        : snippet,
-    );
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-    return { ok: true };
-  },
-
-  deleteSlashSnippet: (id) => {
-    const slashSnippets = get().slashSnippets.filter(
-      (snippet) => snippet.id !== id,
-    );
-    set({ slashSnippets });
-    void api.settings.write({ slashSnippets });
-  },
+  addSlashSnippet: (t, e) => addSnippet(set, get, 'slashSnippets', t, e),
+  updateSlashSnippet: (id, t, e) =>
+    updateSnippet(set, get, 'slashSnippets', id, t, e),
+  deleteSlashSnippet: (id) => deleteSnippet(set, get, 'slashSnippets', id),
+  addCommentSnippet: (t, e) => addSnippet(set, get, 'commentSnippets', t, e),
+  updateCommentSnippet: (id, t, e) =>
+    updateSnippet(set, get, 'commentSnippets', id, t, e),
+  deleteCommentSnippet: (id) => deleteSnippet(set, get, 'commentSnippets', id),
 
   // `name` is the raw, as-typed text (e.g. "Not ready"), so this is the
   // one place a tag's display label can be captured from what the user

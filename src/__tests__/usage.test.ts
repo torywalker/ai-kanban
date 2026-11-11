@@ -13,6 +13,7 @@
 import {
   boardUsageTotals,
   cardUsageTotals,
+  dailyUsageCosts,
   sumUsageEntries,
   type UsageEntry,
 } from '../shared/usage';
@@ -171,8 +172,31 @@ describe('boardUsageTotals', () => {
   });
 
   it('reports empty totals for a board with no cards', () => {
-    expect(
-      boardUsageTotals([entry({ cardId: 'crd_a' })], []),
-    ).toEqual(sumUsageEntries([]));
+    expect(boardUsageTotals([entry({ cardId: 'crd_a' })], [])).toEqual(
+      sumUsageEntries([]),
+    );
+  });
+});
+
+describe('dailyUsageCosts', () => {
+  it('groups by local day, fills empty days, dedups, and ignores other cards', () => {
+    const at = (d: string) => new Date(`${d}T12:00:00`).toISOString();
+    const days = dailyUsageCosts(
+      [
+        entry({ turnId: 'a', at: at('2026-11-02'), costUSD: 1 }),
+        entry({ turnId: 'a', at: at('2026-11-02'), costUSD: 1 }),
+        entry({ turnId: 'b', at: at('2026-11-04'), costUSD: 2 }),
+        entry({
+          turnId: 'c',
+          cardId: 'other',
+          at: at('2026-11-04'),
+          costUSD: 9,
+        }),
+      ],
+      ['crd_1'],
+      '2026-11-01',
+      '2026-11-04',
+    );
+    expect(days.map((d) => d.costUSD)).toEqual([0, 1, 0, 2]);
   });
 });
