@@ -150,10 +150,17 @@ export function applyHookEvent(
       }
       return { ...snapshot, status: 'done', terminal: clearHold(terminal) };
     case 'PreToolUse':
-      // Claude wakes for a finished shell or subagent with no prompt hook.
-      // Only the main agent counts: a subagent's tools are not a new turn.
-      if (event.agentId || snapshot.status !== 'done') return snapshot;
+    case 'PostToolUse': {
+      // Claude wakes for a finished shell or subagent with no prompt hook,
+      // and a permission prompt that gets answered fires none either: the
+      // tool finishing is the first sign of it. Only the main agent counts:
+      // a subagent's tools are not a new turn.
+      if (event.agentId) return snapshot;
+      const answered =
+        snapshot.status === 'waiting' && event.name === 'PostToolUse';
+      if (snapshot.status !== 'done' && !answered) return snapshot;
       return { ...snapshot, status: 'working' };
+    }
     case 'SubagentStart': {
       if (!event.agentId) return snapshot;
       const subagents = [...(terminal.subagents ?? [])];

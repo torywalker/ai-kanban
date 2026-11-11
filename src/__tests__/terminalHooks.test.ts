@@ -398,10 +398,30 @@ describe('PreToolUse', () => {
     ).toBe(done);
   });
 
-  it('leaves waiting and working cards alone', () => {
+  it('wakes a done card on a finished tool call too', () => {
+    const next = applyHookEvent(
+      snapshot({ status: 'done' }),
+      hook('PostToolUse'),
+    );
+    expect(next.status).toBe('working');
+  });
+
+  it('returns a waiting card to working once its tool has run', () => {
+    const waiting = snapshot({ status: 'waiting' });
+    expect(applyHookEvent(waiting, hook('PostToolUse')).status).toBe('working');
+    expect(
+      applyHookEvent(waiting, hook('PostToolUse', null, { agentId: 'a1' })),
+    ).toBe(waiting);
+  });
+
+  it('keeps waiting for a tool that is only about to ask', () => {
     const waiting = snapshot({ status: 'waiting' });
     expect(applyHookEvent(waiting, hook('PreToolUse'))).toBe(waiting);
+  });
+
+  it('leaves a working card alone', () => {
     const working = snapshot();
     expect(applyHookEvent(working, hook('PreToolUse'))).toBe(working);
+    expect(applyHookEvent(working, hook('PostToolUse'))).toBe(working);
   });
 });
