@@ -202,6 +202,12 @@ const api = {
       ipcRenderer.on(CHANNELS.shellState, listener);
       return () => ipcRenderer.removeListener(CHANNELS.shellState, listener);
     },
+    onShellCwd: (callback: (id: string, cwd: string) => void): (() => void) => {
+      const listener = (_e: unknown, id: string, cwd: string) =>
+        callback(id, cwd);
+      ipcRenderer.on(CHANNELS.shellCwd, listener);
+      return () => ipcRenderer.removeListener(CHANNELS.shellCwd, listener);
+    },
     input: (cardId: string, data: string): void => {
       ipcRenderer.send(CHANNELS.terminalInput, cardId, data);
     },

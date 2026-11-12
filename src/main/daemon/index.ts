@@ -80,6 +80,7 @@ import {
   type TurnOutcome,
 } from './turnLifecycle';
 import { createShellHost } from './shellHost';
+import { readProcessCwd } from './shellCwd';
 import { createTerminalHost } from './terminalHost';
 
 // Last-resort backstop. Nothing supervises this process: it is spawned
@@ -185,6 +186,7 @@ const shellHost = createShellHost({
   envShell: process.env.SHELL,
   baseEnv: process.env,
   homedir: os.homedir(),
+  readCwd: readProcessCwd,
   publishEvent: broadcast,
 });
 

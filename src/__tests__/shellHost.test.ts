@@ -17,6 +17,7 @@ function fakePty(): FakePty {
   let exitCb: () => void = () => undefined;
   const pty: FakePty = {
     process: 'zsh',
+    pid: 42,
     written: [],
     resized: [],
     killed: 0,
@@ -42,6 +43,7 @@ function fakePty(): FakePty {
 }
 
 function setup() {
+  const cwdRef: { value: string | undefined } = { value: undefined };
   const ptys: FakePty[] = [];
   const spawns: Array<{ file: string; args: string[]; opts: any }> = [];
   const events: DaemonEvent[] = [];
@@ -57,9 +59,10 @@ function setup() {
     envShell: '/bin/zsh',
     baseEnv: { PATH: '/bin' },
     homedir,
+    readCwd: async () => cwdRef.value,
     publishEvent: (e) => events.push(e),
   });
-  return { host, ptys, spawns, events, homedir };
+  return { host, ptys, spawns, events, homedir, cwdRef };
 }
 
 const req = (id: string, cwd: string) => ({ id, cwd, cols: 80, rows: 24 });
@@ -187,5 +190,19 @@ describe('shellHost', () => {
     };
     expect(() => host.resize('s1', 10, 10)).not.toThrow();
     expect(() => host.input('s1', 'x')).not.toThrow();
+  });
+
+  it('publishes the shell cwd when it changes, once per change', async () => {
+    const { host, events, cwdRef } = setup();
+    host.start(req('s1', os.tmpdir()));
+    cwdRef.value = '/work/a';
+    await jest.advanceTimersByTimeAsync(2000);
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(events.filter((e) => e.event === 'shellCwd')).toEqual([
+      { event: 'shellCwd', id: 's1', cwd: '/work/a' },
+    ]);
+    cwdRef.value = '/work/b';
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(events.filter((e) => e.event === 'shellCwd')).toHaveLength(2);
   });
 });

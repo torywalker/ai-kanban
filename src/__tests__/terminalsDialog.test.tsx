@@ -48,6 +48,7 @@ function install() {
     attach: jest.fn().mockResolvedValue(undefined),
     onData: jest.fn(() => () => {}),
     onReplay: jest.fn(() => () => {}),
+    onShellCwd: jest.fn(() => () => {}),
     onShellState: jest.fn((cb) => {
       shellState = cb;
       return () => {};
