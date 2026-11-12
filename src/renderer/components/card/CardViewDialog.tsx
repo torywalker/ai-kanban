@@ -863,15 +863,15 @@ export function CardViewDialog({
     j: () => toggleComments(),
   };
 
-  // The card right-click "Run" opens this dialog and asks it to run, so the
-  // same guards as the ⌘⇧R shortcut apply.
+  // The card right-click "Run" asks this (always-mounted, possibly closed)
+  // dialog to run, so the same guards as the ⌘⇧R shortcut apply.
   const runCardId = useUiStore((s) => s.runCardId);
   const setRunCardId = useUiStore((s) => s.setRunCardId);
   useEffect(() => {
-    if (runCardId !== cardId || !open) return;
+    if (runCardId !== cardId) return;
     setRunCardId(null);
     shortcutsRef.current.r?.();
-  }, [runCardId, cardId, open, setRunCardId]);
+  }, [runCardId, cardId, setRunCardId]);
 
   // Resolved against the store as each ingest lands rather than against this
   // render's `card.attachments`, so two overlapping pastes/drops both survive

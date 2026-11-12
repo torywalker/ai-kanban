@@ -111,7 +111,6 @@ export function CardContextMenu({
   const paused = card?.paused === true;
   const updateCard = useDocStore((s) => s.updateCard);
   const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
-  const setOpenCardId = useUiStore((s) => s.setOpenCardId);
   const setRunCardId = useUiStore((s) => s.setRunCardId);
   const markUnread = useSessionStore((s) => s.markUnread);
   const archiveCard = useDocStore((s) => s.archiveCard);
@@ -123,10 +122,7 @@ export function CardContextMenu({
     // Mirrors the dialog's Run button: not paused, never run, no saved
     // session to re-connect to.
     canRun: !paused && !hasSession && !card?.sessionId,
-    run: () => {
-      setRunCardId(cardId);
-      setOpenCardId(cardId);
-    },
+    run: () => setRunCardId(cardId),
     openEditDialog: () => setEditOpen(true),
     togglePaused: () =>
       updateCard(boardId, listId, cardId, { paused: !paused }),
