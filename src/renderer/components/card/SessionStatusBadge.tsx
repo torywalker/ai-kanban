@@ -56,9 +56,7 @@ export function SessionStatusBadge({ cardId, paused }: Props) {
   // hooks can't see, so it still counts as connected.
   const disconnected = useSessionStore((s) => {
     const terminal = s.sessions[cardId]?.terminal;
-    return (
-      !!terminal && !terminal.claudeRunning && !terminal.foregroundBusy
-    );
+    return !!terminal && !terminal.claudeRunning && !terminal.foregroundBusy;
   });
   if (!status) return null;
 

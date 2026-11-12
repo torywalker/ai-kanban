@@ -6,6 +6,7 @@ import type { SessionSnapshot, TerminalState } from '../shared/daemonProtocol';
 function show(terminal: TerminalState | undefined) {
   const snapshot = {
     cardId: 'c1',
+    sessionId: 's1',
     status: 'done',
     checklist: [],
     messages: [],

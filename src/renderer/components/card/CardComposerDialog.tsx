@@ -72,7 +72,6 @@ interface Props {
   onCreate?: (fields: NewCardFields) => boolean | Promise<boolean>;
 }
 
-
 const TABBABLE =
   'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 // Fields Tab visits first, in this order; everything else follows in DOM order.

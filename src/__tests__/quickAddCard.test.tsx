@@ -86,6 +86,11 @@ describe('Cmd/Ctrl+N: quick-add card shortcut, board loaded', () => {
       writable: true,
       configurable: true,
       value: {
+        notifications: {
+          taskFinished: jest.fn().mockResolvedValue(undefined),
+          setMuted: jest.fn().mockResolvedValue(undefined),
+          onOpenCard: jest.fn(() => jest.fn()),
+        },
         settings: {
           read: jest.fn().mockResolvedValue({
             dataFilePath: '/tmp/seeded-kanban.json',
@@ -253,6 +258,11 @@ describe('Cmd/Ctrl+N: active board with zero lists', () => {
       writable: true,
       configurable: true,
       value: {
+        notifications: {
+          taskFinished: jest.fn().mockResolvedValue(undefined),
+          setMuted: jest.fn().mockResolvedValue(undefined),
+          onOpenCard: jest.fn(() => jest.fn()),
+        },
         settings: {
           read: jest.fn().mockResolvedValue({
             dataFilePath: '/tmp/empty-kanban.json',
@@ -312,6 +322,11 @@ describe('Cmd/Ctrl+N: no active board loaded (welcome screen)', () => {
       writable: true,
       configurable: true,
       value: {
+        notifications: {
+          taskFinished: jest.fn().mockResolvedValue(undefined),
+          setMuted: jest.fn().mockResolvedValue(undefined),
+          onOpenCard: jest.fn(() => jest.fn()),
+        },
         settings: {
           read: jest.fn().mockResolvedValue({
             dataFilePath: null,

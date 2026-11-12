@@ -133,6 +133,11 @@ beforeEach(() => {
     writable: true,
     configurable: true,
     value: {
+      notifications: {
+        taskFinished: jest.fn().mockResolvedValue(undefined),
+        setMuted: jest.fn().mockResolvedValue(undefined),
+        onOpenCard: jest.fn(() => jest.fn()),
+      },
       settings: {
         read: jest.fn(() =>
           laterResolved({

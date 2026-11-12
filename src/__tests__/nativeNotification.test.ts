@@ -11,6 +11,7 @@ jest.mock('electron', () => {
   Object.assign(NotificationMock, {
     isSupported: jest.fn(() => true),
     show,
+    on,
   });
   return { Notification: NotificationMock };
 });
@@ -18,6 +19,7 @@ jest.mock('electron', () => {
 const notificationMock = Notification as unknown as jest.Mock & {
   isSupported: jest.Mock;
   show: jest.Mock;
+  on: jest.Mock;
 };
 
 describe('showTaskFinishedNotification', () => {
@@ -25,6 +27,9 @@ describe('showTaskFinishedNotification', () => {
     notificationMock.mockClear();
     notificationMock.isSupported.mockClear();
     notificationMock.show.mockClear();
+    // Shared by every instance, so a stale click handler from an earlier test
+    // would otherwise be the one `find` returns.
+    notificationMock.on.mockClear();
   });
 
   it('shows a native completion notification for the card', () => {

@@ -1,0 +1,61 @@
+#!/usr/bin/env sh
+
+# Same checks CI runs (lint, tsc, tests), so failures show up before the push.
+# Opt out for one commit with ENABLE_PRECOMMIT_HOOKS=false (also read from .env).
+[ -f .env ] && . ./.env
+if [ "${ENABLE_PRECOMMIT_HOOKS:-true}" = "false" ]; then
+  echo "\033[33m⏭️  Pre-commit hooks disabled (ENABLE_PRECOMMIT_HOOKS=false)\033[0m"
+  exit 0
+fi
+
+echo "\033[32m🔍 Running pre-commit checks...\033[0m"
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|ts|tsx)$')
+if [ -z "$staged" ]; then
+  echo "\033[32m✅ No JS/TS changes staged, nothing to check.\033[0m"
+  exit 0
+fi
+
+# Newline-safe: lint and test only what this commit touches.
+lint_staged() {
+  echo "$staged" | NODE_ENV=development xargs pnpm exec eslint
+}
+
+echo "\n\033[33m💅 Linting staged files...\033[0m"
+if ! lint_staged; then
+  echo "\n\033[31m❌ Lint failed!\033[0m"
+  printf "\033[33mWould you like ESLint to fix the staged files? [Y/n] \033[0m"
+  read -r response < /dev/tty
+  if [ "$response" = "n" ] || [ "$response" = "N" ]; then
+    exit 1
+  fi
+  echo "$staged" | NODE_ENV=development xargs pnpm exec eslint --fix >/dev/null 2>&1
+  # Re-stage only the files that were already staged, never unrelated edits.
+  echo "$staged" | xargs git add --
+  # Some errors cannot be fixed automatically; never commit past them.
+  if ! lint_staged; then
+    echo "\n\033[31m❌ Lint still fails after fixing; resolve the errors above.\033[0m"
+    exit 1
+  fi
+  echo "\033[32m✅ Fix applied and changes staged.\033[0m"
+fi
+
+echo "\n\033[33m🔎 Type checking...\033[0m"
+if ! pnpm exec tsc --noEmit; then
+  echo "\n\033[31m❌ Type check failed!\033[0m"
+  exit 1
+fi
+
+# Jest refuses to start until the app has been built once (see
+# .erb/scripts/check-build-exists.ts); a fresh worktree has not been.
+if [ ! -f release/app/dist/main/main.js ] || [ ! -f release/app/dist/renderer/renderer.js ]; then
+  echo "\n\033[33m⚠️  Skipping tests: the app is not built here yet. Run 'pnpm run build' to enable them.\033[0m"
+else
+  echo "\n\033[33m🧪 Running tests related to staged files...\033[0m"
+  if ! echo "$staged" | xargs pnpm exec jest --passWithNoTests --findRelatedTests; then
+    echo "\n\033[31m❌ Tests failed!\033[0m"
+    exit 1
+  fi
+fi
+
+echo "\n\033[32m✅ All pre-commit checks passed!\033[0m"

@@ -146,6 +146,11 @@ describe('AppShell keydown handler: Cmd/Ctrl+? opens the shortcuts help dialog',
       writable: true,
       configurable: true,
       value: {
+        notifications: {
+          taskFinished: jest.fn().mockResolvedValue(undefined),
+          setMuted: jest.fn().mockResolvedValue(undefined),
+          onOpenCard: jest.fn(() => jest.fn()),
+        },
         settings: {
           read: jest.fn().mockResolvedValue({
             dataFilePath: '/tmp/seeded-kanban.json',

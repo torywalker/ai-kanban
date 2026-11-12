@@ -499,6 +499,16 @@ export function CardViewDialog({
 
   const { confirm, dialog: archiveDialog } = useConfirm();
 
+  // The card right-click "Run" asks this (always-mounted, possibly closed)
+  // dialog to run, so the same guards as the ⌘⇧R shortcut apply.
+  const runCardId = useUiStore((s) => s.runCardId);
+  const setRunCardId = useUiStore((s) => s.setRunCardId);
+  useEffect(() => {
+    if (runCardId !== cardId) return;
+    setRunCardId(null);
+    shortcutsRef.current.r?.();
+  }, [runCardId, cardId, setRunCardId]);
+
   if (!card) return null;
   /**
    * Expanding only rearranges the scroll regions when there is actually a
@@ -862,16 +872,6 @@ export function CardViewDialog({
     a: archive,
     j: () => toggleComments(),
   };
-
-  // The card right-click "Run" asks this (always-mounted, possibly closed)
-  // dialog to run, so the same guards as the ⌘⇧R shortcut apply.
-  const runCardId = useUiStore((s) => s.runCardId);
-  const setRunCardId = useUiStore((s) => s.setRunCardId);
-  useEffect(() => {
-    if (runCardId !== cardId) return;
-    setRunCardId(null);
-    shortcutsRef.current.r?.();
-  }, [runCardId, cardId, setRunCardId]);
 
   // Resolved against the store as each ingest lands rather than against this
   // render's `card.attachments`, so two overlapping pastes/drops both survive
