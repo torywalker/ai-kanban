@@ -1,9 +1,10 @@
-import { ShieldX } from 'lucide-react';
+import { RefreshCw, ShieldX } from 'lucide-react';
 import {
   summarizeChecks,
   type BuildCheck,
   type BuildStatus,
 } from '@shared/buildStatus';
+import { api } from '@/lib/api';
 import { BuildGlyph, type BuildView } from './BuildStatusGlyph';
 
 const MAX_ROWS = 5;
@@ -79,6 +80,17 @@ export function BuildStatusDetails({
           </p>
           <p className="mt-0.5 text-muted-foreground">{view.summary}</p>
         </div>
+        <button
+          type="button"
+          aria-label="Refresh build status"
+          className="ml-auto shrink-0 self-start rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            api.buildStatus.retry();
+          }}
+        >
+          <RefreshCw className="size-3" />
+        </button>
       </div>
       <SegmentBar checks={status.checks} />
       <CheckList checks={status.checks} />

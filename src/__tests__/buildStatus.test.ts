@@ -188,6 +188,39 @@ describe('build status service', () => {
     expect(status.checks.map((c) => c.state)).toEqual(['pass']);
   });
 
+  it('reports the newest run containing the shipped commit, not the first', async () => {
+    const { service, last } = setup((cmd, args) => {
+      if (args[0] === 'pr') return ok('[]');
+      if (cmd === 'git') return ok('');
+      if (args[0] === 'run' && args[1] === 'list') {
+        return ok(
+          JSON.stringify([
+            { databaseId: 2, headSha: 'fix', createdAt: '2026-01-02' },
+            { databaseId: 1, headSha: 'broken', createdAt: '2026-01-01' },
+          ]),
+        );
+      }
+      const passed = args[2] === '2';
+      return ok(
+        JSON.stringify({
+          url: `https://github.com/o/r/actions/runs/${args[2]}`,
+          jobs: [
+            {
+              name: 'deploy',
+              status: 'completed',
+              conclusion: passed ? 'success' : 'failure',
+            },
+          ],
+        }),
+      );
+    });
+    service.setTargets([
+      { ...baseTarget, ship: { sha: 'shipsha', targetBranch: 'qa' } },
+    ]);
+    await service.tick();
+    expect(last().statuses[0].checks.map((c) => c.state)).toEqual(['pass']);
+  });
+
   it('shows no-builds after the grace period when nothing runs', async () => {
     const { service, last, advance } = setup((cmd, args) => {
       if (args[0] === 'pr') return ok('[]');

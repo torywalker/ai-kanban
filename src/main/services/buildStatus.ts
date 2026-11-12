@@ -251,8 +251,9 @@ export function createBuildStatusService(deps: {
     );
     const runs = parseJson<
       { databaseId: number; headSha: string; createdAt: string }[]
-    >(out).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    >(out).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
+    // Newest first: a later push that fixes a red build must replace it.
     let headSha: string | null = null;
     for (let i = 0; i < runs.length && headSha === null; i += 1) {
       const candidate = runs[i];
