@@ -109,6 +109,12 @@ export function PromptCard({
     setViewOpen(true);
   };
 
+  // Shift-mousedown would otherwise extend the browser's text selection
+  // across the cards being shift-clicked.
+  const handleMouseDown = (event: MouseEvent) => {
+    if (event.shiftKey) event.preventDefault();
+  };
+
   const copy = async () => {
     await copyText(card.prompt);
     recordCopy(boardId, listId, cardId);
@@ -171,6 +177,7 @@ export function PromptCard({
             <div
               ref={scrollRef}
               onClick={handleOpenClick}
+              onMouseDown={handleMouseDown}
               className={
                 focusCardId === cardId
                   ? 'cursor-pointer rounded-md ring-2 ring-ring'
