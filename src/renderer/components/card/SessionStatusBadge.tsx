@@ -50,6 +50,16 @@ export function SessionStatusBadge({ cardId, paused }: Props) {
     }
     return session.backgroundTasks.map((task) => task.description).join(', ');
   });
+  // A terminal card whose Claude CLI has exited (or was never reattached
+  // after an app restart) keeps its last `done` status, so the check would
+  // claim a live connection. `foregroundBusy` is a hand-started Claude the
+  // hooks can't see, so it still counts as connected.
+  const disconnected = useSessionStore((s) => {
+    const terminal = s.sessions[cardId]?.terminal;
+    return (
+      !!terminal && !terminal.claudeRunning && !terminal.foregroundBusy
+    );
+  });
   if (!status) return null;
 
   if (paused) {
@@ -64,14 +74,17 @@ export function SessionStatusBadge({ cardId, paused }: Props) {
     );
   }
 
-  const label = statusLabel(status, backgroundLabel);
+  const showDisconnected = status === 'done' && disconnected;
+  const label = showDisconnected
+    ? 'Disconnected — Re-connect to continue'
+    : statusLabel(status, backgroundLabel);
   const Icon =
     status === 'working'
       ? Loader2
-      : status === 'done'
-        ? CircleCheck
-        : status === 'interrupted'
-          ? Unplug
+      : showDisconnected || status === 'interrupted'
+        ? Unplug
+        : status === 'done'
+          ? CircleCheck
           : CircleAlert;
 
   return (
@@ -79,7 +92,7 @@ export function SessionStatusBadge({ cardId, paused }: Props) {
       <Icon
         role="img"
         aria-label={label}
-        className={`size-3.5 ${STATUS_COLOR[status]} ${status === 'working' ? 'animate-spin' : ''}`}
+        className={`size-3.5 ${showDisconnected ? STATUS_COLOR.interrupted : STATUS_COLOR[status]} ${status === 'working' ? 'animate-spin' : ''}`}
       />
     </span>
   );
