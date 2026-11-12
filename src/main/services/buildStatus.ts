@@ -82,6 +82,12 @@ interface Entry {
   seen: boolean;
 }
 
+/** `notified` keeps a restart from re-announcing builds already announced. */
+export interface PersistedBuildState {
+  statuses: BuildStatus[];
+  notified: string[];
+}
+
 export interface BuildStatusService {
   setTargets: (targets: BuildWatchTarget[]) => void;
   retry: () => void;
@@ -99,20 +105,28 @@ export function createBuildStatusService(deps: {
   notify: (notice: BuildNotice) => void;
   emit: (update: BuildStatusUpdate) => void;
   /** Last known statuses from a previous run, shown (as stale) until re-polled. */
-  load?: () => BuildStatus[];
-  save?: (statuses: BuildStatus[]) => void;
+  load?: () => PersistedBuildState;
+  save?: (state: PersistedBuildState) => void;
   now?: () => number;
 }): BuildStatusService {
   const now = deps.now ?? Date.now;
   const entries = new Map<string, Entry>();
-  const notified = new Set<string>();
+  const persisted = deps.load?.();
+  const notified = new Set<string>(persisted?.notified ?? []);
   let paused: BuildStatusPause | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<void> | null = null;
   let lastEmitted = '';
   const restored = new Map(
-    (deps.load?.() ?? []).map((status) => [status.cardId, status]),
+    (persisted?.statuses ?? []).map((status) => [status.cardId, status]),
   );
+
+  function persist(): void {
+    deps.save?.({
+      statuses: [...entries.values()].map((entry) => entry.status),
+      notified: [...notified],
+    });
+  }
 
   // `force` is for a renderer that just (re)registered: its store may be empty
   // after a reload, so an unchanged update must still be delivered to it.
@@ -124,7 +138,7 @@ export function createBuildStatusService(deps: {
     const serialized = JSON.stringify(update);
     if (!force && serialized === lastEmitted) return;
     lastEmitted = serialized;
-    deps.save?.(update.statuses);
+    persist();
     deps.emit(update);
   }
 
@@ -157,11 +171,30 @@ export function createBuildStatusService(deps: {
     throw new Error(result.stderr);
   }
 
+  // Cards on the same branch (or PR) are one build, so name them all once.
+  function sharedTitle(entry: Entry): string {
+    const { target } = entry;
+    const same = [...entries.values()].filter(({ target: other }) =>
+      target.ship
+        ? other.repo === target.repo &&
+          other.ship?.targetBranch === target.ship.targetBranch
+        : other.repo === target.repo && other.branch === target.branch,
+    );
+    const titles = same.map(({ target: t }) => t.title);
+    const shown = titles.slice(0, 3).join(', ');
+    return titles.length > 3 ? `${shown} +${titles.length - 3} more` : shown;
+  }
+
   function announce(entry: Entry, sha: string, checks: BuildCheck[]): void {
-    const notices = noticesFor(entry.target, sha, checks);
+    const notices = noticesFor(
+      { repo: entry.target.repo, title: sharedTitle(entry) },
+      sha,
+      checks,
+    );
     notices.forEach((notice) => {
       if (notified.has(notice.key)) return;
       notified.add(notice.key);
+      persist();
       // A build that was already green when the app started is not news.
       if (!entry.seen && notice.title === 'Build passed') return;
       deps.notify(notice);
@@ -289,20 +322,21 @@ export function createBuildStatusService(deps: {
 
     // One push can start several workflows; they all belong to this build.
     const sameCommit = runs.filter((r) => r.headSha === headSha);
-    const checks: BuildCheck[] = [];
-    let url: string | null = null;
-    for (let i = 0; i < sameCommit.length; i += 1) {
-      const candidate = sameCommit[i];
-      // eslint-disable-next-line no-await-in-loop
-      const detail = await run(
-        'gh',
-        ['run', 'view', String(candidate.databaseId), '--json', 'jobs,url'],
-        repo,
-      );
-      const parsed = parseJson<{ url: string; jobs: RawCheck[] }>(detail);
-      url ??= parsed.url;
-      checks.push(...parsed.jobs.map(normalizeCheck));
-    }
+    const details = await Promise.all(
+      sameCommit.map(async (candidate) =>
+        parseJson<{ url: string; jobs: RawCheck[] }>(
+          await run(
+            'gh',
+            ['run', 'view', String(candidate.databaseId), '--json', 'jobs,url'],
+            repo,
+          ),
+        ),
+      ),
+    );
+    const checks: BuildCheck[] = details.flatMap((d) =>
+      d.jobs.map(normalizeCheck),
+    );
+    const url: string | null = details[0]?.url ?? null;
     // A click should land on what broke, not on whichever workflow listed first.
     const failedUrl = checks.find((c) => c.state === 'fail')?.url;
     settle(entry, { kind: 'push', url: failedUrl ?? url, checks }, headSha);
@@ -349,6 +383,7 @@ export function createBuildStatusService(deps: {
       (entry) => !entry.done && entry.nextDue <= now(),
     );
     for (let i = 0; i < due.length && !paused; i += 1) {
+      // Serial on purpose: same-repo `git fetch`es contend for ref locks.
       // eslint-disable-next-line no-await-in-loop
       await pollSafely(due[i]);
       emit();
@@ -384,7 +419,8 @@ export function createBuildStatusService(deps: {
         target,
         // Keep what was last known so the marker doesn't vanish while the
         // re-poll for the changed target is in flight.
-        status: existing?.status ??
+        status:
+          existing?.status ??
           (restored.has(target.cardId)
             ? { ...restored.get(target.cardId)!, stale: true }
             : {

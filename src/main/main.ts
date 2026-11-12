@@ -469,14 +469,16 @@ const buildStatusService = createBuildStatusService({
   exec: defaultExec,
   load: () => {
     try {
-      return JSON.parse(fs.readFileSync(buildStatusFile, 'utf8'));
+      const saved = JSON.parse(fs.readFileSync(buildStatusFile, 'utf8'));
+      // The first version of this file was a bare array of statuses.
+      return Array.isArray(saved) ? { statuses: saved, notified: [] } : saved;
     } catch {
-      return [];
+      return { statuses: [], notified: [] };
     }
   },
-  save: (statuses) => {
+  save: (state) => {
     try {
-      fs.writeFileSync(buildStatusFile, JSON.stringify(statuses));
+      fs.writeFileSync(buildStatusFile, JSON.stringify(state));
     } catch {
       // A cache: losing it only means a blank badge until the next poll.
     }

@@ -2,6 +2,7 @@ import {
   createBuildStatusService,
   type Exec,
   type ExecResult,
+  type PersistedBuildState,
 } from '../main/services/buildStatus';
 import {
   isPrUrl,
@@ -88,19 +89,19 @@ describe('check normalization', () => {
 
 describe('notices', () => {
   it('notifies each failed check, and the final pass only when nothing failed', () => {
-    const failed = noticesFor({ cardId: 'c', title: 't' }, 'sha1', [
+    const failed = noticesFor({ repo: 'r', title: 't' }, 'sha1', [
       { name: 'lint', state: 'fail', url: null },
       { name: 'build', state: 'pass', url: null },
     ]);
-    expect(failed.map((n) => n.key)).toEqual(['c|sha1|lint']);
+    expect(failed.map((n) => n.key)).toEqual(['r|sha1|lint']);
 
-    const passed = noticesFor({ cardId: 'c', title: 't' }, 'sha1', [
+    const passed = noticesFor({ repo: 'r', title: 't' }, 'sha1', [
       { name: 'build', state: 'pass', url: null },
     ]);
-    expect(passed.map((n) => n.key)).toEqual(['c|sha1|ALL']);
+    expect(passed.map((n) => n.key)).toEqual(['r|sha1|ALL']);
 
     expect(
-      noticesFor({ cardId: 'c', title: 't' }, 'sha1', [
+      noticesFor({ repo: 'r', title: 't' }, 'sha1', [
         { name: 'build', state: 'pending', url: null },
       ]),
     ).toEqual([]);
@@ -226,7 +227,7 @@ describe('build status service', () => {
     expect(last().statuses[0].checks.map((c) => c.state)).toEqual(['pass']);
   });
 
-  it('shows the previous run\'s status as stale until the first poll lands', async () => {
+  it("shows the previous run's status as stale until the first poll lands", async () => {
     const saved: BuildStatus = {
       cardId: 'crd_1',
       kind: 'pr',
@@ -235,10 +236,63 @@ describe('build status service', () => {
       stale: false,
     };
     const { service, updates } = setup(() => fail('boom', 1), {
-      load: () => [saved],
+      load: () => ({ statuses: [saved], notified: [] }),
     });
     service.setTargets([baseTarget]);
     expect(updates[0].statuses[0]).toMatchObject({ kind: 'pr', stale: true });
+  });
+
+  it('does not re-announce a failure it already announced before a restart', async () => {
+    const handler = (cmd: string, args: string[]) =>
+      args[1] === 'list'
+        ? ok('[{"url":"https://github.com/o/r/pull/1"}]')
+        : prView([
+            { name: 'lint', status: 'COMPLETED', conclusion: 'FAILURE' },
+          ]);
+    let state: PersistedBuildState | undefined;
+    const withSave = setup(handler, {
+      save: (s) => {
+        state = s;
+      },
+    });
+    withSave.service.setTargets([baseTarget]);
+    await withSave.service.tick();
+    expect(withSave.notices).toHaveLength(1);
+
+    const restarted = setup(handler, { load: () => state! });
+    restarted.service.setTargets([baseTarget]);
+    await restarted.service.tick();
+    expect(restarted.notices).toEqual([]);
+  });
+
+  it('sends one notification for cards that share a branch', async () => {
+    const { service, notices } = setup((cmd, args) => {
+      if (args[0] === 'pr') return ok('[]');
+      if (cmd === 'git') return ok('');
+      if (args[0] === 'run' && args[1] === 'list') {
+        return ok(
+          JSON.stringify([
+            { databaseId: 1, headSha: 'tip', createdAt: '2026-01-01' },
+          ]),
+        );
+      }
+      return ok(
+        JSON.stringify({
+          url: 'https://github.com/o/r/actions/runs/1',
+          jobs: [
+            { name: 'deploy', status: 'completed', conclusion: 'failure' },
+          ],
+        }),
+      );
+    });
+    const ship = { sha: 'shipsha', targetBranch: 'qa' };
+    service.setTargets([
+      { ...baseTarget, ship },
+      { ...baseTarget, cardId: 'crd_2', title: 'Other card', ship },
+    ]);
+    await service.tick();
+    expect(notices).toHaveLength(1);
+    expect(notices[0].body).toBe('My card, Other card: deploy');
   });
 
   it('shows no-builds after the grace period when nothing runs', async () => {
