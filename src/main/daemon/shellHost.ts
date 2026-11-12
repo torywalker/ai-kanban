@@ -5,7 +5,10 @@ import { appendCapped } from './terminalHooks';
 import type { PtyLike } from './terminalHost';
 
 /** A pty that also reports its foreground process name (node-pty's `process`). */
-export type ShellPtyLike = PtyLike & { readonly process: string };
+export type ShellPtyLike = PtyLike & {
+  readonly process: string;
+  readonly pid?: number;
+};
 
 export interface ShellHostDeps {
   spawnPty: (
@@ -22,6 +25,8 @@ export interface ShellHostDeps {
   envShell: string | undefined;
   baseEnv: Record<string, string | undefined>;
   homedir: string;
+  /** The directory a process is in, or undefined when it can't be read. */
+  readCwd: (pid: number) => Promise<string | undefined>;
   publishEvent: (e: DaemonEvent) => void;
 }
 
@@ -47,10 +52,13 @@ interface Shell {
   pty: ShellPtyLike;
   buffer: string;
   busy: boolean;
+  cwd: string | undefined;
   timer: ReturnType<typeof setInterval>;
 }
 
 const BUSY_POLL_MS = 500;
+/** Reading a cwd spawns a process, so it runs on every Nth busy poll. */
+const CWD_POLL_EVERY = 4;
 
 /** App-internal env vars that must not leak into user shells. */
 const ENV_BLOCKLIST = new Set(['ELECTRON_RUN_AS_NODE', 'NODE_OPTIONS']);
@@ -89,6 +97,19 @@ export function createShellHost(deps: ShellHostDeps): ShellHost {
     }
   };
 
+  const pollCwd = (id: string, shell: Shell): void => {
+    const { pid } = shell.pty;
+    if (pid === undefined) return;
+    deps
+      .readCwd(pid)
+      .then((cwd) => {
+        if (!cwd || cwd === shell.cwd || shells.get(id) !== shell) return;
+        shell.cwd = cwd;
+        deps.publishEvent({ event: 'shellCwd', id, cwd });
+      })
+      .catch(() => undefined);
+  };
+
   return {
     start(req) {
       const existing = shells.get(req.id);
@@ -120,11 +141,15 @@ export function createShellHost(deps: ShellHostDeps): ShellHost {
         return;
       }
 
+      let ticks = 0;
       const shell: Shell = {
         pty,
         buffer: '',
         busy: false,
+        cwd: undefined,
         timer: setInterval(() => {
+          ticks += 1;
+          if (ticks % CWD_POLL_EVERY === 0) pollCwd(req.id, shell);
           let proc: string;
           try {
             proc = pty.process;

@@ -8,6 +8,7 @@ import {
 import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
 import { useSessionStore } from '@/store/sessionStore';
+import { useUiStore } from '@/store/uiStore';
 import { CardComposerDialog } from './CardComposerDialog';
 import { MoveCardToBoardDialog } from './MoveCardToBoardDialog';
 
@@ -28,6 +29,10 @@ interface Props {
 interface CardMenuActions {
   archived: boolean;
   paused: boolean;
+  canRun: boolean;
+  shellAlive: boolean;
+  closeTerminal: () => void;
+  run: () => void;
   openEditDialog: () => void;
   togglePaused: () => void;
   markUnread: () => void;
@@ -38,6 +43,7 @@ interface CardMenuActions {
 interface CardMenuItemConfig {
   id: string;
   label: (actions: CardMenuActions) => string;
+  visible?: (actions: CardMenuActions) => boolean;
   onSelect: (actions: CardMenuActions) => void;
 }
 
@@ -51,6 +57,18 @@ const CARD_CONTEXT_MENU_ITEMS: CardMenuItemConfig[] = [
     id: 'edit',
     label: () => 'Edit',
     onSelect: (actions) => actions.openEditDialog(),
+  },
+  {
+    id: 'run',
+    label: () => 'Run',
+    visible: (actions) => actions.canRun,
+    onSelect: (actions) => actions.run(),
+  },
+  {
+    id: 'close-terminal',
+    label: () => 'Close terminal',
+    visible: (actions) => actions.shellAlive,
+    onSelect: (actions) => actions.closeTerminal(),
   },
   {
     id: 'pause',
@@ -100,6 +118,13 @@ export function CardContextMenu({
   const archived = card?.archived ?? false;
   const paused = card?.paused === true;
   const updateCard = useDocStore((s) => s.updateCard);
+  const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
+  const shellAlive =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.shellAlive) === true;
+  const claudeRunning =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
+    true;
+  const setRunCardId = useUiStore((s) => s.setRunCardId);
   const markUnread = useSessionStore((s) => s.markUnread);
   const archiveCard = useDocStore((s) => s.archiveCard);
   const unarchiveCard = useDocStore((s) => s.unarchiveCard);
@@ -107,6 +132,27 @@ export function CardContextMenu({
   const actions: CardMenuActions = {
     archived,
     paused,
+    // Mirrors the dialog's Run button: not paused, never run, no saved
+    // session to re-connect to.
+    canRun: !paused && !hasSession && !card?.sessionId,
+    run: () => setRunCardId(cardId),
+    shellAlive,
+    closeTerminal: () => {
+      const close = () => {
+        const closing = window.electron?.terminal?.close(cardId);
+        if (closing) closing.catch(() => undefined);
+      };
+      if (!claudeRunning) {
+        close();
+        return;
+      }
+      confirm({
+        title: 'Close terminal?',
+        body: 'Claude is still running in this terminal. Close it anyway?',
+        confirmLabel: 'Close it',
+        onConfirm: close,
+      });
+    },
     openEditDialog: () => setEditOpen(true),
     togglePaused: () =>
       updateCard(boardId, listId, cardId, { paused: !paused }),
@@ -131,7 +177,9 @@ export function CardContextMenu({
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent>
-          {CARD_CONTEXT_MENU_ITEMS.map((item) => (
+          {CARD_CONTEXT_MENU_ITEMS.filter(
+            (item) => item.visible?.(actions) ?? true,
+          ).map((item) => (
             <ContextMenuItem
               key={item.id}
               onSelect={() => item.onSelect(actions)}

@@ -314,6 +314,8 @@ export type DaemonEvent =
   | { event: 'terminalReplay'; cardId: string; data: string }
   /** A general shell's liveness and whether a command is running in it. */
   | { event: 'shellState'; id: string; alive: boolean; busy: boolean }
+  /** A general shell's working directory changed. */
+  | { event: 'shellCwd'; id: string; cwd: string }
   /**
    * `buildId` is the content hash of the daemon bundle this process is
    * running (see `daemonIdentity.ts`). It is how the app detects that the

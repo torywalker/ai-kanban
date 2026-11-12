@@ -43,6 +43,7 @@ export const CHANNELS = {
   terminalReplay: 'terminal:replay',
   shellStart: 'shell:start',
   shellState: 'shell:state',
+  shellCwd: 'shell:cwd',
   // The ledger behind both of these is a single file of timestamped
   // per-turn rows covering every card, so a card's total and a board's
   // total are two filtered reads of the same data rather than separate

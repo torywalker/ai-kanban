@@ -86,6 +86,7 @@ describe('CardViewDialog terminal controls', () => {
       start: jest.fn().mockResolvedValue(undefined),
       startShell: jest.fn().mockResolvedValue(undefined),
       onShellState: jest.fn().mockReturnValue(() => {}),
+      onShellCwd: jest.fn().mockReturnValue(() => {}),
       input: jest.fn(),
       resize: jest.fn(),
       interrupt: jest.fn().mockResolvedValue(undefined),

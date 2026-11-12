@@ -4,6 +4,7 @@ import type { DropResult } from '@hello-pangea/dnd';
 import {
   parseDoc,
   serializeDoc,
+  type BoardTerminal,
   type Card,
   type CardColor,
   type KanbanDoc,
@@ -291,6 +292,8 @@ interface DocStore {
   renameBoardTerminal: (boardId: string, id: string, name: string) => void;
   removeBoardTerminal: (boardId: string, id: string) => void;
   moveBoardTerminal: (boardId: string, id: string, toIndex: number) => void;
+  /** Records where a tab's shell is, whichever board owns the tab. */
+  setTerminalCwd: (id: string, cwd: string) => void;
   setApprovalMode: (mode: ApprovalMode) => void;
   setDefaultModel: (model: string | null) => void;
   setUseWorktrees: (enabled: boolean) => void;
@@ -364,7 +367,7 @@ function editBoardTerminals(
   get: () => DocStore,
   set: (partial: Partial<DocStore>) => void,
   boardId: string,
-  edit: (tabs: { id: string; name: string }[]) => void,
+  edit: (tabs: BoardTerminal[]) => void,
 ): void {
   const current = get().doc;
   if (!current) return;
@@ -989,6 +992,17 @@ export const useDocStore = create<DocStore>((set, get) => ({
       const from = tabs.findIndex((t) => t.id === id);
       if (from === -1 || toIndex < 0 || toIndex >= tabs.length) return;
       tabs.splice(toIndex, 0, ...tabs.splice(from, 1));
+    });
+  },
+
+  setTerminalCwd: (id, cwd) => {
+    const board = get().doc?.boards.find((b) =>
+      b.terminals.some((t) => t.id === id),
+    );
+    if (!board) return;
+    editBoardTerminals(get, set, board.id, (tabs) => {
+      const tab = tabs.find((t) => t.id === id);
+      if (tab) tab.cwd = cwd;
     });
   },
 

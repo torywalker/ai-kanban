@@ -360,3 +360,35 @@ describe('cardDropDestinationList', () => {
     expect(result).toBeUndefined();
   });
 });
+
+describe('applyDragEnd multi-select', () => {
+  it('carries every selected card behind the dropped one, in board order', () => {
+    const next = applyDragEnd(
+      doc(),
+      drop({
+        draggableId: 'c3',
+        source: { droppableId: 'lst_a', index: 2 },
+        destination: { droppableId: 'lst_b', index: 0 },
+      }),
+      'brd_1',
+      { selectedCardIds: ['c3', 'c1'] },
+    );
+    expect(titles(next, 0)).toEqual(['c2']);
+    expect(titles(next, 1)).toEqual(['c3', 'c1']);
+  });
+
+  it('moves only the dragged card when it is not in the selection', () => {
+    const next = applyDragEnd(
+      doc(),
+      drop({
+        draggableId: 'c2',
+        source: { droppableId: 'lst_a', index: 1 },
+        destination: { droppableId: 'lst_b', index: 0 },
+      }),
+      'brd_1',
+      { selectedCardIds: ['c1', 'c3'] },
+    );
+    expect(titles(next, 0)).toEqual(['c1', 'c3']);
+    expect(titles(next, 1)).toEqual(['c2']);
+  });
+});

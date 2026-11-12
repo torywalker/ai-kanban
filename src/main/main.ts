@@ -294,6 +294,8 @@ subscribeDaemonEvents((event) => {
     send(CHANNELS.terminalReplay, event.cardId, event.data);
   } else if (event.event === 'shellState') {
     send(CHANNELS.shellState, event.id, event.alive, event.busy);
+  } else if (event.event === 'shellCwd') {
+    send(CHANNELS.shellCwd, event.id, event.cwd);
   }
 });
 

@@ -129,6 +129,9 @@ export const ListSchema = z.object({
 export const BoardTerminalSchema = z.object({
   id: z.string(),
   name: z.string(),
+  // Last directory the tab's shell was seen in; restarts reopen it there.
+  // `.catch(undefined)` covers files written before this field existed.
+  cwd: z.string().optional().catch(undefined),
 });
 
 export const BoardSchema = z.object({

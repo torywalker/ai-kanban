@@ -16,7 +16,11 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { Button } from '@/components/ui/button';
 import { TerminalsDialog } from '@/components/terminals/TerminalsDialog';
-import { cardDropDestinationList, DND_TYPES } from '@/domain/dragEnd';
+import {
+  cardDropDestinationList,
+  DND_TYPES,
+  draggedCardIds,
+} from '@/domain/dragEnd';
 import { boardUsageCardIds } from '@/domain/archive';
 import { api } from '@/lib/api';
 import { fireConfettiOnCard, isCelebrationListName } from '@/lib/confetti';
@@ -48,7 +52,7 @@ export function BoardView() {
   // The card just moved to a done list whose worktree is still on disk.
   const [worktreePrompt, setWorktreePrompt] = useState<{
     listId: string;
-    cardId: string;
+    cardIds: string[];
   } | null>(null);
   // True only between a CARD lift and its drop, so every column can offer a
   // droppable-sized target for exactly as long as one is needed.
@@ -65,30 +69,38 @@ export function BoardView() {
   );
   const totals = useBoardUsage(cardIds);
 
-  // Same removal the card dialog's "Delete worktree" button performs.
-  const deleteDoneWorktree = async (target: {
+  // Same removal the card dialog's "Delete worktree" button performs, once
+  // per card of the batch.
+  const deleteDoneWorktrees = async (target: {
     listId: string;
-    cardId: string;
+    cardIds: string[];
   }) => {
-    const card = board?.lists
-      .find((l) => l.id === target.listId)
-      ?.cards.find((c) => c.id === target.cardId);
-    const primary = card?.sessionRepo ?? board?.defaultRepo ?? null;
-    if (!board || !card?.sessionWorktree || !primary) return;
-    try {
-      const result = await api.git.removeWorktree(
-        card.id,
-        primary,
-        card.sessionWorktree,
-      );
-      if (!result.ok && result.error !== WORKTREE_MISSING_ERROR) {
-        toast.error(result.error);
-        return;
+    if (!board) return;
+    const list = board.lists.find((l) => l.id === target.listId);
+    // Sequential, so one failure toast doesn't race the next removal.
+    for (const cardId of target.cardIds) {
+      const card = list?.cards.find((c) => c.id === cardId);
+      const primary = card?.sessionRepo ?? board.defaultRepo ?? null;
+      if (card?.sessionWorktree && primary) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const result = await api.git.removeWorktree(
+            card.id,
+            primary,
+            card.sessionWorktree,
+          );
+          if (!result.ok && result.error !== WORKTREE_MISSING_ERROR) {
+            toast.error(result.error);
+          } else {
+            updateCard(board.id, target.listId, card.id, {
+              sessionWorktree: null,
+            });
+            toast.success('Worktree deleted');
+          }
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error));
+        }
       }
-      updateCard(board.id, target.listId, card.id, { sessionWorktree: null });
-      toast.success('Worktree deleted');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -206,24 +218,36 @@ export function BoardView() {
         }
         onDragEnd={(result) => {
           setCardDragActive(false);
-          applyDrag(result, { showArchived });
+          const { selectedCardIds, clearCardSelection } = useUiStore.getState();
+          const movedIds =
+            result.type === DND_TYPES.card
+              ? draggedCardIds(
+                  board,
+                  result.draggableId,
+                  selectedCardIds,
+                  showArchived,
+                )
+              : [];
+          applyDrag(result, { showArchived, selectedCardIds });
+          clearCardSelection();
 
           // Celebrate only an actual move onto a "done"-shaped column, not a
           // reorder within one it was already sitting in.
           const destList = cardDropDestinationList(board, result);
           if (destList && isCelebrationListName(destList.name)) {
-            fireConfettiOnCard(result.draggableId);
+            movedIds.forEach((id) => fireConfettiOnCard(id));
             // Work is over, so shut its terminal too (no-op if none is live).
-            closeLiveTerminals([result.draggableId]);
-            // `board` is the pre-drop snapshot, so the card is still in its
-            // source list here, not in `destList`.
-            const moved = board.lists
-              .find((l) => l.id === result.source.droppableId)
-              ?.cards.find((c) => c.id === result.draggableId);
-            if (promptDeleteWorktreeOnDone && moved?.sessionWorktree) {
+            closeLiveTerminals(movedIds);
+            // `board` is the pre-drop snapshot, so the cards are still in
+            // their source lists here, not in `destList`. One prompt covers
+            // the batch: it deletes every moved card's worktree.
+            const withWorktree = board.lists
+              .flatMap((l) => l.cards)
+              .filter((c) => movedIds.includes(c.id) && c.sessionWorktree);
+            if (promptDeleteWorktreeOnDone && withWorktree.length > 0) {
               setWorktreePrompt({
                 listId: destList.id,
-                cardId: moved.id,
+                cardIds: withWorktree.map((c) => c.id),
               });
             }
           }
@@ -265,7 +289,7 @@ export function BoardView() {
         confirmLabel="Delete worktree"
         destructive
         onConfirm={() => {
-          if (worktreePrompt) void deleteDoneWorktree(worktreePrompt);
+          if (worktreePrompt) void deleteDoneWorktrees(worktreePrompt);
         }}
       />
     </div>
