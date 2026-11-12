@@ -30,6 +30,8 @@ interface CardMenuActions {
   archived: boolean;
   paused: boolean;
   canRun: boolean;
+  shellAlive: boolean;
+  closeTerminal: () => void;
   run: () => void;
   openEditDialog: () => void;
   togglePaused: () => void;
@@ -61,6 +63,12 @@ const CARD_CONTEXT_MENU_ITEMS: CardMenuItemConfig[] = [
     label: () => 'Run',
     visible: (actions) => actions.canRun,
     onSelect: (actions) => actions.run(),
+  },
+  {
+    id: 'close-terminal',
+    label: () => 'Close terminal',
+    visible: (actions) => actions.shellAlive,
+    onSelect: (actions) => actions.closeTerminal(),
   },
   {
     id: 'pause',
@@ -111,6 +119,11 @@ export function CardContextMenu({
   const paused = card?.paused === true;
   const updateCard = useDocStore((s) => s.updateCard);
   const hasSession = useSessionStore((s) => s.sessions[cardId] !== undefined);
+  const shellAlive =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.shellAlive) === true;
+  const claudeRunning =
+    useSessionStore((s) => s.sessions[cardId]?.terminal?.claudeRunning) ===
+    true;
   const setRunCardId = useUiStore((s) => s.setRunCardId);
   const markUnread = useSessionStore((s) => s.markUnread);
   const archiveCard = useDocStore((s) => s.archiveCard);
@@ -123,6 +136,23 @@ export function CardContextMenu({
     // session to re-connect to.
     canRun: !paused && !hasSession && !card?.sessionId,
     run: () => setRunCardId(cardId),
+    shellAlive,
+    closeTerminal: () => {
+      const close = () => {
+        const closing = window.electron?.terminal?.close(cardId);
+        if (closing) closing.catch(() => undefined);
+      };
+      if (!claudeRunning) {
+        close();
+        return;
+      }
+      confirm({
+        title: 'Close terminal?',
+        body: 'Claude is still running in this terminal. Close it anyway?',
+        confirmLabel: 'Close it',
+        onConfirm: close,
+      });
+    },
     openEditDialog: () => setEditOpen(true),
     togglePaused: () =>
       updateCard(boardId, listId, cardId, { paused: !paused }),
