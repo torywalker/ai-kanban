@@ -75,6 +75,11 @@ interface UiStore {
   /** Whether each card's prompt is collapsed to one line in the view dialog, keyed by cardId. */
   promptCollapsed: Record<string, boolean>;
 
+  /** Cards multi-selected with Shift-click, to be dragged together. */
+  selectedCardIds: string[];
+  toggleCardSelected: (cardId: string) => void;
+  clearCardSelection: () => void;
+
   setFilterText: (text: string) => void;
   toggleFilterTag: (tag: string) => void;
   clearFilter: () => void;
@@ -106,6 +111,18 @@ export const useUiStore = create<UiStore>((set) => ({
   showArchived: false,
   commentsOpen: readCommentsOpen(),
   promptCollapsed: {},
+  selectedCardIds: [],
+
+  toggleCardSelected: (cardId) =>
+    set((state) => ({
+      selectedCardIds: state.selectedCardIds.includes(cardId)
+        ? state.selectedCardIds.filter((id) => id !== cardId)
+        : [...state.selectedCardIds, cardId],
+    })),
+  clearCardSelection: () =>
+    set((state) =>
+      state.selectedCardIds.length ? { selectedCardIds: [] } : state,
+    ),
 
   setFilterText: (text) =>
     set((state) => ({ filter: { ...state.filter, text } })),

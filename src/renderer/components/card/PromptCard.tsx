@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Draggable } from '@hello-pangea/dnd';
 import { ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -61,6 +61,10 @@ export function PromptCard({
   const usage = useCardUsage(cardId);
   const unread = useSessionStore((s) => s.unread[cardId] === true);
   const markRead = useSessionStore((s) => s.markRead);
+  const selected = useUiStore((s) => s.selectedCardIds.includes(cardId));
+  const selectedCount = useUiStore((s) => s.selectedCardIds.length);
+  const toggleCardSelected = useUiStore((s) => s.toggleCardSelected);
+  const clearCardSelection = useUiStore((s) => s.clearCardSelection);
 
   // Opening the card counts as reading it, and so does an update landing
   // while its dialog is already open.
@@ -91,6 +95,19 @@ export function PromptCard({
   // An archived card is already done, so a due date it blew past before
   // being archived should no longer flag it on the board.
   const overdue = !card.archived && isOverdue(card.dueDate);
+
+  // Shift-click builds a multi-selection to drag together; a plain click
+  // drops it and opens the card. Stops propagation so the title and the
+  // card body, nested, don't both handle one click.
+  const handleOpenClick = (event: MouseEvent) => {
+    event.stopPropagation();
+    if (event.shiftKey) {
+      toggleCardSelected(cardId);
+      return;
+    }
+    clearCardSelection();
+    setViewOpen(true);
+  };
 
   const copy = async () => {
     await copyText(card.prompt);
@@ -126,7 +143,7 @@ export function PromptCard({
           */
             data-card-color={card.color ?? undefined}
             className={cn(
-              'rounded-md border bg-[var(--card-tint,var(--card))] border-[var(--card-edge,var(--border))]',
+              'relative rounded-md border bg-[var(--card-tint,var(--card))] border-[var(--card-edge,var(--border))]',
               snapshot.isDragging ? 'shadow-lg ring-2 ring-ring' : 'shadow-sm',
               card.archived && 'opacity-70',
               // Paused cards get a dashed violet edge so they stand out on
@@ -142,12 +159,18 @@ export function PromptCard({
               // Overdue wins over any card color's edge tint — a passed
               // due date is a more urgent signal than a triage color.
               overdue && 'border-destructive ring-2 ring-destructive',
+              selected && 'ring-2 ring-primary',
             )}
           >
+            {snapshot.isDragging && selected && selectedCount > 1 ? (
+              <span className="absolute -top-2 -right-2 z-10 rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                {`+${selectedCount - 1}`}
+              </span>
+            ) : null}
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- pointer-only open; keyboard access is a known gap */}
             <div
               ref={scrollRef}
-              onClick={() => setViewOpen(true)}
+              onClick={handleOpenClick}
               className={
                 focusCardId === cardId
                   ? 'cursor-pointer rounded-md ring-2 ring-ring'
@@ -199,7 +222,7 @@ export function PromptCard({
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => setViewOpen(true)}
+                  onClick={handleOpenClick}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();

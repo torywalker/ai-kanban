@@ -29,6 +29,11 @@ export function cardDropDestinationList(
 export interface DragOptions {
   /** Whether archived cards are currently rendered. See `visibleIndices`. */
   showArchived?: boolean;
+  /**
+   * Cards the user has multi-selected. Dragging one of them carries the
+   * whole set; dragging any other card moves just that card.
+   */
+  selectedCardIds?: readonly string[];
 }
 
 /**
@@ -44,6 +49,27 @@ function visibleIndices(cards: Card[], showArchived: boolean): number[] {
     if (showArchived || !card.archived) indices.push(index);
   });
   return indices;
+}
+
+/**
+ * Every card a drag of `draggableId` carries, in board order (list order,
+ * then card order). A card outside the selection travels alone. Selected
+ * cards that are hidden (archived while archived are not shown) stay put.
+ */
+export function draggedCardIds(
+  board: Board,
+  draggableId: string,
+  selectedCardIds: readonly string[] = [],
+  showArchived = false,
+): string[] {
+  if (!selectedCardIds.includes(draggableId)) return [draggableId];
+  return board.lists.flatMap((list) =>
+    list.cards
+      .filter(
+        (c) => selectedCardIds.includes(c.id) && (showArchived || !c.archived),
+      )
+      .map((c) => c.id),
+  );
 }
 
 /**
@@ -123,5 +149,28 @@ export function applyDragEnd(
       visibleIndices(to.cards, showArchived)[destination.index] ??
       to.cards.length;
     to.cards.splice(toIndex, 0, moved);
+
+    // Multi-select: the rest of the selection lands right behind the card
+    // that was actually dropped, keeping their board order.
+    const others = draggedCardIds(
+      board,
+      moved.id,
+      options.selectedCardIds,
+      showArchived,
+    ).filter((id) => id !== moved.id);
+    if (others.length === 0) return;
+    const picked: Card[] = [];
+    others.forEach((id) => {
+      const list = board.lists.find((l) => l.cards.some((c) => c.id === id));
+      if (!list) return;
+      picked.push(
+        ...list.cards.splice(
+          list.cards.findIndex((c) => c.id === id),
+          1,
+        ),
+      );
+    });
+    const at = to.cards.findIndex((c) => c.id === moved.id);
+    to.cards.splice(at + 1, 0, ...picked);
   });
 }
