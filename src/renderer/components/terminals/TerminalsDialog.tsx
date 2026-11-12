@@ -37,6 +37,12 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
   const boardTabs = board?.terminals;
   const tabs = useMemo(() => boardTabs ?? [], [boardTabs]);
   const tabKey = tabs.map((tab) => tab.id).join(',');
+  // Read when a shell starts, not subscribed to, so each cwd update the
+  // daemon reports doesn't restart every tab.
+  const cwdFor = (id: string): string =>
+    selectActiveBoard(useDocStore.getState())?.terminals.find(
+      (t) => t.id === id,
+    )?.cwd ?? '';
   const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0] ?? null;
 
   // Undo can restore a board with no tabs; always show at least one.
@@ -55,8 +61,17 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
   // The daemon's `start` is idempotent, so every tab can be (re)started.
   useEffect(() => {
     if (!open || tabKey === '') return;
-    tabKey.split(',').forEach((id) => startShell(id, defaultRepo));
+    tabKey
+      .split(',')
+      .forEach((id) => startShell(id, cwdFor(id) || defaultRepo));
   }, [open, tabKey, defaultRepo, startShell]);
+
+  // Always on, even while the dialog is hidden: shells keep running then.
+  useEffect(() => {
+    const { setTerminalCwd } = useDocStore.getState();
+    const unsubscribe = window.electron?.terminal?.onShellCwd?.(setTerminalCwd);
+    return () => unsubscribe?.();
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -79,7 +94,11 @@ export function TerminalsDialog({ open, onOpenChange }: Props) {
           lived > MIN_LIFETIME_MS &&
           current?.terminals.some((t) => t.id === id)
         ) {
-          startShell(id, current.defaultRepo ?? '');
+          startShell(
+            id,
+            current.terminals.find((t) => t.id === id)?.cwd ||
+              (current.defaultRepo ?? ''),
+          );
         }
       },
     );
