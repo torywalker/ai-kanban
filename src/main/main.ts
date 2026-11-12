@@ -9,6 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import { randomUUID } from 'crypto';
+import fs from 'fs';
 import path from 'path';
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import MenuBuilder from './menu';
@@ -463,8 +464,23 @@ ipcMain.handle(
     }),
 );
 
+const buildStatusFile = path.join(app.getPath('userData'), 'build-status.json');
 const buildStatusService = createBuildStatusService({
   exec: defaultExec,
+  load: () => {
+    try {
+      return JSON.parse(fs.readFileSync(buildStatusFile, 'utf8'));
+    } catch {
+      return [];
+    }
+  },
+  save: (statuses) => {
+    try {
+      fs.writeFileSync(buildStatusFile, JSON.stringify(statuses));
+    } catch {
+      // A cache: losing it only means a blank badge until the next poll.
+    }
+  },
   notify: (notice) => showBuildNotification(notice.title, notice.body),
   emit: (update) => {
     BrowserWindow.getAllWindows().forEach((win) =>

@@ -8,6 +8,7 @@ import {
   noticesFor,
   normalizeCheck,
   type BuildNotice,
+  type BuildStatus,
   type BuildStatusUpdate,
   type BuildWatchTarget,
 } from '../shared/buildStatus';
@@ -28,7 +29,10 @@ const baseTarget: BuildWatchTarget = {
   ship: null,
 };
 
-function setup(handler: (cmd: string, args: string[]) => ExecResult) {
+function setup(
+  handler: (cmd: string, args: string[]) => ExecResult,
+  persist: Partial<Parameters<typeof createBuildStatusService>[0]> = {},
+) {
   let time = 1_000_000;
   const notices: BuildNotice[] = [];
   const updates: BuildStatusUpdate[] = [];
@@ -38,6 +42,7 @@ function setup(handler: (cmd: string, args: string[]) => ExecResult) {
     notify: (n) => notices.push(n),
     emit: (u) => updates.push(u),
     now: () => time,
+    ...persist,
   });
   return {
     service,
@@ -219,6 +224,21 @@ describe('build status service', () => {
     ]);
     await service.tick();
     expect(last().statuses[0].checks.map((c) => c.state)).toEqual(['pass']);
+  });
+
+  it('shows the previous run\'s status as stale until the first poll lands', async () => {
+    const saved: BuildStatus = {
+      cardId: 'crd_1',
+      kind: 'pr',
+      url: 'u',
+      checks: [{ name: 'lint', state: 'fail', url: null }],
+      stale: false,
+    };
+    const { service, updates } = setup(() => fail('boom', 1), {
+      load: () => [saved],
+    });
+    service.setTargets([baseTarget]);
+    expect(updates[0].statuses[0]).toMatchObject({ kind: 'pr', stale: true });
   });
 
   it('shows no-builds after the grace period when nothing runs', async () => {

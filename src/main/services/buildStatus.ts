@@ -98,6 +98,9 @@ export function createBuildStatusService(deps: {
   exec: Exec;
   notify: (notice: BuildNotice) => void;
   emit: (update: BuildStatusUpdate) => void;
+  /** Last known statuses from a previous run, shown (as stale) until re-polled. */
+  load?: () => BuildStatus[];
+  save?: (statuses: BuildStatus[]) => void;
   now?: () => number;
 }): BuildStatusService {
   const now = deps.now ?? Date.now;
@@ -107,6 +110,9 @@ export function createBuildStatusService(deps: {
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<void> | null = null;
   let lastEmitted = '';
+  const restored = new Map(
+    (deps.load?.() ?? []).map((status) => [status.cardId, status]),
+  );
 
   // `force` is for a renderer that just (re)registered: its store may be empty
   // after a reload, so an unchanged update must still be delivered to it.
@@ -118,6 +124,7 @@ export function createBuildStatusService(deps: {
     const serialized = JSON.stringify(update);
     if (!force && serialized === lastEmitted) return;
     lastEmitted = serialized;
+    deps.save?.(update.statuses);
     deps.emit(update);
   }
 
@@ -377,13 +384,16 @@ export function createBuildStatusService(deps: {
         target,
         // Keep what was last known so the marker doesn't vanish while the
         // re-poll for the changed target is in flight.
-        status: existing?.status ?? {
-          cardId: target.cardId,
-          kind: 'none',
-          url: null,
-          checks: [],
-          stale: false,
-        },
+        status: existing?.status ??
+          (restored.has(target.cardId)
+            ? { ...restored.get(target.cardId)!, stale: true }
+            : {
+                cardId: target.cardId,
+                kind: 'none',
+                url: null,
+                checks: [],
+                stale: false,
+              }),
         nextDue: 0,
         failures: 0,
         done: false,
