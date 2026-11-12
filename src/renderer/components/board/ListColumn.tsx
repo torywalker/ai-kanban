@@ -124,7 +124,7 @@ export function ListColumn({
                   first place, so waiting for that would never open.
                 */
                 className={cn(
-                  'flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 transition-[min-height]',
+                  'flex flex-1 flex-col gap-2 overflow-y-auto px-2 pt-1 pb-2 transition-[min-height]',
                   cardDragActive ? 'min-h-16' : 'min-h-2',
                 )}
               >
