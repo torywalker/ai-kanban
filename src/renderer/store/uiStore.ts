@@ -44,6 +44,8 @@ interface UiStore {
   focusCardId: string | null;
   /** Card whose view dialog should open (e.g. from a native notification click). */
   openCardId: string | null;
+  /** Card whose dialog should start its run as soon as it is open (card right-click "Run"). */
+  runCardId: string | null;
   externalChange: boolean;
   /**
    * Whether each card's view dialog renders at its near-fullscreen size, to
@@ -85,6 +87,7 @@ interface UiStore {
   setSettingsOpen: (open: boolean) => void;
   setFocusCardId: (cardId: string | null) => void;
   setOpenCardId: (cardId: string | null) => void;
+  setRunCardId: (cardId: string | null) => void;
   setExternalChange: (value: boolean) => void;
   setCardDialogExpanded: (cardId: string, expanded: boolean) => void;
   setShowArchived: (show: boolean) => void;
@@ -101,6 +104,7 @@ export const useUiStore = create<UiStore>((set) => ({
   settingsOpen: false,
   focusCardId: null,
   openCardId: null,
+  runCardId: null,
   externalChange: false,
   cardDialogExpanded: {},
   showArchived: false,
@@ -128,6 +132,7 @@ export const useUiStore = create<UiStore>((set) => ({
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setFocusCardId: (focusCardId) => set({ focusCardId }),
   setOpenCardId: (openCardId) => set({ openCardId }),
+  setRunCardId: (runCardId) => set({ runCardId }),
   setExternalChange: (externalChange) => set({ externalChange }),
   setCardDialogExpanded: (cardId, expanded) =>
     set((state) => ({
