@@ -11,6 +11,7 @@ import { InlineEditableText } from '@/components/common/InlineEditableText';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { useConfirm } from '@/components/common/useConfirm';
 import { useDocStore } from '@/store/docStore';
+import { BoardEmoji } from '@/components/common/BoardEmoji';
 import { cn } from '@/lib/utils';
 import { BoardContextMenu } from './BoardContextMenu';
 import { UnreadDot } from './UnreadDot';
@@ -50,7 +51,8 @@ export function SidebarBoardItem({ boardId, dragHandleProps }: Props) {
           isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50',
         )}
       >
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center">
+          <BoardEmoji emoji={board.emoji} />
           <InlineEditableText
             value={board.name}
             label={`Board: ${board.name}`}
