@@ -91,6 +91,8 @@ export function TerminalPanel({
 
     const term = new Terminal({
       fontSize: 15,
+      // Search match highlights use xterm's decoration API.
+      allowProposedApi: true,
       fontFamily: FONT_FAMILY,
       theme: themeForDocument(),
     });

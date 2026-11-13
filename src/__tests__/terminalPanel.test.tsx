@@ -100,6 +100,7 @@ describe('TerminalPanel', () => {
     render(<TerminalPanel cardId="crd_1" />);
     const term = Terminal.instances[0];
     const search = SearchAddon.instances[0];
+    expect(term.options.allowProposedApi).toBe(true);
 
     const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true });
     act(() => {
