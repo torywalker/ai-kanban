@@ -75,6 +75,8 @@ interface Entry {
   failures: number;
   /** A merged/closed PR never changes again. */
   done: boolean;
+  /** The PR for this branch, once found: it never changes, so look it up once. */
+  prRef: string | null;
   /** When Ship's commit was first seen on the remote. */
   pushSeenAt: number | null;
   /** run headSha -> does it contain the shipped commit. Ancestry is immutable. */
@@ -344,9 +346,9 @@ export function createBuildStatusService(deps: {
 
   async function poll(entry: Entry): Promise<void> {
     const { target } = entry;
-    const prRef = await findPr(target);
-    if (prRef) {
-      await pollPr(entry, prRef);
+    entry.prRef ??= await findPr(target);
+    if (entry.prRef) {
+      await pollPr(entry, entry.prRef);
     } else if (target.ship) {
       await pollShip(entry, target.ship);
     } else {
@@ -433,6 +435,7 @@ export function createBuildStatusService(deps: {
         nextDue: 0,
         failures: 0,
         done: false,
+        prRef: null,
         pushSeenAt: existing?.pushSeenAt ?? null,
         contains: new Map(),
         seen: existing?.seen ?? false,
