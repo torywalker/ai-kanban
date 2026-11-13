@@ -153,6 +153,9 @@ export const BoardSchema = z.object({
   // Per-board override of the prompt Ship gives the agent to resolve merge
   // conflicts. Absent means the built-in SHIP_CONFLICT_PROMPT.
   shipConflictPrompt: z.string().optional().catch(undefined),
+  // Optional emoji shown before the board name and in place of its initial
+  // when the sidebar is collapsed. Absent keeps the plain-name behaviour.
+  emoji: z.string().optional().catch(undefined),
 });
 
 export const KanbanDocSchema = z.object({
