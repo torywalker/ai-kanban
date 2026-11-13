@@ -4,9 +4,10 @@
  * and sends keystrokes and the fitted size back.
  */
 import '@testing-library/jest-dom';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TerminalPanel } from '@/components/card/TerminalPanel';
 import { FitAddon } from '../../.erb/mocks/xterm-addon-fit';
+import { SearchAddon } from '../../.erb/mocks/xterm-addon-search';
 import { Terminal } from '../../.erb/mocks/xterm';
 
 function installResizeObserver(): void {
@@ -52,6 +53,7 @@ function installTerminalBridge() {
 beforeEach(() => {
   Terminal.instances = [];
   FitAddon.instances = [];
+  SearchAddon.instances = [];
   installResizeObserver();
   document.documentElement.classList.remove('dark');
 });
@@ -91,6 +93,36 @@ describe('TerminalPanel', () => {
 
     emitData('crd_2', 'nope');
     expect(term.write).not.toHaveBeenCalledWith('nope');
+  });
+
+  it('opens a find box on Cmd+F and searches the terminal', () => {
+    const { terminal } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const term = Terminal.instances[0];
+    const search = SearchAddon.instances[0];
+
+    const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true });
+    act(() => {
+      expect(term.keyHandler?.(event)).toBe(false);
+    });
+    expect(terminal.input).not.toHaveBeenCalled();
+
+    const box = screen.getByLabelText('Find in terminal');
+    fireEvent.change(box, { target: { value: 'needle' } });
+    expect(search.findNext).toHaveBeenLastCalledWith(
+      'needle',
+      expect.anything(),
+    );
+    fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
+    expect(search.findPrevious).toHaveBeenCalledWith(
+      'needle',
+      expect.anything(),
+    );
+
+    fireEvent.keyDown(box, { key: 'Escape' });
+    expect(screen.queryByLabelText('Find in terminal')).toBeNull();
+    expect(search.clearDecorations).toHaveBeenCalled();
+    expect(term.focus).toHaveBeenCalled();
   });
 
   it('nudges the pty size after a replay so Claude repaints its UI', () => {

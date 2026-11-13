@@ -67,6 +67,7 @@
       "\\.(css|less|sass|scss)$": "identity-obj-proxy",
       "^@xterm/xterm$": "<rootDir>/.erb/mocks/xterm.ts",
       "^@xterm/addon-fit$": "<rootDir>/.erb/mocks/xterm-addon-fit.ts",
+      "^@xterm/addon-search$": "<rootDir>/.erb/mocks/xterm-addon-search.ts",
       "^@/(.*)$": "<rootDir>/src/renderer/$1",
       "^@shared/(.*)$": "<rootDir>/src/shared/$1"
     },
@@ -97,6 +98,7 @@
     "@electron/notarize": "^3.0.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@xterm/addon-fit": "0.11.0",
+    "@xterm/addon-search": "0.16.0",
     "@xterm/xterm": "6.0.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
