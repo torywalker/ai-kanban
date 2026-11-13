@@ -13,15 +13,24 @@ const FONT_FAMILY =
 /** How long the pty stays one column narrow so Claude sees a resize. */
 const REDRAW_NUDGE_MS = 80;
 
-/** Match highlights; xterm only draws them when given decoration colors. */
-const SEARCH_OPTIONS = {
-  decorations: {
-    matchBackground: '#facc1560',
-    matchOverviewRuler: '#facc15',
-    activeMatchBackground: '#f97316',
-    activeMatchColorOverviewRuler: '#f97316',
-  },
-};
+/**
+ * Match highlights. xterm keeps the text's own color, so the backgrounds
+ * are muted enough to read it against: dark amber on the dark theme, pale
+ * amber on the light one. Alpha isn't supported, only #RRGGBB.
+ */
+function searchOptions() {
+  const dark = document.documentElement.classList.contains('dark');
+  return {
+    decorations: {
+      matchBackground: dark ? '#713f12' : '#fde68a',
+      matchBorder: dark ? '#a16207' : '#facc15',
+      matchOverviewRuler: '#facc15',
+      activeMatchBackground: dark ? '#9a3412' : '#fdba74',
+      activeMatchBorder: '#f97316',
+      activeMatchColorOverviewRuler: '#f97316',
+    },
+  };
+}
 
 function themeForDocument(): ITheme {
   const dark = document.documentElement.classList.contains('dark');
@@ -74,8 +83,8 @@ export function TerminalPanel({
       addon.clearDecorations();
       return;
     }
-    if (backwards) addon.findPrevious(text, SEARCH_OPTIONS);
-    else addon.findNext(text, SEARCH_OPTIONS);
+    if (backwards) addon.findPrevious(text, searchOptions());
+    else addon.findNext(text, searchOptions());
   };
 
   const closeSearch = () => {
