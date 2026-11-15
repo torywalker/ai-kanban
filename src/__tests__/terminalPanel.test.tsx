@@ -86,7 +86,7 @@ describe('TerminalPanel', () => {
     expect(term.reset.mock.invocationCallOrder[0]).toBeLessThan(
       term.write.mock.invocationCallOrder[0],
     );
-    expect(term.write).toHaveBeenCalledWith('abc');
+    expect(term.write).toHaveBeenCalledWith('abc', expect.any(Function));
 
     emitData('crd_1', 'd');
     expect(term.write).toHaveBeenCalledWith('d');
@@ -169,7 +169,7 @@ describe('TerminalPanel', () => {
     expect(term.reset.mock.invocationCallOrder[1]).toBeLessThan(
       term.write.mock.invocationCallOrder.at(-1) ?? 0,
     );
-    expect(term.write).toHaveBeenLastCalledWith('again');
+    expect(term.write).toHaveBeenLastCalledWith('again', expect.any(Function));
   });
 
   it('sends keystrokes to the card’s pty', () => {
@@ -180,6 +180,22 @@ describe('TerminalPanel', () => {
 
     onData('x');
 
+    expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
+  });
+
+  it('drops xterm’s replies to queries inside a replay, not later keystrokes', () => {
+    const { terminal, emitReplay } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const term = Terminal.instances[0];
+    const onData = term.onData.mock.calls[0][0] as (data: string) => void;
+
+    emitReplay('crd_1', '\x1b[c');
+    onData('\x1b[?62;c');
+    expect(terminal.input).not.toHaveBeenCalled();
+
+    const parsed = term.write.mock.calls.at(-1)?.[1] as () => void;
+    parsed();
+    onData('x');
     expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
   });
 

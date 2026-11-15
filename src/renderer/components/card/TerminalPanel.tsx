@@ -120,6 +120,7 @@ export function TerminalPanel({
     // is then resized leaves that area garbled until something repaints it.
     let sawReplay = false;
     let fitSettled = false;
+    let replaying = 0;
     let pending: string | null = null;
     // The replay is raw output from the pty's whole life, including the
     // sizes it had before the first fit, so it can't recreate what a live
@@ -129,7 +130,15 @@ export function TerminalPanel({
     let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
     const paintReplay = (data: string) => {
       term.reset();
-      term.write(data);
+      // The replay contains the queries (DA, DECRQM, OSC 10/11 color) that
+      // programs sent long ago. xterm answers them again through onData, but
+      // nothing is waiting for the answer, so the shell would echo it as text
+      // and the next replay would carry that junk too. Replies produced while
+      // the replay parses are dropped; the callback fires once it is parsed.
+      replaying += 1;
+      term.write(data, () => {
+        replaying -= 1;
+      });
       // A fresh shell has nothing to repaint, but it still needs the real
       // size: the first fit's resize reached the daemon before the shell
       // existed, and a respawn restarts at 80x24.
@@ -197,7 +206,7 @@ export function TerminalPanel({
       return false;
     });
     const keyInput = term.onData((data) => {
-      if (!acceptInputRef.current) return;
+      if (!acceptInputRef.current || replaying > 0) return;
       bridge.input(cardId, data);
     });
 
