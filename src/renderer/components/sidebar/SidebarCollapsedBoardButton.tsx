@@ -16,6 +16,9 @@ interface Props {
  */
 export function SidebarCollapsedBoardButton({ boardId }: Props) {
   const name = useDocStore(selectBoardName(boardId));
+  const emoji = useDocStore(
+    (s) => s.doc?.boards.find((b) => b.id === boardId)?.emoji,
+  );
   const isActive = useDocStore((s) => s.activeBoardId === boardId);
   const hasUnread = useBoardHasUnread(boardId);
   const setActiveBoard = useDocStore((s) => s.setActiveBoard);
@@ -38,7 +41,7 @@ export function SidebarCollapsedBoardButton({ boardId }: Props) {
         title={name}
         onClick={() => setActiveBoard(boardId)}
       >
-        {initial}
+        {emoji ?? initial}
         {hasUnread && <UnreadDot className="absolute right-0.5 top-0.5" />}
       </Button>
     </BoardContextMenu>

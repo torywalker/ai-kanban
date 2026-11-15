@@ -1,6 +1,7 @@
 /* eslint-disable import/prefer-default-export, no-use-before-define */
 
 export interface MockTerminalOptions {
+  allowProposedApi?: boolean;
   fontSize?: number;
   fontFamily?: string;
   theme?: { background?: string; foreground?: string; cursor?: string };

@@ -126,10 +126,11 @@ export interface BuildNotice {
 }
 
 /**
- * The notifications this poll owes. A failed check notifies once per
- * (repo, sha, check); the all-passed result once per (repo, sha). Cards that
- * share a branch share a build, so they share its notification too (`title`
- * names them all). A new push changes the sha, so it starts fresh.
+ * The notifications this poll owes: at most one per build. A failure notifies
+ * once per (repo, sha) and names the steps that had failed by then; the
+ * all-passed result once per (repo, sha). Cards that share a branch share a
+ * build, so they share its notification too (`title` names them all). A new
+ * push changes the sha, so it starts fresh.
  */
 export function noticesFor(
   target: { repo: string; title: string },
@@ -137,11 +138,16 @@ export function noticesFor(
   checks: BuildCheck[],
 ): BuildNotice[] {
   const { failing, finished } = summarizeChecks(checks);
-  const notices: BuildNotice[] = failing.map((check) => ({
-    key: `${target.repo}|${sha}|${check.name}`,
-    title: 'Build step failed',
-    body: `${target.title}: ${check.name}`,
-  }));
+  const notices: BuildNotice[] = [];
+  if (failing.length > 0) {
+    const names = failing.slice(0, 3).map((check) => check.name);
+    const more = failing.length > 3 ? ` +${failing.length - 3} more` : '';
+    notices.push({
+      key: `${target.repo}|${sha}|FAIL`,
+      title: 'Build failed',
+      body: `${target.title}: ${names.join(', ')}${more}`,
+    });
+  }
   if (finished && failing.length === 0) {
     notices.push({
       key: `${target.repo}|${sha}|ALL`,

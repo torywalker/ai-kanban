@@ -1,6 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon } from '@xterm/addon-search';
 import { Terminal, type ITheme } from '@xterm/xterm';
+import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import '@xterm/xterm/css/xterm.css';
 
 const FONT_FAMILY =
@@ -8,6 +12,25 @@ const FONT_FAMILY =
 
 /** How long the pty stays one column narrow so Claude sees a resize. */
 const REDRAW_NUDGE_MS = 80;
+
+/**
+ * Match highlights. xterm keeps the text's own color, so the backgrounds
+ * are muted enough to read it against: dark amber on the dark theme, pale
+ * amber on the light one. Alpha isn't supported, only #RRGGBB.
+ */
+function searchOptions() {
+  const dark = document.documentElement.classList.contains('dark');
+  return {
+    decorations: {
+      matchBackground: dark ? '#713f12' : '#fde68a',
+      matchBorder: dark ? '#a16207' : '#facc15',
+      matchOverviewRuler: '#facc15',
+      activeMatchBackground: dark ? '#9a3412' : '#fdba74',
+      activeMatchBorder: '#f97316',
+      activeMatchColorOverviewRuler: '#f97316',
+    },
+  };
+}
 
 function themeForDocument(): ITheme {
   const dark = document.documentElement.classList.contains('dark');
@@ -41,6 +64,34 @@ export function TerminalPanel({
   const hostRef = useRef<HTMLDivElement>(null);
   const acceptInputRef = useRef(acceptInput);
   acceptInputRef.current = acceptInput;
+  const termRef = useRef<Terminal | null>(null);
+  const searchRef = useRef<SearchAddon | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, [searchOpen]);
+
+  const find = (backwards: boolean, text = query) => {
+    const addon = searchRef.current;
+    if (!addon) return;
+    if (text === '') {
+      addon.clearDecorations();
+      return;
+    }
+    if (backwards) addon.findPrevious(text, searchOptions());
+    else addon.findNext(text, searchOptions());
+  };
+
+  const closeSearch = () => {
+    searchRef.current?.clearDecorations();
+    setSearchOpen(false);
+    termRef.current?.focus();
+  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -49,12 +100,18 @@ export function TerminalPanel({
 
     const term = new Terminal({
       fontSize: 15,
+      // Search match highlights use xterm's decoration API.
+      allowProposedApi: true,
       fontFamily: FONT_FAMILY,
       theme: themeForDocument(),
     });
     const fit = new FitAddon();
+    const search = new SearchAddon();
     term.open(host);
     term.loadAddon(fit);
+    term.loadAddon(search);
+    termRef.current = term;
+    searchRef.current = search;
     if (autoFocus) term.focus();
 
     // Chunks that arrive before the replay would paint, then get wiped.
@@ -63,6 +120,7 @@ export function TerminalPanel({
     // is then resized leaves that area garbled until something repaints it.
     let sawReplay = false;
     let fitSettled = false;
+    let replaying = 0;
     let pending: string | null = null;
     // The replay is raw output from the pty's whole life, including the
     // sizes it had before the first fit, so it can't recreate what a live
@@ -72,7 +130,15 @@ export function TerminalPanel({
     let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
     const paintReplay = (data: string) => {
       term.reset();
-      term.write(data);
+      // The replay contains the queries (DA, DECRQM, OSC 10/11 color) that
+      // programs sent long ago. xterm answers them again through onData, but
+      // nothing is waiting for the answer, so the shell would echo it as text
+      // and the next replay would carry that junk too. Replies produced while
+      // the replay parses are dropped; the callback fires once it is parsed.
+      replaying += 1;
+      term.write(data, () => {
+        replaying -= 1;
+      });
       // A fresh shell has nothing to repaint, but it still needs the real
       // size: the first fit's resize reached the daemon before the shell
       // existed, and a respawn restarts at 80x24.
@@ -110,6 +176,17 @@ export function TerminalPanel({
     // submitting.
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true;
+      if (
+        event.metaKey &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'f'
+      ) {
+        event.preventDefault();
+        setSearchOpen(true);
+        return false;
+      }
       let seq: string | null = null;
       if (event.metaKey && !event.altKey && !event.ctrlKey) {
         if (event.key === 'ArrowLeft') seq = '\x01';
@@ -129,7 +206,7 @@ export function TerminalPanel({
       return false;
     });
     const keyInput = term.onData((data) => {
-      if (!acceptInputRef.current) return;
+      if (!acceptInputRef.current || replaying > 0) return;
       bridge.input(cardId, data);
     });
 
@@ -190,6 +267,8 @@ export function TerminalPanel({
       unsubscribeData();
       unsubscribeReplay();
       term.dispose();
+      termRef.current = null;
+      searchRef.current = null;
     };
     // autoFocus only matters at mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,6 +284,62 @@ export function TerminalPanel({
         data-terminal-host=""
         className="absolute inset-0 overflow-hidden"
       />
+      {searchOpen && (
+        // data-terminal-host keeps Escape here from closing the host dialog.
+        <div
+          data-terminal-host=""
+          className="absolute top-2 right-4 z-10 flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
+        >
+          <Input
+            ref={searchInputRef}
+            value={query}
+            placeholder="Find"
+            aria-label="Find in terminal"
+            className="h-7 w-48"
+            onChange={(e) => {
+              setQuery(e.target.value);
+              find(false, e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeSearch();
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                find(e.shiftKey);
+              }
+            }}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label="Previous match"
+            onClick={() => find(true)}
+          >
+            <ChevronUp className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label="Next match"
+            onClick={() => find(false)}
+          >
+            <ChevronDown className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label="Close find"
+            onClick={closeSearch}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

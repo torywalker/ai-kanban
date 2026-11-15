@@ -88,12 +88,14 @@ describe('check normalization', () => {
 });
 
 describe('notices', () => {
-  it('notifies each failed check, and the final pass only when nothing failed', () => {
+  it('sends one failure notice per build, and the final pass only when nothing failed', () => {
     const failed = noticesFor({ repo: 'r', title: 't' }, 'sha1', [
       { name: 'lint', state: 'fail', url: null },
+      { name: 'test', state: 'fail', url: null },
       { name: 'build', state: 'pass', url: null },
     ]);
-    expect(failed.map((n) => n.key)).toEqual(['r|sha1|lint']);
+    expect(failed.map((n) => n.key)).toEqual(['r|sha1|FAIL']);
+    expect(failed[0].body).toBe('t: lint, test');
 
     const passed = noticesFor({ repo: 'r', title: 't' }, 'sha1', [
       { name: 'build', state: 'pass', url: null },

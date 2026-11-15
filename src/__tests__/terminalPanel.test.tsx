@@ -4,9 +4,10 @@
  * and sends keystrokes and the fitted size back.
  */
 import '@testing-library/jest-dom';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TerminalPanel } from '@/components/card/TerminalPanel';
 import { FitAddon } from '../../.erb/mocks/xterm-addon-fit';
+import { SearchAddon } from '../../.erb/mocks/xterm-addon-search';
 import { Terminal } from '../../.erb/mocks/xterm';
 
 function installResizeObserver(): void {
@@ -52,6 +53,7 @@ function installTerminalBridge() {
 beforeEach(() => {
   Terminal.instances = [];
   FitAddon.instances = [];
+  SearchAddon.instances = [];
   installResizeObserver();
   document.documentElement.classList.remove('dark');
 });
@@ -84,13 +86,44 @@ describe('TerminalPanel', () => {
     expect(term.reset.mock.invocationCallOrder[0]).toBeLessThan(
       term.write.mock.invocationCallOrder[0],
     );
-    expect(term.write).toHaveBeenCalledWith('abc');
+    expect(term.write).toHaveBeenCalledWith('abc', expect.any(Function));
 
     emitData('crd_1', 'd');
     expect(term.write).toHaveBeenCalledWith('d');
 
     emitData('crd_2', 'nope');
     expect(term.write).not.toHaveBeenCalledWith('nope');
+  });
+
+  it('opens a find box on Cmd+F and searches the terminal', () => {
+    const { terminal } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const term = Terminal.instances[0];
+    const search = SearchAddon.instances[0];
+    expect(term.options.allowProposedApi).toBe(true);
+
+    const event = new KeyboardEvent('keydown', { key: 'f', metaKey: true });
+    act(() => {
+      expect(term.keyHandler?.(event)).toBe(false);
+    });
+    expect(terminal.input).not.toHaveBeenCalled();
+
+    const box = screen.getByLabelText('Find in terminal');
+    fireEvent.change(box, { target: { value: 'needle' } });
+    expect(search.findNext).toHaveBeenLastCalledWith(
+      'needle',
+      expect.anything(),
+    );
+    fireEvent.keyDown(box, { key: 'Enter', shiftKey: true });
+    expect(search.findPrevious).toHaveBeenCalledWith(
+      'needle',
+      expect.anything(),
+    );
+
+    fireEvent.keyDown(box, { key: 'Escape' });
+    expect(screen.queryByLabelText('Find in terminal')).toBeNull();
+    expect(search.clearDecorations).toHaveBeenCalled();
+    expect(term.focus).toHaveBeenCalled();
   });
 
   it('nudges the pty size after a replay so Claude repaints its UI', () => {
@@ -136,7 +169,7 @@ describe('TerminalPanel', () => {
     expect(term.reset.mock.invocationCallOrder[1]).toBeLessThan(
       term.write.mock.invocationCallOrder.at(-1) ?? 0,
     );
-    expect(term.write).toHaveBeenLastCalledWith('again');
+    expect(term.write).toHaveBeenLastCalledWith('again', expect.any(Function));
   });
 
   it('sends keystrokes to the card’s pty', () => {
@@ -147,6 +180,22 @@ describe('TerminalPanel', () => {
 
     onData('x');
 
+    expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
+  });
+
+  it('drops xterm’s replies to queries inside a replay, not later keystrokes', () => {
+    const { terminal, emitReplay } = installTerminalBridge();
+    render(<TerminalPanel cardId="crd_1" />);
+    const term = Terminal.instances[0];
+    const onData = term.onData.mock.calls[0][0] as (data: string) => void;
+
+    emitReplay('crd_1', '\x1b[c');
+    onData('\x1b[?62;c');
+    expect(terminal.input).not.toHaveBeenCalled();
+
+    const parsed = term.write.mock.calls.at(-1)?.[1] as () => void;
+    parsed();
+    onData('x');
     expect(terminal.input).toHaveBeenCalledWith('crd_1', 'x');
   });
 
