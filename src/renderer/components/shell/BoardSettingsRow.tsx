@@ -8,6 +8,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { BoardEmoji } from '@/components/common/BoardEmoji';
+import { BoardEmojiPicker } from '@/components/shell/BoardEmojiPicker';
 import { ShipConflictPromptEditor } from '@/components/shell/ShipConflictPromptEditor';
 import { cn } from '@/lib/utils';
 import { useDocStore } from '@/store/docStore';
@@ -46,6 +48,7 @@ export function BoardSettingsRow({ board }: { board: Board }) {
         </CollapsibleTrigger>
         {draft === null ? (
           <span className="min-w-0 flex-1 truncate text-sm font-medium">
+            <BoardEmoji emoji={board.emoji} />
             {board.name}
           </span>
         ) : (
@@ -88,6 +91,11 @@ export function BoardSettingsRow({ board }: { board: Board }) {
         </Button>
       </div>
       <CollapsibleContent className="mt-2 flex flex-col gap-4 border-t pt-3">
+        <BoardEmojiPicker
+          boardId={board.id}
+          boardName={board.name}
+          emoji={board.emoji}
+        />
         <ShipConflictPromptEditor
           boardId={board.id}
           boardName={board.name}

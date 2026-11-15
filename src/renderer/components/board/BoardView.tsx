@@ -1,3 +1,4 @@
+import { BoardEmoji } from '@/components/common/BoardEmoji';
 import { useMemo, useState } from 'react';
 import { DragDropContext, Droppable } from '@hello-pangea/dnd';
 import {
@@ -115,6 +116,7 @@ export function BoardView() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center border-b border-border px-4 py-3">
+        <BoardEmoji emoji={board.emoji} />
         <InlineEditableText
           value={board.name}
           label={`board name for ${board.name}`}

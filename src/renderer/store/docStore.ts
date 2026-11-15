@@ -240,6 +240,7 @@ interface DocStore {
   redo: () => void;
   addBoard: (name: string) => string;
   renameBoard: (boardId: string, name: string) => void;
+  setBoardEmoji: (boardId: string, emoji: string | undefined) => void;
   deleteBoard: (boardId: string) => void;
   archiveBoard: (boardId: string) => void;
   unarchiveBoard: (boardId: string) => void;
@@ -622,6 +623,13 @@ export const useDocStore = create<DocStore>((set, get) => ({
     get().mutate((draft) => {
       const board = draft.boards.find((b) => b.id === boardId);
       if (board) board.name = name;
+    });
+  },
+
+  setBoardEmoji: (boardId, emoji) => {
+    get().mutate((draft) => {
+      const board = draft.boards.find((b) => b.id === boardId);
+      if (board) board.emoji = emoji;
     });
   },
 
