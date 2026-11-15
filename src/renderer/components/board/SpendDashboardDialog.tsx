@@ -8,6 +8,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useDocStore } from '@/store/docStore';
 import { selectActiveBoard } from '@/store/selectors';
 import { api } from '@/lib/api';
@@ -157,19 +162,27 @@ export function SpendDashboardDialog({
                     />
                   ))}
                   {days.map((d) => (
-                    <div
-                      key={d.day}
-                      className="relative flex h-full min-w-0 flex-1 items-end"
-                      title={`${d.day}: ${formatUsd(d.costUSD)}`}
-                    >
-                      <div
-                        className="w-full rounded-t-sm bg-primary"
-                        style={{
-                          height: `${(d.costUSD / top) * 100}%`,
-                          minHeight: d.costUSD > 0 ? 2 : 0,
-                        }}
-                      />
-                    </div>
+                    <Tooltip key={d.day}>
+                      <TooltipTrigger asChild>
+                        <div className="relative flex h-full min-w-0 flex-1 items-end">
+                          <div
+                            className="w-full rounded-t-sm bg-primary"
+                            style={{
+                              height: `${(d.costUSD / top) * 100}%`,
+                              minHeight: d.costUSD > 0 ? 2 : 0,
+                            }}
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <div className="font-medium tabular-nums">
+                          {formatUsd(d.costUSD)}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {dayLabel(d.day)}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
