@@ -55,6 +55,11 @@ export function SpendDashboardDialog({
   const [range, setRange] = useState(currentMonthRange);
   const [days, setDays] = useState<DailySpend[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [hover, setHover] = useState<{
+    day: DailySpend;
+    x: number;
+    y: number;
+  } | null>(null);
   const validRange = !!range.from && !!range.to && range.from <= range.to;
 
   const idsKey = useMemo(
@@ -162,28 +167,51 @@ export function SpendDashboardDialog({
                     />
                   ))}
                   {days.map((d) => (
-                    <Tooltip key={d.day}>
-                      <TooltipTrigger asChild>
-                        <div className="relative flex h-full min-w-0 flex-1 items-end">
-                          <div
-                            className="w-full rounded-t-sm bg-primary"
-                            style={{
-                              height: `${(d.costUSD / top) * 100}%`,
-                              minHeight: d.costUSD > 0 ? 2 : 0,
-                            }}
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <div className="font-medium tabular-nums">
-                          {formatUsd(d.costUSD)}
-                        </div>
-                        <div className="text-muted-foreground">
-                          {dayLabel(d.day)}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
+                    <div
+                      key={d.day}
+                      className="relative flex h-full min-w-0 flex-1 items-end"
+                      onMouseMove={(e) => {
+                        const rect =
+                          e.currentTarget.parentElement!.getBoundingClientRect();
+                        setHover({
+                          day: d,
+                          x: e.clientX - rect.left,
+                          y: e.clientY - rect.top,
+                        });
+                      }}
+                      onMouseLeave={() => setHover(null)}
+                    >
+                      <div
+                        className="w-full rounded-t-sm bg-primary"
+                        style={{
+                          height: `${(d.costUSD / top) * 100}%`,
+                          minHeight: d.costUSD > 0 ? 2 : 0,
+                        }}
+                      />
+                    </div>
                   ))}
+                  <Tooltip open={hover !== null} delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute size-px"
+                        style={{ left: hover?.x ?? 0, top: hover?.y ?? 0 }}
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="top"
+                      sideOffset={12}
+                      updatePositionStrategy="always"
+                      className="pointer-events-none"
+                    >
+                      <div className="font-medium tabular-nums">
+                        {hover && formatUsd(hover.day.costUSD)}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {hover && dayLabel(hover.day.day)}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
               <div className="ml-14 flex pt-1 text-xs text-muted-foreground">
