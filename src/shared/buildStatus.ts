@@ -36,6 +36,8 @@ export interface BuildStatus {
   checks: BuildCheck[];
   /** The last poll failed transiently; `checks` is the last known data. */
   stale: boolean;
+  /** Why the last poll failed (first line of the error); cleared by the next good poll. */
+  error?: string;
 }
 
 /** `gh` is unusable until the user fixes it; polling is paused meanwhile. */

@@ -374,7 +374,16 @@ export function createBuildStatusService(deps: {
       // Keep the last known checks, but say they may be old. A transient
       // failure must never turn into a red build.
       entry.failures += 1;
-      entry.status = { ...entry.status, stale: true };
+      const message =
+        (error instanceof Error ? error.message : String(error))
+          .trim()
+          .split('\n')[0] || 'Unknown error';
+      // Log a failure once; repeats of the same message add nothing.
+      if (message !== entry.status.error) {
+        // eslint-disable-next-line no-console
+        console.error(`[buildStatus] ${entry.target.cardId}: ${message}`);
+      }
+      entry.status = { ...entry.status, stale: true, error: message };
       entry.nextDue =
         now() + Math.min(RUNNING_MS * 2 ** entry.failures, MAX_BACKOFF_MS);
     }

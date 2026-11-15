@@ -97,6 +97,7 @@ export function BuildStatusDetails({
       {status.stale ? (
         <p className="text-amber-600 dark:text-amber-400">
           Couldn’t refresh just now. This may be out of date.
+          {status.error ? ` (${status.error})` : null}
         </p>
       ) : null}
       {status.url ? (
