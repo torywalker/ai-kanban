@@ -18,7 +18,19 @@ The board works on its own. Running an agent needs a signed-in [Claude Code](htt
 
 **Worktrees and Ship.** Turn on “Run cards in git worktrees” and each run gets its own worktree, so several cards can work in one repo at the same time. Ship merges that work back onto a branch in your real checkout. Conflicts are resolved inside the worktree.
 
-**Scratchpad and snippets.** Every board has its own scratchpad (⌘⇧P) for notes that save as you type. Settings (⌘⇧S) holds a library of slash snippets. Typing `/grill-me` in a card prompt expands to the text you stored for that command.
+**Two session engines.** Built-in runs Claude through the Agent SDK and shows a structured transcript with Approve/Deny. Terminal opens a real terminal in the card running your own `claude` CLI (macOS and Linux). Set a default in Settings and override it per card.
+
+**Build status.** With the GitHub CLI signed in, each card shows CI status for its PR, or for the commit it shipped once you push. You get a notification on the first failure and when everything passes.
+
+**Quick add.** ⌘⌥N opens a floating new-prompt window from anywhere on your system, even when the app is in the background.
+
+**Comments.** Each card has a timestamped comment log (⌘J) for status notes. Comments are never sent to the agent.
+
+**Spend dashboard.** Each board's Spend view charts daily agent cost over a date range you pick.
+
+**Terminals.** Each board has plain shell tabs (⌘⇧T) for dev servers, tests, and git. Each tab reopens in its last directory after a restart.
+
+**Scratchpad and snippets.** Every board has its own scratchpad (⌘⇧P) for notes that save as you type. Settings (⌘⇧S) holds a library of slash snippets for prompts and comments. Typing `/grill-me` in a card prompt expands to the text you stored for that command.
 
 ## Requirements
 
@@ -26,6 +38,7 @@ The board works on its own. Running an agent needs a signed-in [Claude Code](htt
 - pnpm 11.9 (the version pinned in `package.json`; `corepack enable` provides it)
 - Claude Code, signed in, to run agent sessions
 - Git, to use worktrees and Ship
+- GitHub CLI (`gh`), signed in, for build status (optional)
 
 Packaged builds target macOS (Apple silicon and Intel), Windows (NSIS), and Linux (AppImage).
 
@@ -63,6 +76,8 @@ On Windows and Linux, use Ctrl where the table says ⌘.
 | ⌘Z | Undo |
 | ⌘⇧Z | Redo |
 | ⌘N | New card |
+| ⌘⌥N | New prompt from anywhere |
+| ⌘⇧T | Open terminals |
 | ⌘B | Toggle the sidebar |
 | ⌘⌥↑ / ⌘⌥↓ | Switch board |
 | ⌘K | Search cards |
