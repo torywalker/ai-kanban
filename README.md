@@ -4,6 +4,8 @@ A local desktop Kanban board for prompt work. Each card is a prompt you can orga
 
 The board works on its own. Running an agent needs a signed-in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) install.
 
+**New here? Read the [User Guide](docs/USER_GUIDE.md)**: how to think about the app, setup, and every feature.
+
 ![AI Kanban board with Waiting, Todo, In Flight, and Done lists](docs/images/screenshot.png)
 
 ## Features
