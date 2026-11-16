@@ -2,7 +2,7 @@
 
 A local desktop Kanban board for prompt work. Each card is a prompt you can organize, copy, and hand to a Claude coding agent. Boards, lists, and cards live in a JSON file on your machine. Nothing is synced to a server.
 
-The board works on its own. Running an agent needs a signed-in [Claude Code](https://docs.anthropic.com/en/docs/claude-code) install.
+The board works on its own. Running an agent needs the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code), installed and signed in. Build status on cards needs the [GitHub CLI](https://cli.github.com), signed in.
 
 **New here? Read the [User Guide](docs/USER_GUIDE.md)**: how to think about the app, setup, and every feature.
 
@@ -18,7 +18,7 @@ The board works on its own. Running an agent needs a signed-in [Claude Code](htt
 
 **Worktrees and Ship.** Turn on “Run cards in git worktrees” and each run gets its own worktree, so several cards can work in one repo at the same time. Ship merges that work back onto a branch in your real checkout. Conflicts are resolved inside the worktree.
 
-**Two session engines.** Built-in runs Claude through the Agent SDK and shows a structured transcript with Approve/Deny. Terminal opens a real terminal in the card running your own `claude` CLI (macOS and Linux). Set a default in Settings and override it per card.
+**Two session engines.** Terminal, the default, opens a real terminal in the card running your own `claude` CLI (macOS and Linux). Built-in runs Claude through the Agent SDK and shows a structured transcript with Approve/Deny. It is the only engine on Windows. Change the default in Settings and override it per card.
 
 **Build status.** With the GitHub CLI signed in, each card shows CI status for its PR, or for the commit it shipped once you push. You get a notification on the first failure and when everything passes.
 
@@ -34,11 +34,16 @@ The board works on its own. Running an agent needs a signed-in [Claude Code](htt
 
 ## Requirements
 
+To use the app:
+
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude`), signed in, to run agent sessions. Check with `claude --version`.
+- Git, to use worktrees and Ship
+- [GitHub CLI](https://cli.github.com) (`gh`), signed in with `gh auth login`, for build status. Check with `gh auth status`.
+
+To develop it:
+
 - Node.js 22 (the version CI uses)
 - pnpm 11.9 (the version pinned in `package.json`; `corepack enable` provides it)
-- Claude Code, signed in, to run agent sessions
-- Git, to use worktrees and Ship
-- GitHub CLI (`gh`), signed in, for build status (optional)
 
 Packaged builds target macOS (Apple silicon and Intel), Windows (NSIS), and Linux (AppImage).
 

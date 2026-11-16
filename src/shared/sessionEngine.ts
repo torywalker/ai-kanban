@@ -5,6 +5,11 @@ export function terminalSupported(platform: string): boolean {
   return platform !== 'win32';
 }
 
+/** The engine a fresh install starts with: the Claude CLI wherever it can run. */
+export function defaultSessionEngine(platform: string): SessionEngine {
+  return terminalSupported(platform) ? 'terminal' : 'sdk';
+}
+
 /**
  * A card's own engine wins, unless this platform cannot run a terminal —
  * then the built-in engine is the only one that can actually start.

@@ -76,6 +76,7 @@ describe('CardViewDialog session controls', () => {
       approvalMode: 'ask',
       defaultModel: null,
       useWorktrees: false,
+      sessionEngine: 'sdk',
     });
     await useDocStore.getState().createAt('/tmp/kanban.json');
     const doc = useDocStore.getState().doc!;

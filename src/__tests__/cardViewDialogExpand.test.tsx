@@ -74,6 +74,7 @@ describe('CardViewDialog: expanding the AI chat', () => {
     installElectronMock();
     useSessionStore.setState({ sessions: {} });
     useUiStore.setState({ cardDialogExpanded: {} });
+    useDocStore.setState({ sessionEngine: 'sdk' });
     await useDocStore.getState().createAt('/tmp/kanban.json');
     const doc = useDocStore.getState().doc!;
     boardId = doc.boards[0].id;

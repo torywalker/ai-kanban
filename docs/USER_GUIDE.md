@@ -56,11 +56,17 @@ Boards, lists, and cards live in one JSON file on your disk. Nothing syncs to a 
 
 ### Requirements
 
-- **Claude Code**, installed and signed in. You need it to run agents. The board, prompt library, and copying work without it.
-- **Git**, for worktrees and Ship.
-- **GitHub CLI (`gh`)**, signed in, if you want build status on cards. This is optional.
+Install these before your first run:
 
-Terminal sessions are not available on Windows yet. Everything else works on macOS, Windows, and Linux.
+| Tool | Why | Check it works |
+| --- | --- | --- |
+| **Claude Code CLI** ([install](https://docs.anthropic.com/en/docs/claude-code)), signed in | Runs every agent. The default engine launches your `claude` command directly. | `claude --version` in a new terminal |
+| **Git** | Worktrees and Ship | `git --version` |
+| **GitHub CLI** ([install](https://cli.github.com)), signed in with `gh auth login` | Build status on cards | `gh auth status` |
+
+Without the Claude Code CLI you can still use the board, the prompt library, and copying, but nothing will run. Without the GitHub CLI everything works except build status.
+
+Terminal sessions are not available on Windows yet, so Windows uses the built-in engine. Everything else works on macOS, Windows, and Linux.
 
 ### First launch
 
@@ -77,7 +83,7 @@ The app asks where to keep your board file:
    - Choose a **default model**.
    - Choose **tool approval**: *Ask every time* while you learn the app, *Smart auto* once you trust it.
    - Turn on **Run cards in git worktrees** if you plan to run more than one card at a time against the same repo. This is recommended.
-   - Choose a **session engine** (see [Session engines](#session-engines)).
+   - The **session engine** defaults to Terminal (Claude CLI). Switch to Built-in if you prefer a structured transcript (see [Session engines](#session-engines)).
 3. **Create a card** with ⌘N, write a prompt, save with ⌘⏎.
 4. **Open the card and click Run.**
 
@@ -177,14 +183,14 @@ Each card has a timestamped comment log (⌘J in the card view). Use it as a sta
 
 ### Session engines
 
-The app can run a card two ways. Pick a global default in Settings and override it per card.
+The app can run a card two ways. **Terminal (Claude CLI) is the default** on macOS and Linux. Windows uses Built-in. Change the default in Settings and override it per card.
 
-| | Built-in (Agent SDK) | Terminal (Claude CLI) |
+| | Terminal (Claude CLI), default | Built-in (Agent SDK) |
 | --- | --- | --- |
-| What you see | A structured transcript with tool calls, a checklist on the card, and Approve/Deny buttons | A real terminal running your own `claude` CLI with the prompt already submitted |
-| Best for | Watching progress at a glance and reviewing many cards quickly | People who already work in the Claude CLI and want its full interface, slash commands, and settings |
-| Replying | The reply box under the transcript | Type into the terminal |
-| Platforms | All | macOS and Linux |
+| What you see | A real terminal running your own `claude` CLI with the prompt already submitted | A structured transcript with tool calls, a checklist on the card, and Approve/Deny buttons |
+| Best for | Getting the full Claude CLI: your settings, slash commands, skills, and plugins | Watching progress at a glance and reviewing many cards quickly |
+| Replying | Type into the terminal | The reply box under the transcript |
+| Platforms | macOS and Linux | All |
 
 If your `claude` is not on your login shell's `PATH`, set **Claude CLI path** in Settings.
 

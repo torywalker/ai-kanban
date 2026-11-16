@@ -1,6 +1,7 @@
 import fixture from './fixtures/kanban-v1.json';
 import { parseDoc } from '../shared/schema';
 import {
+  defaultSessionEngine,
   resolveSessionEngine,
   terminalSupported,
 } from '../shared/sessionEngine';
@@ -41,5 +42,16 @@ describe('parseDoc sessionEngine', () => {
     const result = parseDoc(raw);
     if (!result.ok) throw new Error(result.error);
     expect(result.doc.boards[0].lists[0].cards[0].sessionEngine).toBeNull();
+  });
+});
+
+describe('defaultSessionEngine', () => {
+  it('defaults to the Claude CLI where terminals run', () => {
+    expect(defaultSessionEngine('darwin')).toBe('terminal');
+    expect(defaultSessionEngine('linux')).toBe('terminal');
+  });
+
+  it('defaults to the built-in engine on Windows', () => {
+    expect(defaultSessionEngine('win32')).toBe('sdk');
   });
 });

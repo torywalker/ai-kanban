@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import { app } from 'electron';
 import type { Settings } from '../../shared/ipc';
 import { sanitizeSlashSnippets } from '../../shared/slashSnippets';
+import { defaultSessionEngine } from '../../shared/sessionEngine';
 
 const DEFAULTS: Settings = {
   dataFilePath: null,
@@ -11,7 +12,7 @@ const DEFAULTS: Settings = {
   approvalMode: 'ask',
   defaultModel: null,
   useWorktrees: false,
-  sessionEngine: 'sdk',
+  sessionEngine: defaultSessionEngine(process.platform),
   claudeCliPath: null,
   soundEnabled: true,
   promptDeleteWorktreeOnDone: true,

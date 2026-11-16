@@ -11,7 +11,10 @@ import {
   type Priority,
 } from '@shared/schema';
 import type { ApprovalMode } from '@shared/daemonProtocol';
-import type { SessionEngine } from '@shared/sessionEngine';
+import {
+  defaultSessionEngine,
+  type SessionEngine,
+} from '@shared/sessionEngine';
 import type { AttachmentMeta } from '@shared/attachments';
 import { normalizeTrigger, type SlashSnippet } from '@shared/slashSnippets';
 import { api } from '@/lib/api';
@@ -392,7 +395,7 @@ export const useDocStore = create<DocStore>((set, get) => ({
   approvalMode: 'ask',
   defaultModel: null,
   useWorktrees: false,
-  sessionEngine: 'sdk',
+  sessionEngine: defaultSessionEngine(window.electron?.platform ?? ''),
   claudeCliPath: null,
   soundEnabled: true,
   promptDeleteWorktreeOnDone: true,
@@ -410,7 +413,9 @@ export const useDocStore = create<DocStore>((set, get) => ({
       approvalMode: settings.approvalMode,
       defaultModel: settings.defaultModel,
       useWorktrees: settings.useWorktrees,
-      sessionEngine: settings.sessionEngine ?? 'sdk',
+      sessionEngine:
+        settings.sessionEngine ??
+        defaultSessionEngine(window.electron?.platform ?? ''),
       claudeCliPath: settings.claudeCliPath ?? null,
       soundEnabled: settings.soundEnabled,
       promptDeleteWorktreeOnDone: settings.promptDeleteWorktreeOnDone ?? true,
