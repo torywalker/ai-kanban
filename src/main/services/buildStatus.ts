@@ -61,12 +61,27 @@ const WAITING_MS = 15_000;
 const NO_BUILDS_AFTER_MS = 2 * 60_000;
 const MAX_BACKOFF_MS = 5 * 60_000;
 const RUN_LIMIT = 50;
+// Cards in one repo ask `gh` identical questions (same branch's runs, same
+// run); a pass over them shares one answer instead of spending quota per card.
+const SHARE_MS = 20_000;
 
 // What `gh` says when it cannot work at all, as opposed to a bad moment.
 const GH_UNUSABLE =
   /auth login|not logged in|authentication|GH_TOKEN|SAML|ENOENT|command not found/i;
 
-class PauseError extends Error {}
+// GitHub's REST/GraphQL quota (or abuse limit) is spent; more calls only
+// extend the wait.
+const RATE_LIMITED = /rate limit|abuse detection|secondary rate/i;
+
+// `rateLimited` waits out a cool-down; otherwise polling pauses until retry().
+class PauseError extends Error {
+  constructor(
+    message: string,
+    readonly rateLimited = false,
+  ) {
+    super(message);
+  }
+}
 
 interface Entry {
   target: BuildWatchTarget;
@@ -119,6 +134,8 @@ export function createBuildStatusService(deps: {
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight: Promise<void> | null = null;
   let lastEmitted = '';
+  let coolUntil = 0;
+  const shared = new Map<string, { at: number; result: Promise<string> }>();
   const restored = new Map(
     (persisted?.statuses ?? []).map((status) => [status.cardId, status]),
   );
@@ -144,7 +161,7 @@ export function createBuildStatusService(deps: {
     deps.emit(update);
   }
 
-  async function run(
+  async function execute(
     cmd: 'gh' | 'git',
     args: string[],
     cwd: string,
@@ -154,7 +171,27 @@ export function createBuildStatusService(deps: {
     if (cmd === 'gh' && GH_UNUSABLE.test(result.stderr)) {
       throw new PauseError(result.stderr.trim().split('\n')[0]);
     }
+    if (cmd === 'gh' && RATE_LIMITED.test(result.stderr)) {
+      throw new PauseError(result.stderr, true);
+    }
     throw new Error(result.stderr);
+  }
+
+  // Only `gh` is shared: `git fetch` must run per card to stay current, and a
+  // failure is dropped so the next caller retries rather than inheriting it.
+  function run(
+    cmd: 'gh' | 'git',
+    args: string[],
+    cwd: string,
+  ): Promise<string> {
+    if (cmd !== 'gh') return execute(cmd, args, cwd);
+    const key = [cwd, ...args].join('\0');
+    const hit = shared.get(key);
+    if (hit && now() - hit.at < SHARE_MS) return hit.result;
+    const result = execute(cmd, args, cwd);
+    shared.set(key, { at: now(), result });
+    result.catch(() => shared.delete(key));
+    return result;
   }
 
   async function isAncestor(
@@ -367,10 +404,13 @@ export function createBuildStatusService(deps: {
     try {
       await poll(entry);
     } catch (error) {
-      if (error instanceof PauseError) {
+      if (error instanceof PauseError && !error.rateLimited) {
         paused = { reason: error.message };
         return;
       }
+      // shortcut: the reset time isn't in gh's error; a fixed cool-down, upgrade
+      // to `gh api rate_limit` if waiting out the whole hour matters.
+      if (error instanceof PauseError) coolUntil = now() + MAX_BACKOFF_MS;
       // Keep the last known checks, but say they may be old. A transient
       // failure must never turn into a red build.
       entry.failures += 1;
@@ -393,7 +433,7 @@ export function createBuildStatusService(deps: {
     const due = [...entries.values()].filter(
       (entry) => !entry.done && entry.nextDue <= now(),
     );
-    for (let i = 0; i < due.length && !paused; i += 1) {
+    for (let i = 0; i < due.length && !paused && now() >= coolUntil; i += 1) {
       // Serial on purpose: same-repo `git fetch`es contend for ref locks.
       // eslint-disable-next-line no-await-in-loop
       await pollSafely(due[i]);

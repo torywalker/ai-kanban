@@ -341,6 +341,65 @@ describe('build status service', () => {
     expect(status.checks.map((c) => c.state)).toEqual(['pending']);
   });
 
+  it('shares gh calls between cards in one repo', async () => {
+    const calls: string[] = [];
+    const { service, last } = setup((cmd, args) => {
+      if (cmd === 'gh') calls.push(args.slice(0, 2).join(' '));
+      if (args[0] === 'pr') return ok('[]');
+      if (cmd === 'git') return ok('');
+      if (args[1] === 'list') {
+        return ok('[{"databaseId":1,"headSha":"s","createdAt":"2026-01-01"}]');
+      }
+      return ok(
+        '{"url":"u","jobs":[{"name":"b","status":"completed","conclusion":"success"}]}',
+      );
+    });
+    const ship = { sha: 's', targetBranch: 'qa' };
+    service.setTargets(
+      ['crd_1', 'crd_2', 'crd_3'].map((cardId) => ({
+        ...baseTarget,
+        cardId,
+        branch: `kanban/${cardId}`,
+        ship,
+      })),
+    );
+    await service.tick();
+    expect(last().statuses.map((s) => s.kind)).toEqual([
+      'push',
+      'push',
+      'push',
+    ]);
+    expect(calls.filter((c) => c === 'run list')).toHaveLength(1);
+    expect(calls.filter((c) => c === 'run view')).toHaveLength(1);
+  });
+
+  it('stops polling for a while once GitHub says the rate limit is exceeded', async () => {
+    let calls = 0;
+    const { service, last, advance } = setup(() => {
+      calls += 1;
+      return fail('HTTP 403: API rate limit exceeded for user ID 1.');
+    });
+    service.setTargets(
+      ['crd_1', 'crd_2', 'crd_3'].map((cardId) => ({
+        ...baseTarget,
+        cardId,
+        branch: `kanban/${cardId}`,
+      })),
+    );
+    await service.tick();
+    // The first card hits the limit; the other two are not even tried.
+    expect(calls).toBe(1);
+    expect(last().statuses[0].error).toContain('rate limit exceeded');
+
+    advance(60_000);
+    await service.tick();
+    expect(calls).toBe(1);
+
+    advance(5 * 60_000);
+    await service.tick();
+    expect(calls).toBeGreaterThan(1);
+  });
+
   it('re-sends current state when the renderer re-registers unchanged targets', async () => {
     const { service, updates } = setup((cmd, args) =>
       args[1] === 'list'
